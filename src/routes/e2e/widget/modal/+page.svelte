@@ -12,8 +12,12 @@
   let journeyParam = $page.url.searchParams.get('journey');
   let recaptchaParam = $page.url.searchParams.get('recaptchaAction');
   let suspendedIdParam = $page.url.searchParams.get('suspendedId');
-  let showPasswordParam = $page.url.searchParams.get('showPassword') as "none" | "button" | "checkbox";
-
+  let showPasswordParam = $page.url.searchParams.get('showPassword') as
+    | 'none'
+    | 'button'
+    | 'checkbox';
+  let initializePingProtectEarly = $page.url.searchParams.get('initializePingProtectEarly');
+  let pauseBehavioralData = $page.url.searchParams.get('pauseBehavioralData');
   type UserResponseObj = {
     family_name: string;
     given_name: string;
@@ -55,77 +59,149 @@
       const response = await fetch(`${window.location.origin}/api/locale`);
       content = response.ok && (await response.json());
     }
-
-    config.set({
-      forgerock: {
-        clientId: 'WebOAuthClient',
-        redirectUri: `${window.location.origin}/callback`,
-        scope: 'openid profile email me.read',
-        serverConfig: {
-          baseUrl: 'https://openam-sdks.forgeblocks.com/am/',
-          timeout: 5000,
+    if (journeyParam?.includes('PingProtect')) {
+      config.set({
+        forgerock: {
+          clientId: 'WebOAuthClient',
+          redirectUri: `${window.location.origin}/callback`,
+          scope: 'openid profile email me.read',
+          serverConfig: {
+            baseUrl: 'https://openam-protect2.forgeblocks.com/am',
+            timeout: 5000,
+          },
+          realmPath: 'alpha',
         },
-        realmPath: 'alpha',
-      },
-      content: {
-        ...content,
-        alreadyHaveAnAccount: `Already have an account? <a href="?journey=TEST_Login">Sign in here!</a>`,
-      },
-      journeys: {
-        forgotPassword: {
-          journey: 'TEST_ResetPasword',
-          match: [
-            '#/service/TEST_ResetPassword',
-            '?journey=TEST_ResetPassword',
-            '#/service/ResetPassword',
-            '?journey=ResetPassword',
-          ],
+        content: {
+          ...content,
+          alreadyHaveAnAccount: `Already have an account? <a href="?journey=TEST_Login">Sign in here!</a>`,
         },
-        forgotUsername: {
-          journey: 'TEST_ForgottenUsername',
-          match: [
-            '#/service/TEST_ForgottenUsername',
-            '?journey=TEST_ForgottenUsername',
-            '#/service/ForgottenUsername',
-            '?journey=ForgottenUsername',
-          ],
+        journeys: {
+          forgotPassword: {
+            journey: 'TEST_ResetPasword',
+            match: [
+              '#/service/TEST_ResetPassword',
+              '?journey=TEST_ResetPassword',
+              '#/service/ResetPassword',
+              '?journey=ResetPassword',
+            ],
+          },
+          forgotUsername: {
+            journey: 'TEST_ForgottenUsername',
+            match: [
+              '#/service/TEST_ForgottenUsername',
+              '?journey=TEST_ForgottenUsername',
+              '#/service/ForgottenUsername',
+              '?journey=ForgottenUsername',
+            ],
+          },
+          login: {
+            journey: 'TEST_Login',
+            match: [
+              '#/service/TEST_Login',
+              '?journey',
+              '?journey=TEST_Login',
+              '#/service/Login',
+              '?journey',
+              '?journey=Login',
+            ],
+          },
+          register: {
+            journey: 'TEST_Registration',
+            match: [
+              '#/service/TEST_Registration',
+              '?journey=TEST_Registration',
+              '#/service/Registration',
+              '?journey=Registration',
+            ],
+          },
         },
-        login: {
-          journey: 'TEST_Login',
-          match: [
-            '#/service/TEST_Login',
-            '?journey',
-            '?journey=TEST_Login',
-            '#/service/Login',
-            '?journey',
-            '?journey=Login',
-          ],
+        links: {
+          termsAndConditions: 'https://www.forgerock.com/terms',
         },
-        register: {
-          journey: 'TEST_Registration',
-          match: [
-            '#/service/TEST_Registration',
-            '?journey=TEST_Registration',
-            '#/service/Registration',
-            '?journey=Registration',
-          ],
+        style: {
+          labels: 'floating',
+          showPassword: showPasswordParam,
+          logo: {
+            dark: '/img/fr-logomark-white.png',
+            light: '/img/fr-logomark-black.png',
+          },
+          sections: {
+            header: false,
+          },
         },
-      },
-      links: {
-        termsAndConditions: 'https://www.forgerock.com/terms',
-      },
-      style: {
-        labels: 'floating',
-        showPassword: showPasswordParam,
-        logo: {
-          dark: '/img/fr-logomark-white.png',
-          light: '/img/fr-logomark-black.png',
+      });
+    } else {
+      config.set({
+        forgerock: {
+          clientId: 'WebOAuthClient',
+          redirectUri: `${window.location.origin}/callback`,
+          scope: 'openid profile email me.read',
+          serverConfig: {
+            baseUrl: 'https://openam-sdks.forgeblocks.com/am/',
+            timeout: 5000,
+          },
+          realmPath: 'alpha',
         },
-        sections: {
-          header: false,
+        content: {
+          ...content,
+          alreadyHaveAnAccount: `Already have an account? <a href="?journey=TEST_Login">Sign in here!</a>`,
         },
-      },
-    });
+        journeys: {
+          forgotPassword: {
+            journey: 'TEST_ResetPasword',
+            match: [
+              '#/service/TEST_ResetPassword',
+              '?journey=TEST_ResetPassword',
+              '#/service/ResetPassword',
+              '?journey=ResetPassword',
+            ],
+          },
+          forgotUsername: {
+            journey: 'TEST_ForgottenUsername',
+            match: [
+              '#/service/TEST_ForgottenUsername',
+              '?journey=TEST_ForgottenUsername',
+              '#/service/ForgottenUsername',
+              '?journey=ForgottenUsername',
+            ],
+          },
+          login: {
+            journey: 'TEST_Login',
+            match: [
+              '#/service/TEST_Login',
+              '?journey',
+              '?journey=TEST_Login',
+              '#/service/Login',
+              '?journey',
+              '?journey=Login',
+            ],
+          },
+          register: {
+            journey: 'TEST_Registration',
+            match: [
+              '#/service/TEST_Registration',
+              '?journey=TEST_Registration',
+              '#/service/Registration',
+              '?journey=Registration',
+            ],
+          },
+        },
+        links: {
+          termsAndConditions: 'https://www.forgerock.com/terms',
+        },
+        style: {
+          labels: 'floating',
+          showPassword: showPasswordParam,
+          logo: {
+            dark: '/img/fr-logomark-white.png',
+            light: '/img/fr-logomark-black.png',
+          },
+          sections: {
+            header: false,
+          },
+        },
+      });
+    }
     new Widget({ target: widgetEl });
   });
 </script>
@@ -146,6 +222,15 @@
           journey: journeyParam || authIndexValueParam || undefined,
           resumeUrl: suspendedIdParam ? location.href : undefined,
           recaptchaAction: recaptchaParam ?? undefined,
+          pingProtect: {
+            behavioralDataCollection: pauseBehavioralData === 'true',
+            envId:
+              initializePingProtectEarly && initializePingProtectEarly?.length !== 0
+                ? initializePingProtectEarly
+                : '',
+            consoleLogEnabled:
+              initializePingProtectEarly && initializePingProtectEarly?.length !== 0 ? true : false,
+          },
         });
         componentEvents.open();
       }}

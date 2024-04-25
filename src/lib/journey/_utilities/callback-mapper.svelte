@@ -30,6 +30,8 @@
   import DeviceProfile from '$journey/callbacks/device-profile/device-profile.svelte';
   import Recaptcha from '$journey/callbacks/recaptcha/recaptcha.svelte';
   import Metadata from '$journey/callbacks/metadata/metadata.svelte';
+  import PingProtectEvaluation from '$journey/callbacks/ping-protect-evaluation/ping-protect-evaluation.svelte';
+  import PingProtectInitialize from '$journey/callbacks/ping-protect-initialize/ping-protect-initialize.svelte';
 
   import type {
     AttributeInputCallback,
@@ -51,6 +53,8 @@
     DeviceProfileCallback,
     MetadataCallback,
     ReCaptchaCallback,
+    PingOneProtectEvaluationCallback,
+    PingOneProtectInitializeCallback,
   } from '@forgerock/javascript-sdk';
 
   import type {
@@ -94,6 +98,8 @@
   let _MetadataCallback: MetadataCallback;
   let _DeviceProfileCallback: DeviceProfileCallback;
   let _RecaptchaCallback: ReCaptchaCallback;
+  let _PingProtectEvaluation: PingOneProtectEvaluationCallback;
+  let _PingProtectInitialize: PingOneProtectInitializeCallback;
   let _FRCallback: FRCallback;
 
   $: {
@@ -156,6 +162,12 @@
         break;
       case CallbackType.MetadataCallback:
         _MetadataCallback = props.callback as MetadataCallback;
+        break;
+      case CallbackType.PingOneProtectEvaluationCallback:
+        _PingProtectEvaluation = props.callback as PingOneProtectEvaluationCallback;
+        break;
+      case CallbackType.PingOneProtectInitializeCallback:
+        _PingProtectInitialize = props.callback as PingOneProtectInitializeCallback;
         break;
       default:
         _FRCallback = props.callback as FRCallback;
@@ -277,6 +289,18 @@
     callback: _RecaptchaCallback,
   }}
   <Recaptcha {...newProps} />
+{:else if cbType === CallbackType.PingOneProtectEvaluationCallback}
+  {@const newProps = {
+    ...props,
+    callback: _PingProtectEvaluation,
+  }}
+  <PingProtectEvaluation {...newProps} />
+{:else if cbType === CallbackType.PingOneProtectInitializeCallback}
+  {@const newProps = {
+    ...props,
+    callback: _PingProtectInitialize,
+  }}
+  <PingProtectInitialize {...newProps} />
 {:else}
   {@const newProps = {
     ...props,

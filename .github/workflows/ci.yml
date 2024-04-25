@@ -2,6 +2,36 @@ name: 'CI Pipeline'
 on:
   push:
 jobs:
+  build:
+    needs: [install]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
+        os: [macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - name: Restore npm dependencies
+        uses: actions/cache/restore@v4
+        id: npm-cache
+        with:
+          path: |
+            node_modules
+          key: ${{ runner.os }}-npm-${{matrix.node}}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-${{matrix.node}}
+      - run: npm run build:release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.node }}
+          path: package/*
+
   install:
     strategy:
       matrix:
@@ -32,7 +62,7 @@ jobs:
           path: |
             node_modules
   e2e:
-    needs: install
+    needs: [build]
     strategy:
       matrix:
         node: [20.x]
@@ -59,7 +89,11 @@ jobs:
             ${{ runner.os }}-npm-${{matrix.node}}
             ${{ runner.os }}-npm
       - run: npx playwright install
-      - run: npm run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-${{ matrix.node }}
+          path: package
+      - run: npm run build:app
       - name: e2e
         run: npm run ci:e2e -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
       - name: Upload blob report to GitHub Actions Artifacts
@@ -126,6 +160,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
       - name: Restore npm dependencies
         uses: actions/cache/restore@v4
         id: npm-cache

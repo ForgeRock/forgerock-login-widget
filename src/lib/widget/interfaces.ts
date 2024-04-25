@@ -1,4 +1,5 @@
-import type { StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type { StepOptions } from '@forgerock/javascript-sdk';
+import type { InitParams } from '@forgerock/ping-protect';
 import type { z } from 'zod';
 
 // Import store types
@@ -19,12 +20,14 @@ export interface JourneyOptions {
 export interface JourneyOptionsChange {
   forgerock?: StepOptions;
   journey: string;
+  pingProtect: InitParams | Partial<InitParams>;
 }
 export interface JourneyOptionsStart {
   forgerock?: StepOptions;
   journey?: string;
   resumeUrl?: string; // current URL if resuming a journey/tree
   recaptchaAction?: string;
+  pingProtect?: InitParams | Partial<InitParams>;
 }
 export interface ModalApi {
   close(args?: { reason: 'auto' | 'external' | 'user' }): void;

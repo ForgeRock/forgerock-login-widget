@@ -1,42 +1,41 @@
 {
 	"compilerOptions": {
-		"baseUrl": "..",
 		"paths": {
 			"$components": [
-				"src/lib/components"
+				"../src/lib/components"
 			],
 			"$components/*": [
-				"src/lib/components/*"
+				"../src/lib/components/*"
 			],
 			"$journey": [
-				"src/lib/journey"
+				"../src/lib/journey"
 			],
 			"$journey/*": [
-				"src/lib/journey/*"
+				"../src/lib/journey/*"
 			],
 			"$lib": [
-				"src/lib"
+				"../src/lib"
 			],
 			"$lib/*": [
-				"src/lib/*"
+				"../src/lib/*"
 			],
 			"$locales": [
-				"src/locales"
+				"../src/locales"
 			],
 			"$locales/*": [
-				"src/locales/*"
+				"../src/locales/*"
 			],
 			"$package": [
-				"package"
+				"../package"
 			],
 			"$package/*": [
-				"package/*"
+				"../package/*"
 			],
 			"$widget": [
-				"src/widget"
+				"../src/widget"
 			],
 			"$widget/*": [
-				"src/widget/*"
+				"../src/widget/*"
 			]
 		},
 		"rootDirs": [

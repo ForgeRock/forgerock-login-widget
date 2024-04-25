@@ -6,7 +6,7 @@ import {
   StepType,
   FRCallback,
 } from '@forgerock/javascript-sdk';
-import type { StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type { StepOptions } from '@forgerock/javascript-sdk';
 import { get, writable, type Writable } from 'svelte/store';
 
 import { htmlDecode } from '$journey/_utilities/decode.utilities';
@@ -96,6 +96,11 @@ export const journeyStore: Writable<JourneyStoreValue> = writable({
   successful: false,
   response: null,
   recaptchaAction: null,
+  pingProtect: {
+    envId: '',
+    consoleLogEnabled: false,
+    pauseBehavioralData: false,
+  },
 });
 
 /**
@@ -105,7 +110,6 @@ export const journeyStore: Writable<JourneyStoreValue> = writable({
  */
 export function initialize(initOptions?: StepOptions): JourneyStore {
   const stack = initializeStack();
-
   let stepNumber = 0;
 
   async function next(prevStep?: StepTypes, nextOptions?: StartOptions, resumeUrl?: string) {
@@ -142,6 +146,10 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
       successful: false,
       response: null,
       recaptchaAction: nextOptions?.recaptchaAction,
+      pingProtect: {
+        envId: nextOptions?.pingProtect?.envId ?? '',
+        consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
+      },
     });
 
     try {
@@ -197,7 +205,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
 
       // Iterate on a successful progression
       stepNumber = stepNumber + 1;
-
       journeyStore.set({
         completed: false,
         error: null,
@@ -210,6 +217,11 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
         successful: false,
         response: null,
         recaptchaAction: nextOptions?.recaptchaAction,
+        pingProtect: {
+          envId: nextOptions?.pingProtect?.envId ?? '',
+          consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
+          behavioralDataCollection: false,
+        },
       });
     } else if (nextStep.type === StepType.LoginSuccess) {
       /**
@@ -227,6 +239,10 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
         successful: true,
         response: nextStep.payload,
         recaptchaAction: nextOptions?.recaptchaAction,
+        pingProtect: {
+          envId: nextOptions?.pingProtect?.envId ?? '',
+          consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
+        },
       });
     } else if (nextStep.type === StepType.LoginFailure) {
       /**
@@ -343,6 +359,10 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
           successful: false,
           response: null,
           recaptchaAction: null,
+          pingProtect: {
+            envId: '',
+            consoleLogEnabled: false,
+          },
         });
       } else if (restartedStep.type === StepType.LoginSuccess) {
         journeyStore.set({
@@ -370,6 +390,10 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
           successful: false,
           response: restartedStep.payload,
           recaptchaAction: null,
+          pingProtect: {
+            envId: nextOptions?.pingProtect?.envId ?? '',
+            consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
+          },
         });
       }
     }
@@ -421,6 +445,9 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
       successful: false,
       response: null,
       recaptchaAction: null,
+      pingProtect: {
+        envId: '',
+      },
     });
   }
 

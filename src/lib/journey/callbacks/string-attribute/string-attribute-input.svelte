@@ -21,7 +21,7 @@
   } from '$journey/journey.interfaces';
   import type { styleSchema } from '$lib/style.store';
   import type { Maybe } from '$lib/interfaces';
-  import type { StringDict } from '@forgerock/javascript-sdk/src/shared/interfaces';
+  import type { StringDict } from '@forgerock/javascript-sdk/src/shared/interfaces.d.ts';
 
   // Unused props. Setting to const prevents errors in console
   export const selfSubmitFunction: Maybe<SelfSubmitFunction> = null;

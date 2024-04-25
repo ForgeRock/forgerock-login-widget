@@ -49,7 +49,8 @@
     "@rollup/rollup-linux-x64-gnu": "4.9.5"
   },
   "dependencies": {
-    "@forgerock/javascript-sdk": "beta",
+    "@forgerock/javascript-sdk": "^4.4.1-alpha.1",
+    "@forgerock/ping-protect": "^4.4.1-alpha.1",
     "@rockcarver/frodo-lib": "^2.0.0-60",
     "axios": "^1.6.7",
     "qrcode": "1.5.3",
@@ -140,7 +141,7 @@
     "storybook": "^7.6.13",
     "storybook-addon-code-editor": "2.2.0",
     "storybook-dark-mode": "3.0.1",
-    "svelte": "^3.55.1",
+    "svelte": "3.55.1",
     "svelte-check": "^3.5.2",
     "svelte-dts": "^0.3.7",
     "svelte-loader": "^3.1.9",

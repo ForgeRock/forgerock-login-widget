@@ -206,6 +206,7 @@ export function widgetApiFactory(componentApi: ReturnType<typeof _componentApi>)
           ...startOptions?.forgerock,
           // Only include a `tree` property if the `journey` options prop is truthy
           ...(startOptions?.journey && { tree: startOptions?.journey }),
+          pingProtect: startOptions?.pingProtect ?? {},
         });
       }
       return new Promise((resolve, reject) => {

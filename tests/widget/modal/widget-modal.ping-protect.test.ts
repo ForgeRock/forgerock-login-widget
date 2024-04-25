@@ -1,0 +1,71 @@
+import { expect, test } from '@playwright/test';
+import { asyncEvents } from '../../utilities/async-events.js';
+
+test('Widget calls PingProtect via callback', async ({ page }) => {
+  const messageArray: string[] = [];
+  // Listen for events on page
+  page.on('console', async (msg) => {
+    return messageArray.push(msg.text());
+  });
+  const { navigate } = asyncEvents(page);
+
+  await navigate('widget/modal?journey=TEST_LoginPingProtect');
+  await page.getByRole('button', { name: 'Open Login Modal' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel('Username')).toBeVisible();
+
+  expect(messageArray.includes('[SignalsSDK] Starting Signals SDK...')).toBe(true);
+  expect(messageArray.includes('[SignalsSDK] Add tag: SDK started')).toBe(true);
+  expect(
+    messageArray.includes(
+      '[SignalsSDK] Add tag: location:https://localhost:3000/e2e/widget/modal?journey=TEST_LoginPingProtect',
+    ),
+  ).toBe(true);
+
+  await page.getByPlaceholder(' ').click();
+  await page.getByPlaceholder(' ').fill('jlowery');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Risk')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Yes' }).click();
+
+  await expect(page.getByText('Full name:')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close' });
+});
+test('Widget calls PingProtect via startup with no callback', async ({ page }) => {
+  const messageArray: string[] = [];
+  // Listen for events on page
+  page.on('console', async (msg) => {
+    return messageArray.push(msg.text());
+  });
+  const { navigate } = asyncEvents(page);
+
+  await navigate(
+    'widget/modal?journey=TEST_LoginPingProtectNoCallback&initializePingProtectEarly=02fb4743-189a-4bc7-9d6c-a919edfe6447',
+  );
+  await page.getByRole('button', { name: 'Open Login Modal' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel('Username')).toBeVisible();
+
+  expect(messageArray.includes('[SignalsSDK] Starting Signals SDK...')).toBe(true);
+  expect(messageArray.includes('[SignalsSDK] Add tag: SDK started')).toBe(true);
+  expect(
+    messageArray.includes(
+      '[SignalsSDK] Add tag: location:https://localhost:3000/e2e/widget/modal?journey=TEST_LoginPingProtectNoCallback&initializePingProtectEarly=02fb4743-189a-4bc7-9d6c-a919edfe6447',
+    ),
+  ).toBe(true);
+
+  await page.getByPlaceholder(' ').click();
+  await page.getByPlaceholder(' ').fill('jlowery');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Risk')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Yes' }).click();
+
+  await expect(page.getByText('Full name:')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close' });
+});

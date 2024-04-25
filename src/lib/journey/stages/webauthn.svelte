@@ -34,7 +34,7 @@
   const formElementId = 'genericStepForm';
 
   let alertNeedsFocus = false;
-  let deviceName = ''; 
+  let deviceName = '';
   let noDeviceRegistered = false;
   let formMessageKey = '';
   let formAriaDescriptor = 'genericStepHeader';
@@ -43,8 +43,8 @@
   let waitingForWebAuthnAPI = false;
   let webAuthnType = FRWebAuthn.getWebAuthnStepType(step);
 
-  function updateDeviceName (event: Event) {
-    const target = event.target as unknown as { value: string } 
+  function updateDeviceName(event: Event) {
+    const target = event.target as unknown as { value: string };
     deviceName = target.value;
   }
 
@@ -72,7 +72,7 @@
             noDeviceRegistered = true;
           } catch (err) {
             // TODO: handle error
-          } 
+          }
           break;
         }
         case WebAuthnStepType.Authentication: {
@@ -88,18 +88,17 @@
     form.submit();
   }
 
- 
   $: {
     formMessageKey = convertStringToKey(form?.message);
-    console.log(noDeviceRegistered, allowWebAuthn)
     // Call the WebAuthn API without await
     if (allowWebAuthn && !noDeviceRegistered) {
-      console.log(requestsDeviceName)
-        if ((WebAuthnStepType.Registration === webAuthnType && !requestsDeviceName) || WebAuthnStepType.Authentication === webAuthnType) {
-          callWebAuthnApi();
-        }
+      if (
+        (WebAuthnStepType.Registration === webAuthnType && !requestsDeviceName) ||
+        WebAuthnStepType.Authentication === webAuthnType
+      ) {
+        callWebAuthnApi();
       }
-
+    }
   }
 </script>
 
@@ -116,9 +115,9 @@
   {/if}
 
   {#if waitingForWebAuthnAPI}
-  <div class="tw_text-center tw_w-full tw_py-4">
-    <Spinner colorClass="tw_text-primary-light" layoutClasses="tw_h-28 tw_w-28" />
-  </div>
+    <div class="tw_text-center tw_w-full tw_py-4">
+      <Spinner colorClass="tw_text-primary-light" layoutClasses="tw_h-28 tw_w-28" />
+    </div>
   {/if}
   {#if form?.message}
     <Alert id={formFailureMessageId} needsFocus={alertNeedsFocus} type="error">
@@ -143,19 +142,34 @@
   {:else}
     <header class={`tw_input-spacing`} id={formHeaderId}>
       {#if requestsDeviceName}
-      <h1 class="tw_primary-header dark:tw_primary-header_dark">
-        <T key="nameYourDevice" />
-      </h1>
-        <Input type='text' isRequired={ false } isFirstInvalidInput={false} key="devicename" onChange={updateDeviceName} label={interpolate('optionallyNameDevice')} /> 
-          <Button style="primary" type="submit" width="full" onClick={() => {
-            requestsDeviceName = false; 
-            waitingForWebAuthnAPI = true }
-            }>
-            <T key="nextButton" />
-          </Button>
+        <h1 class="tw_primary-header dark:tw_primary-header_dark">
+          <T key="nameYourDevice" />
+        </h1>
+        <Input
+          type="text"
+          isRequired={false}
+          isFirstInvalidInput={false}
+          key="devicename"
+          onChange={updateDeviceName}
+          label={interpolate('optionallyNameDevice')}
+        />
+        <Button
+          style="primary"
+          type="submit"
+          width="full"
+          onClick={() => {
+            requestsDeviceName = false;
+            waitingForWebAuthnAPI = true;
+          }}
+        >
+          <T key="nextButton" />
+        </Button>
       {:else}
         <h1 class="tw_primary-header dark:tw_primary-header_dark">
-          <T key="registerYourDevice" values={{name: deviceName.length > 0 ? deviceName : interpolate('yourDevice')}} />
+          <T
+            key="registerYourDevice"
+            values={{ name: deviceName.length > 0 ? deviceName : interpolate('yourDevice') }}
+          />
         </h1>
         <p
           class="tw_text-center tw_-mt-5 tw_mb-2 tw_py-4 tw_text-secondary-dark dark:tw_text-secondary-light"
