@@ -98,8 +98,6 @@ export const journeyStore: Writable<JourneyStoreValue> = writable({
   recaptchaAction: null,
   pingProtect: {
     envId: '',
-    consoleLogEnabled: false,
-    pauseBehavioralData: false,
   },
 });
 
