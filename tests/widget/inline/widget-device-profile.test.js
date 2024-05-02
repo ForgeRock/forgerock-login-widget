@@ -11,8 +11,6 @@ test('Modal widget with collecting a device profile after login', async ({ page,
   await page.getByRole('textbox', { name: 'Password' }).type('j56eKtae*1');
 
   await clickButton('Next', '/authenticate');
-  await page.getByText('Collecting Profile').isVisible();
-
   const returnedPage = page.on('request', (request) => {
     const data = request.postData();
     const parsed = JSON.parse(data);
@@ -23,6 +21,7 @@ test('Modal widget with collecting a device profile after login', async ({ page,
     expect(input.identifier).toBeTruthy();
     expect(input.metadata.browser.userAgent).toBeTruthy();
   });
+  await page.getByText('Collecting Profile').isVisible();
 
   await context.clearPermissions();
 

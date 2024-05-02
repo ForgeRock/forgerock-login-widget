@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import T from '$components/_utilities/locale-strings.svelte';
   import type { JourneyOptionsStart } from '$lib/widget/types';
   import type { PingOneProtectEvaluationCallback } from '@forgerock/javascript-sdk';
   import { PIProtect } from '@forgerock/ping-protect';
@@ -44,6 +45,8 @@
   }
 </script>
 
-<div>
-  <Spinner colorClass="tw_text-primary-light" layoutClasses="tw_h-24 tw_mb-6 tw_w-24" />
+<div class="tw_text-center tw_w-full tw_py-4">
+  <Spinner colorClass="tw_text-primary-light" layoutClasses="tw_h-24 tw_mb-6 tw_w-24">
+    <T key="signalsEvaluation" />
+  </Spinner>
 </div>

@@ -85,6 +85,7 @@ export const stringsSchema = z
     shouldContainALowercase: z.string(),
     shouldContainASymbol: z.string(),
     showPassword: z.string(),
+    signalsEvaluation: z.string(),
     skipButton: z.string(),
     sn: z.string(),
     submit: z.string(),

@@ -18,10 +18,10 @@ async function initializeProtect() {
         consoleLogEnabled: store.pingProtect?.consoleLogEnabled,
       });
     } catch (error) {
-      console.error(error);
+      console.error(`Widget has failed to initialize Ping Protect`, error);
       /*
-       * For whatever reason - we have failed to initialize PingProtect
-       * lets not break the widget over this and continue;
+       * For whatever reason, we have failed to initialize PingProtect.
+       * Let's not break the widget over this and continue.
        */
     }
   }
