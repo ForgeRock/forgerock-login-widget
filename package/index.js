@@ -858,7 +858,7 @@ async function p$4(e) {
   return await (await T$3(fetch(i.url.toString(), i.init), e.serverConfig.timeout)).json();
 }
 
-function w$2(n) {
+function w$1(n) {
   return {
     ...n,
     oauthThreshold: n.oauthThreshold || E$3,
@@ -876,7 +876,7 @@ let c$3 = class c {
   static set(e) {
     if (!this.isValid(e))
       throw new Error("Configuration is invalid");
-    e.serverConfig && this.validateServerConfig(e.serverConfig), this.options = { ...w$2(e) };
+    e.serverConfig && this.validateServerConfig(e.serverConfig), this.options = { ...w$1(e) };
   }
   /**
    * @method setAsync - Asynchronously calls the WellKnown endpoint to collect the APIs for OAuth
@@ -1013,7 +1013,7 @@ let J$1 = class J {
 
 var l = /* @__PURE__ */ ((a) => (a.BooleanAttributeInputCallback = "BooleanAttributeInputCallback", a.ChoiceCallback = "ChoiceCallback", a.ConfirmationCallback = "ConfirmationCallback", a.DeviceProfileCallback = "DeviceProfileCallback", a.HiddenValueCallback = "HiddenValueCallback", a.KbaCreateCallback = "KbaCreateCallback", a.MetadataCallback = "MetadataCallback", a.NameCallback = "NameCallback", a.NumberAttributeInputCallback = "NumberAttributeInputCallback", a.PasswordCallback = "PasswordCallback", a.PingOneProtectEvaluationCallback = "PingOneProtectEvaluationCallback", a.PingOneProtectInitializeCallback = "PingOneProtectInitializeCallback", a.PollingWaitCallback = "PollingWaitCallback", a.ReCaptchaCallback = "ReCaptchaCallback", a.RedirectCallback = "RedirectCallback", a.SelectIdPCallback = "SelectIdPCallback", a.StringAttributeInputCallback = "StringAttributeInputCallback", a.SuspendedTextOutputCallback = "SuspendedTextOutputCallback", a.TermsAndConditionsCallback = "TermsAndConditionsCallback", a.TextInputCallback = "TextInputCallback", a.TextOutputCallback = "TextOutputCallback", a.ValidatedCreatePasswordCallback = "ValidatedCreatePasswordCallback", a.ValidatedCreateUsernameCallback = "ValidatedCreateUsernameCallback", a))(l || {});
 
-var _$5 = /* @__PURE__ */ ((A) => (A.CannotContainCharacters = "CANNOT_CONTAIN_CHARACTERS", A.CannotContainDuplicates = "CANNOT_CONTAIN_DUPLICATES", A.CannotContainOthers = "CANNOT_CONTAIN_OTHERS", A.LeastCapitalLetters = "AT_LEAST_X_CAPITAL_LETTERS", A.LeastNumbers = "AT_LEAST_X_NUMBERS", A.MatchRegexp = "MATCH_REGEXP", A.MaximumLength = "MAX_LENGTH", A.MaximumNumber = "MAXIMUM_NUMBER_VALUE", A.MinimumLength = "MIN_LENGTH", A.MinimumNumber = "MINIMUM_NUMBER_VALUE", A.Required = "REQUIRED", A.Unique = "UNIQUE", A.UnknownPolicy = "UNKNOWN_POLICY", A.ValidArrayItems = "VALID_ARRAY_ITEMS", A.ValidDate = "VALID_DATE", A.ValidEmailAddress = "VALID_EMAIL_ADDRESS_FORMAT", A.ValidNameFormat = "VALID_NAME_FORMAT", A.ValidNumber = "VALID_NUMBER", A.ValidPhoneFormat = "VALID_PHONE_FORMAT", A.ValidQueryFilter = "VALID_QUERY_FILTER", A.ValidType = "VALID_TYPE", A))(_$5 || {});
+var _$4 = /* @__PURE__ */ ((A) => (A.CannotContainCharacters = "CANNOT_CONTAIN_CHARACTERS", A.CannotContainDuplicates = "CANNOT_CONTAIN_DUPLICATES", A.CannotContainOthers = "CANNOT_CONTAIN_OTHERS", A.LeastCapitalLetters = "AT_LEAST_X_CAPITAL_LETTERS", A.LeastNumbers = "AT_LEAST_X_NUMBERS", A.MatchRegexp = "MATCH_REGEXP", A.MaximumLength = "MAX_LENGTH", A.MaximumNumber = "MAXIMUM_NUMBER_VALUE", A.MinimumLength = "MIN_LENGTH", A.MinimumNumber = "MINIMUM_NUMBER_VALUE", A.Required = "REQUIRED", A.Unique = "UNIQUE", A.UnknownPolicy = "UNKNOWN_POLICY", A.ValidArrayItems = "VALID_ARRAY_ITEMS", A.ValidDate = "VALID_DATE", A.ValidEmailAddress = "VALID_EMAIL_ADDRESS_FORMAT", A.ValidNameFormat = "VALID_NAME_FORMAT", A.ValidNumber = "VALID_NUMBER", A.ValidPhoneFormat = "VALID_PHONE_FORMAT", A.ValidQueryFilter = "VALID_QUERY_FILTER", A.ValidType = "VALID_TYPE", A))(_$4 || {});
 
 function f$2(o, r, n) {
   return o === 1 ? r : n !== void 0 ? n : r + "s";
@@ -1024,51 +1024,51 @@ function n$2(r, t, e) {
 }
 
 const u$3 = {
-  [_$5.CannotContainCharacters]: (a, n) => {
+  [_$4.CannotContainCharacters]: (a, n) => {
     const t = n$2(n, "forbiddenChars", "");
     return `${a} must not contain following characters: "${t}"`;
   },
-  [_$5.CannotContainDuplicates]: (a, n) => {
+  [_$4.CannotContainDuplicates]: (a, n) => {
     const t = n$2(n, "duplicateValue", "");
     return `${a}  must not contain duplicates: "${t}"`;
   },
-  [_$5.CannotContainOthers]: (a, n) => {
+  [_$4.CannotContainOthers]: (a, n) => {
     const t = n$2(n, "disallowedFields", "");
     return `${a} must not contain: "${t}"`;
   },
-  [_$5.LeastCapitalLetters]: (a, n) => {
+  [_$4.LeastCapitalLetters]: (a, n) => {
     const t = n$2(n, "numCaps", 0);
     return `${a} must contain at least ${t} capital ${f$2(t, "letter")}`;
   },
-  [_$5.LeastNumbers]: (a, n) => {
+  [_$4.LeastNumbers]: (a, n) => {
     const t = n$2(n, "numNums", 0);
     return `${a} must contain at least ${t} numeric ${f$2(t, "value")}`;
   },
-  [_$5.MatchRegexp]: (a) => `${a} has failed the "MATCH_REGEXP" policy`,
-  [_$5.MaximumLength]: (a, n) => {
+  [_$4.MatchRegexp]: (a) => `${a} has failed the "MATCH_REGEXP" policy`,
+  [_$4.MaximumLength]: (a, n) => {
     const t = n$2(n, "maxLength", 0);
     return `${a} must be at most ${t} ${f$2(t, "character")}`;
   },
-  [_$5.MaximumNumber]: (a) => `${a} has failed the "MAXIMUM_NUMBER_VALUE" policy`,
-  [_$5.MinimumLength]: (a, n) => {
+  [_$4.MaximumNumber]: (a) => `${a} has failed the "MAXIMUM_NUMBER_VALUE" policy`,
+  [_$4.MinimumLength]: (a, n) => {
     const t = n$2(n, "minLength", 0);
     return `${a} must be at least ${t} ${f$2(t, "character")}`;
   },
-  [_$5.MinimumNumber]: (a) => `${a} has failed the "MINIMUM_NUMBER_VALUE" policy`,
-  [_$5.Required]: (a) => `${a} is required`,
-  [_$5.Unique]: (a) => `${a} must be unique`,
-  [_$5.UnknownPolicy]: (a, n) => {
+  [_$4.MinimumNumber]: (a) => `${a} has failed the "MINIMUM_NUMBER_VALUE" policy`,
+  [_$4.Required]: (a) => `${a} is required`,
+  [_$4.Unique]: (a) => `${a} must be unique`,
+  [_$4.UnknownPolicy]: (a, n) => {
     const t = n$2(n, "policyRequirement", "Unknown");
     return `${a}: Unknown policy requirement "${t}"`;
   },
-  [_$5.ValidArrayItems]: (a) => `${a} has failed the "VALID_ARRAY_ITEMS" policy`,
-  [_$5.ValidDate]: (a) => `${a} has an invalid date`,
-  [_$5.ValidEmailAddress]: (a) => `${a} has an invalid email address`,
-  [_$5.ValidNameFormat]: (a) => `${a} has an invalid name format`,
-  [_$5.ValidNumber]: (a) => `${a} has an invalid number`,
-  [_$5.ValidPhoneFormat]: (a) => `${a} has an invalid phone number`,
-  [_$5.ValidQueryFilter]: (a) => `${a} has failed the "VALID_QUERY_FILTER" policy`,
-  [_$5.ValidType]: (a) => `${a} has failed the "VALID_TYPE" policy`
+  [_$4.ValidArrayItems]: (a) => `${a} has failed the "VALID_ARRAY_ITEMS" policy`,
+  [_$4.ValidDate]: (a) => `${a} has an invalid date`,
+  [_$4.ValidEmailAddress]: (a) => `${a} has an invalid email address`,
+  [_$4.ValidNameFormat]: (a) => `${a} has an invalid name format`,
+  [_$4.ValidNumber]: (a) => `${a} has an invalid number`,
+  [_$4.ValidPhoneFormat]: (a) => `${a} has an invalid phone number`,
+  [_$4.ValidQueryFilter]: (a) => `${a} has failed the "VALID_QUERY_FILTER" policy`,
+  [_$4.ValidType]: (a) => `${a} has failed the "VALID_TYPE" policy`
 };
 
 let y$1 = class y {
@@ -1117,7 +1117,7 @@ let y$1 = class y {
    * @return {string} Human readable error message.
    */
   static parsePolicyRequirement(e, r, s = {}) {
-    const t = typeof r == "string" ? JSON.parse(r) : { ...r }, a = t.policyRequirement, o = s[a] || u$3[a] || u$3[_$5.UnknownPolicy], c = t.params ? { ...t.params, policyRequirement: a } : { policyRequirement: a };
+    const t = typeof r == "string" ? JSON.parse(r) : { ...r }, a = t.policyRequirement, o = s[a] || u$3[a] || u$3[_$4.UnknownPolicy], c = t.params ? { ...t.params, policyRequirement: a } : { policyRequirement: a };
     return o(e, c);
   }
 };
@@ -2650,7 +2650,7 @@ let c$1 = class c {
   }
 };
 
-const _$4 = {
+const A$1 = {
   // AM error for consent requirement
   AuthenticationConsentRequired: "Authentication or consent required",
   // Manual iframe error
@@ -2666,28 +2666,28 @@ const _$4 = {
   // PingOne login error
   LoginRequired: "User authentication is required"
 };
-class I {
+let b$1 = class b {
   static async createAuthorizeUrl(e) {
-    const { clientId: r, middleware: s, redirectUri: t, scope: n } = c$3.get(e), o = {
+    const { clientId: t, middleware: o, redirectUri: n, scope: i } = c$3.get(e), r = {
       ...e.query,
-      client_id: r,
-      redirect_uri: t,
+      client_id: t,
+      redirect_uri: n,
       response_type: e.responseType,
-      scope: n,
+      scope: i,
       state: e.state,
       ...e.prompt ? { prompt: e.prompt } : {}
     };
     if (e.verifier) {
       const a = await c$1.createChallenge(e.verifier);
-      o.code_challenge = a, o.code_challenge_method = "S256";
+      r.code_challenge = a, r.code_challenge_method = "S256";
     }
-    const i = f$4(
+    const s = f$4(
       {
-        url: new URL(this.getUrl("authorize", o, e)),
+        url: new URL(this.getUrl("authorize", r, e)),
         init: {}
       },
       { type: e$2.Authorize }
-    ), { url: c } = i(s);
+    ), { url: c } = s(o);
     return c.toString();
   }
   /**
@@ -2699,100 +2699,112 @@ class I {
    * New Name: getAuthCodeByIframe
    */
   static async getAuthCodeByIframe(e) {
-    const r = await this.createAuthorizeUrl({ ...e, prompt: "none" }), { serverConfig: s } = c$3.get(e);
-    return new Promise((t, n) => {
-      const o = document.createElement("iframe"), i = () => {
+    const t = await this.createAuthorizeUrl({ ...e, prompt: "none" }), { serverConfig: o } = c$3.get(e);
+    return new Promise((n, i) => {
+      const r = document.createElement("iframe"), s = () => {
       };
-      let c = i, a = i, u = 0;
+      let c = s, a = s, d = 0;
       a = () => {
-        clearTimeout(u), o.removeEventListener("load", c), o.remove();
+        clearTimeout(d), r.removeEventListener("load", c), r.remove();
       }, c = () => {
-        if (o.contentWindow) {
-          const d = o.contentWindow.location.href;
-          (this.containsAuthCode(d) || this.containsAuthError(d)) && (a(), t(d));
+        if (r.contentWindow) {
+          const u = r.contentWindow.location.href;
+          (this.containsAuthCode(u) || this.containsAuthError(u)) && (a(), n(u));
         }
-      }, u = setTimeout(() => {
-        a(), n(new Error(_$4.AuthorizationTimeout));
-      }, s.timeout), o.style.display = "none", o.addEventListener("load", c), document.body.appendChild(o), o.src = r;
+      }, d = setTimeout(() => {
+        a(), i(new Error(A$1.AuthorizationTimeout));
+      }, o.timeout), r.style.display = "none", r.addEventListener("load", c), document.body.appendChild(r), r.src = t;
     });
   }
   /**
    * Exchanges an authorization code for OAuth tokens.
    */
   static async getOAuth2Tokens(e) {
-    const { clientId: r, redirectUri: s } = c$3.get(e), t = {
-      client_id: r,
+    const { clientId: t, redirectUri: o } = c$3.get(e), n = {
+      client_id: t,
       code: e.authorizationCode,
       grant_type: "authorization_code",
-      redirect_uri: s
+      redirect_uri: o
     };
-    e.verifier && (t.code_verifier = e.verifier);
-    const n = $$1(t), o = {
-      body: n,
+    e.verifier && (n.code_verifier = e.verifier);
+    const i = $$1(n), r = {
+      body: i,
       headers: new Headers({
-        "Content-Length": n.length.toString(),
+        "Content-Length": i.length.toString(),
         "Content-Type": "application/x-www-form-urlencoded"
       }),
       method: "POST"
-    }, i = await this.request("accessToken", void 0, !1, o, e), c = await this.getBody(i);
-    if (i.status !== 200) {
-      const d = typeof c == "string" ? `Expected 200, received ${i.status}` : this.parseError(c);
-      throw new Error(d);
+    }, s = await this.request("accessToken", void 0, !1, r, e), c = await this.getBody(s);
+    if (s.status !== 200) {
+      const u = typeof c == "string" ? `Expected 200, received ${s.status}` : this.parseError(c);
+      throw new Error(u);
     }
     const a = c;
     if (!a.access_token)
       throw new Error("Access token not found in response");
-    let u;
-    return a.expires_in && (u = Date.now() + a.expires_in * 1e3), {
+    let d;
+    return a.expires_in && (d = Date.now() + a.expires_in * 1e3), {
       accessToken: a.access_token,
       idToken: a.id_token,
       refreshToken: a.refresh_token,
-      tokenExpiry: u
+      tokenExpiry: d
     };
   }
   /**
    * Gets OIDC user information.
    */
   static async getUserInfo(e) {
-    const r = await this.request("userInfo", void 0, !0, void 0, e);
-    if (r.status !== 200)
-      throw new Error(`Failed to get user info; received ${r.status}`);
-    return await r.json();
+    const t = await this.request("userInfo", void 0, !0, void 0, e);
+    if (t.status !== 200)
+      throw new Error(`Failed to get user info; received ${t.status}`);
+    return await t.json();
   }
   /**
    * Invokes the OIDC end session endpoint.
+   * Can result in a redirect to `/signoff` if using PingOne
+   * It's best to explicitly provide the logout redirect URL in options
+   *
+   * @function endSession - call authorization server to end associated session
+   * @param options {LogoutOptions} - an extension of ConfigOptions, but with two additional props
+   * @param options.logoutRedirectUri {string} - the URL you want the AS to redirect to after signout
+   * @param options.redirect {boolean} - to explicitly deactivate redirect, pass `false`
    */
   static async endSession(e) {
-    const r = await d$1.get(), s = r && r.idToken, t = {};
-    s && (t.id_token_hint = s);
-    const n = await this.request("endSession", t, !0, void 0, e);
-    if (!o$1(n))
-      throw new Error(`Failed to end session; received ${n.status}`);
-    return n;
+    const t = { ...e };
+    delete t.redirect, delete t.logoutRedirectUri;
+    const o = {}, n = await d$1.get();
+    o.id_token_hint = n && n.idToken || (e && "idToken" in e ? e.idToken : "");
+    const i = await this.request("endSession", o, !0, void 0, t, {
+      redirect: e == null ? void 0 : e.redirect,
+      logoutRedirectUri: e == null ? void 0 : e.logoutRedirectUri
+    });
+    if (!o$1(i))
+      throw new Error(`Failed to end session; received ${i.status}`);
+    return i;
   }
   /**
    * Immediately revokes the stored access token.
    */
   static async revokeToken(e) {
-    const { clientId: r } = c$3.get(e), s = await d$1.get(), t = s && s.accessToken, n = {
-      client_id: r
+    const { clientId: t } = c$3.get(e), o = await d$1.get(), n = o && o.accessToken, i = {
+      client_id: t
     };
-    t && (n.token = t);
-    const o = {
-      body: $$1(n),
+    n && (i.token = n);
+    const r = {
+      body: $$1(i),
       credentials: "include",
       headers: new Headers({
         "Content-Type": "application/x-www-form-urlencoded"
       }),
       method: "POST"
-    }, i = await this.request("revoke", void 0, !1, o, e);
-    if (!o$1(i))
-      throw new Error(`Failed to revoke token; received ${i.status}`);
-    return i;
+    }, s = await this.request("revoke", void 0, !1, r, e);
+    if (!o$1(s))
+      throw new Error(`Failed to revoke token; received ${s.status}`);
+    return s;
   }
-  static async request(e, r, s, t, n) {
-    const { middleware: o, serverConfig: i } = c$3.get(n), c = this.getUrl(e, r, n), a = (f) => {
-      switch (f) {
+  static async request(e, t, o, n, i, r) {
+    const { redirectUri: s, middleware: c, serverConfig: a } = c$3.get(i), d = r != null && r.logoutRedirectUri ? r.logoutRedirectUri : s, u = this.getUrl(e, t, i), m = (w) => {
+      switch (w) {
         case "accessToken":
           return e$2.ExchangeToken;
         case "endSession":
@@ -2803,15 +2815,20 @@ class I {
           return e$2.UserInfo;
       }
     };
-    if (t = t || {}, s) {
-      const f = await d$1.get(), k = f && f.accessToken;
-      t.credentials = "include", t.headers = t.headers || new Headers(), t.headers.set("Authorization", `Bearer ${k}`);
+    if (n = n || {}, o) {
+      const w = await d$1.get(), v = w && w.accessToken;
+      n.credentials = "include", n.headers = n.headers || new Headers(), n.headers.set("Authorization", `Bearer ${v}`);
     }
-    const d = f$4(
-      { url: new URL(c), init: t },
-      { type: a(e) }
-    )(o);
-    return await T$3(fetch(d.url.toString(), d.init), i.timeout);
+    const h = f$4(
+      { url: new URL(u), init: n },
+      { type: m(e) }
+    )(c);
+    return m(e) === e$2.EndSession && // endSession action only
+    (r == null ? void 0 : r.redirect) === !0 ? (h.url.searchParams.append("post_logout_redirect_uri", d || ""), window.location.assign(h.url.toString()), new Response()) : m(e) === e$2.EndSession && // endSession action only
+    (r == null ? void 0 : r.redirect) !== !1 && // Only `false` explicitly disables this behavior for rare edge cases
+    // If we explicitly get a logout redirect URL, then that's enough of a hint to redirect
+    // If we don't have that, let's see if they are calling the typical PingOne `/signoff` endpoint
+    (r != null && r.logoutRedirectUri || this.getUrl("endSession").includes("/as/signoff")) ? (h.url.searchParams.append("post_logout_redirect_uri", d || ""), window.location.assign(h.url.toString()), new Response()) : await T$3(fetch(h.url.toString(), h.init), a.timeout);
   }
   static containsAuthCode(e) {
     return !!e && /code=([^&]+)/.test(e);
@@ -2820,8 +2837,8 @@ class I {
     return !!e && /error=([^&]+)/.test(e);
   }
   static async getBody(e) {
-    const r = e.headers.get("Content-Type");
-    return r && r.indexOf("application/json") > -1 ? await e.json() : await e.text();
+    const t = e.headers.get("Content-Type");
+    return t && t.indexOf("application/json") > -1 ? await e.json() : await e.text();
   }
   static parseError(e) {
     if (e) {
@@ -2831,12 +2848,12 @@ class I {
         return `${e.code}: ${e.message}`;
     }
   }
-  static getUrl(e, r, s) {
-    const { realmPath: t, serverConfig: n } = c$3.get(s), o = h$1(e, t, n.paths);
-    let i = f$3(n.baseUrl, o);
-    return r && (i += `?${$$1(r)}`), i;
+  static getUrl(e, t, o) {
+    const { realmPath: n, serverConfig: i } = c$3.get(o), r = h$1(e, n, i.paths);
+    let s = f$3(i.baseUrl, r);
+    return t && (s += `?${$$1(t)}`), s;
   }
-}
+};
 
 let M$1 = class M {
   /**
@@ -2916,7 +2933,7 @@ let T$2 = class T {
       return o;
     if (o)
       try {
-        await I.revokeToken(e), await T.deleteTokens();
+        await b$1.revokeToken(e), await T.deleteTokens();
       } catch (r) {
         t.warn("Existing tokens could not be revoked or deleted", r);
       }
@@ -2935,21 +2952,21 @@ let T$2 = class T {
       verifier: a
     };
     try {
-      const r = new URL(await I.getAuthCodeByIframe(c));
+      const r = new URL(await b$1.getAuthCodeByIframe(c));
       if (r.searchParams.get("error"))
         throw Error(`${r.searchParams.get("error_description")}`);
       if (!r.searchParams.get("code"))
-        throw Error(_$4.AuthenticationConsentRequired);
+        throw Error(A$1.AuthenticationConsentRequired);
       const h = p$3(r.toString());
       e || (e = {}), e.query = h;
     } catch (r) {
-      if (!(r instanceof Error) || (e == null ? void 0 : e.login) !== "redirect" || _$4.AuthenticationConsentRequired !== r.message && _$4.AuthorizationTimeout !== r.message && _$4.FailedToFetch !== r.message && _$4.NetworkError !== r.message && _$4.InteractionNotAllowed !== r.message && // Check for Ping Identity Login Required error
+      if (!(r instanceof Error) || (e == null ? void 0 : e.login) !== "redirect" || A$1.AuthenticationConsentRequired !== r.message && A$1.AuthorizationTimeout !== r.message && A$1.FailedToFetch !== r.message && A$1.NetworkError !== r.message && A$1.InteractionNotAllowed !== r.message && // Check for Ping Identity Login Required error
       // Long message, so just check substring
-      !r.message.includes(_$4.LoginRequired) && // Safari has a very long error message, so we check for a substring
-      !r.message.includes(_$4.CORSError))
+      !r.message.includes(A$1.LoginRequired) && // Safari has a very long error message, so we check for a substring
+      !r.message.includes(A$1.CORSError))
         throw r;
       sessionStorage.setItem(i, JSON.stringify(c));
-      const h = await I.createAuthorizeUrl(c);
+      const h = await b$1.createAuthorizeUrl(c);
       return location.assign(h);
     }
     return await this.tokenExchange(e, { state: n, verifier: a });
@@ -2963,7 +2980,7 @@ let T$2 = class T {
       throw new Error("State mismatch");
     if (!((s = e.query) != null && s.code) || Array.isArray((c = e.query) == null ? void 0 : c.code))
       throw new Error("Failed to acquire authorization code");
-    const f = (g = e.query) == null ? void 0 : g.code, i = u.verifier, o = { ...e, authorizationCode: f, verifier: i }, a = await I.getOAuth2Tokens(o);
+    const f = (g = e.query) == null ? void 0 : g.code, i = u.verifier, o = { ...e, authorizationCode: f, verifier: i }, a = await b$1.getOAuth2Tokens(o);
     if (!a || !a.accessToken)
       throw new Error("Unable to exchange authorization for tokens");
     try {
@@ -2975,7 +2992,7 @@ let T$2 = class T {
   }
 };
 
-let w$1 = class w {
+class k {
   /**
    * Logs the user in with the specified step handler, acquires OAuth tokens, and retrieves
    * user profile.  **Currently not implemented.**
@@ -2984,8 +3001,8 @@ let w$1 = class w {
    * @param handler The function to invoke when handling authentication steps
    * @param options Configuration overrides
    */
-  static async login(e, r) {
-    throw t.info(e, r), new Error("FRUser.login() not implemented");
+  static async login(e, o) {
+    throw t.info(e, o), new Error("FRUser.login() not implemented");
   }
   /**
    * Ends the user's session and revokes OAuth tokens.
@@ -2993,24 +3010,27 @@ let w$1 = class w {
    * @param options Configuration overrides
    */
   static async logout(e) {
+    const o = { ...e };
+    delete o.redirect;
     try {
-      await M$1.logout(e);
+      await M$1.logout(o);
     } catch {
       t.warn("Session logout was not successful");
     }
     try {
-      await I.endSession(e);
-    } catch {
-      t.warn("OAuth endSession was not successful");
-    }
-    try {
-      await I.revokeToken(e);
+      await b$1.revokeToken(o);
     } catch {
       t.warn("OAuth revokeToken was not successful");
     }
+    const n = await d$1.get(), { idToken: a = "" } = n || {};
     await T$2.deleteTokens();
+    try {
+      await b$1.endSession({ ...e, idToken: a });
+    } catch {
+      t.warn("OAuth endSession was not successful");
+    }
   }
-};
+}
 
 var o = /* @__PURE__ */ ((r) => (r.Error = "ERROR", r.Unsupported = "unsupported", r))(o || {}), E$1 = /* @__PURE__ */ ((r) => (r.AbortError = "AbortError", r.DataError = "DataError", r.ConstraintError = "ConstraintError", r.EncodingError = "EncodingError", r.InvalidError = "InvalidError", r.NetworkError = "NetworkError", r.NotAllowedError = "NotAllowedError", r.NotSupportedError = "NotSupportedError", r.SecurityError = "SecurityError", r.TimeoutError = "TimeoutError", r.UnknownError = "UnknownError", r))(E$1 || {}), i = /* @__PURE__ */ ((r) => (r[r.None = 0] = "None", r[r.Authentication = 1] = "Authentication", r[r.Registration = 2] = "Registration", r))(i || {});
 
@@ -3567,7 +3587,46 @@ class a {
    * Gets the current user's profile.
    */
   static getCurrentUser(e) {
-    return I.getUserInfo(e);
+    return b$1.getUserInfo(e);
+  }
+}
+
+class e {
+  /**
+   * @method getData - Method to get the device data
+   * @returns {Promise<string>} - Returns the device data
+   */
+  static async getData() {
+    return await window._pingOneSignals.getData();
+  }
+  /**
+   * @method start - Method to initialize and start the PingOne Signals SDK
+   * @param {InitParams} options - The init parameters
+   * @returns {Promise<void>} - Returns a promise
+   */
+  static async start(a) {
+    try {
+      await Promise.resolve().then(function () { return index3; });
+    } catch (i) {
+      console.error("error loading ping signals", i);
+    }
+    await window._pingOneSignals.init(a), a.behavioralDataCollection === !0 && window._pingOneSignals.resumeBehavioralData();
+  }
+  /**
+   * @method pauseBehavioralData - Method to pause the behavioral data collection
+   * @returns {void}
+   * @description Pause the behavioral data collection only; device profile data will still be collected
+   */
+  static pauseBehavioralData() {
+    window._pingOneSignals.pauseBehavioralData();
+  }
+  /**
+   * @method resumeBehavioralData - Method to resume the behavioral data collection
+   * @returns {void}
+   * @description Resume the behavioral data collection
+   */
+  static resumeBehavioralData() {
+    window._pingOneSignals.resumeBehavioralData();
   }
 }
 
@@ -10351,9 +10410,6 @@ const journeyStore = writable({
     successful: false,
     response: null,
     recaptchaAction: null,
-    pingProtect: {
-        envId: '',
-    },
 });
 /**
  * @function initialize - Initializes the journey store
@@ -10394,10 +10450,6 @@ function initialize$4(initOptions) {
             successful: false,
             response: null,
             recaptchaAction: nextOptions?.recaptchaAction,
-            pingProtect: {
-                envId: nextOptions?.pingProtect?.envId ?? '',
-                consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-            },
         });
         try {
             if (resumeUrl) {
@@ -10461,11 +10513,6 @@ function initialize$4(initOptions) {
                 successful: false,
                 response: null,
                 recaptchaAction: nextOptions?.recaptchaAction,
-                pingProtect: {
-                    envId: nextOptions?.pingProtect?.envId ?? '',
-                    consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-                    behavioralDataCollection: false,
-                },
             });
         }
         else if (nextStep.type === r$a.LoginSuccess) {
@@ -10483,10 +10530,6 @@ function initialize$4(initOptions) {
                 successful: true,
                 response: nextStep.payload,
                 recaptchaAction: nextOptions?.recaptchaAction,
-                pingProtect: {
-                    envId: nextOptions?.pingProtect?.envId ?? '',
-                    consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-                },
             });
         }
         else if (nextStep.type === r$a.LoginFailure) {
@@ -10590,10 +10633,6 @@ function initialize$4(initOptions) {
                     successful: false,
                     response: null,
                     recaptchaAction: null,
-                    pingProtect: {
-                        envId: '',
-                        consoleLogEnabled: false,
-                    },
                 });
             }
             else if (restartedStep.type === r$a.LoginSuccess) {
@@ -10623,10 +10662,6 @@ function initialize$4(initOptions) {
                     successful: false,
                     response: restartedStep.payload,
                     recaptchaAction: null,
-                    pingProtect: {
-                        envId: nextOptions?.pingProtect?.envId ?? '',
-                        consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-                    },
                 });
             }
         }
@@ -10674,9 +10709,6 @@ function initialize$4(initOptions) {
             successful: false,
             response: null,
             recaptchaAction: null,
-            pingProtect: {
-                envId: '',
-            },
         });
     }
     return {
@@ -11114,7 +11146,6 @@ function widgetApiFactory(componentApi) {
                     ...startOptions?.forgerock,
                     // Only include a `tree` property if the `journey` options prop is truthy
                     ...(startOptions?.journey && { tree: startOptions?.journey }),
-                    pingProtect: startOptions?.pingProtect ?? {},
                 });
             }
             return new Promise((resolve, reject) => {
@@ -11189,7 +11220,7 @@ function widgetApiFactory(componentApi) {
              * token revoking and removal; else, just end the session.
              */
             if (clientId) {
-                obj = w$1;
+                obj = k;
             }
             else {
                 obj = M$1;
@@ -11234,11 +11265,47 @@ function widgetApiFactory(componentApi) {
             return { get: wrappedGet, subscribe };
         },
     };
+    const protect = {
+        async start(options) {
+            try {
+                await e.start(options);
+            }
+            catch (err) {
+                console.error('[SignalsSDK] failed to start.', err);
+            }
+        },
+        pauseBehavioralData() {
+            try {
+                return e.pauseBehavioralData();
+            }
+            catch (err) {
+                console.error('[SignalsSDK] failed to pause behavioral data collection.', err);
+            }
+        },
+        resumeBehavioralData() {
+            try {
+                return e.resumeBehavioralData();
+            }
+            catch (err) {
+                console.error('[SignalsSDK] failed to resume behavioral data collection.', err);
+            }
+        },
+        async getData() {
+            try {
+                const token = await e.getData();
+                return token;
+            }
+            catch (err) {
+                console.error('[SignalsSDK] failed to get data.', err);
+            }
+        },
+    };
     return {
         component: componentApi,
         configuration,
         getStores,
         journey,
+        protect,
         request: D.request.bind(D),
         user,
     };
@@ -11298,7 +11365,7 @@ function create_else_block$d(ctx) {
 	};
 }
 
-// (12:0) {#if html}
+// (11:0) {#if html}
 function create_if_block$x(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[5].default;
@@ -11351,7 +11418,7 @@ function create_if_block$x(ctx) {
 	};
 }
 
-// (15:8) {message}
+// (14:8) {message}
 function fallback_block_1$1(ctx) {
 	let t;
 
@@ -11371,7 +11438,7 @@ function fallback_block_1$1(ctx) {
 	};
 }
 
-// (13:8) {@html message}
+// (12:8) {@html message}
 function fallback_block$2(ctx) {
 	let html_tag;
 	let html_anchor;
@@ -11480,10 +11547,9 @@ function instance$1c($$self, $$props, $$invalidate) {
 	};
 
 	$$self.$$.update = () => {
-		if ($$self.$$.dirty & /*key, values, message*/ 14) {
+		if ($$self.$$.dirty & /*key, values*/ 12) {
 			{
 				$$invalidate(1, message = interpolate(key, values));
-				console.log(message);
 			}
 		}
 	};
@@ -13693,71 +13759,6 @@ function matchJourneyAndDecideAction(href, journeys, stack) {
     }
     else {
         return { action: null };
-    }
-}
-
-class e {
-  /**
-   * @method getData - Method to get the device data
-   * @returns {Promise<string>} - Returns the device data
-   */
-  static async getData() {
-    return await window._pingOneSignals.getData();
-  }
-  /**
-   * @method start - Method to initialize and start the PingOne Signals SDK
-   * @param {InitParams} options - The init parameters
-   * @returns {Promise<void>} - Returns a promise
-   */
-  static async start(a) {
-    try {
-      await Promise.resolve().then(function () { return index3; });
-    } catch (i) {
-      console.error("error loading ping signals", i);
-    }
-    await window._pingOneSignals.init(a), a.behavioralDataCollection === !0 && window._pingOneSignals.resumeBehavioralData();
-  }
-  /**
-   * @method pauseBehavioralData - Method to pause the behavioral data collection
-   * @returns {void}
-   * @description Pause the behavioral data collection only; device profile data will still be collected
-   */
-  static pauseBehavioralData() {
-    window._pingOneSignals.pauseBehavioralData();
-  }
-  /**
-   * @method resumeBehavioralData - Method to resume the behavioral data collection
-   * @returns {void}
-   * @description Resume the behavioral data collection
-   */
-  static resumeBehavioralData() {
-    window._pingOneSignals.resumeBehavioralData();
-  }
-}
-
-async function initializeProtect() {
-    const store = get_store_value(journeyStore);
-    /**
-     * At the very least we need an env id. So lets check if we have one.
-     * If we do, we can initialize PingProtect. If we do, we can initialize PingProtect.
-     * We are going to use these defaults
-     * and overwrite them with whatever we have from the
-     * start config call. If we have initialized set to false we can proceed
-     */
-    if (store?.pingProtect?.envId) {
-        try {
-            await e.start({
-                envId: store.pingProtect?.envId,
-                consoleLogEnabled: store.pingProtect?.consoleLogEnabled,
-            });
-        }
-        catch (error) {
-            console.error(`Widget has failed to initialize Ping Protect`, error);
-            /*
-             * For whatever reason, we have failed to initialize PingProtect.
-             * Let's not break the widget over this and continue.
-             */
-        }
     }
 }
 
@@ -20884,7 +20885,7 @@ function create_default_slot_2$7(ctx) {
 	};
 }
 
-// (92:6) {#if showPassword === "button"}
+// (92:6) {#if showPassword === 'button'}
 function create_if_block_2$9(ctx) {
 	let button;
 	let eyeicon;
@@ -20980,7 +20981,7 @@ function create_default_slot_1$d(ctx) {
 function create_input_button_slot(ctx) {
 	let if_block_anchor;
 	let current;
-	let if_block = /*showPassword*/ ctx[16] === "button" && create_if_block_2$9(ctx);
+	let if_block = /*showPassword*/ ctx[16] === 'button' && create_if_block_2$9(ctx);
 
 	return {
 		c() {
@@ -20993,7 +20994,7 @@ function create_input_button_slot(ctx) {
 			current = true;
 		},
 		p(ctx, dirty) {
-			if (/*showPassword*/ ctx[16] === "button") if_block.p(ctx, dirty);
+			if (/*showPassword*/ ctx[16] === 'button') if_block.p(ctx, dirty);
 		},
 		i(local) {
 			if (current) return;
@@ -21011,7 +21012,7 @@ function create_input_button_slot(ctx) {
 	};
 }
 
-// (107:2) {#if showPassword === "checkbox"}
+// (107:2) {#if showPassword === 'checkbox'}
 function create_if_block_1$b(ctx) {
 	let div;
 	let checkbox;
@@ -21067,7 +21068,7 @@ function create_if_block_1$b(ctx) {
 	};
 }
 
-// (109:6) <Checkbox isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}         isInvalid={false}         key = {key + style.showPassword}         onChange={toggleVisibility}         value={false}       >
+// (109:6) <Checkbox         isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}         isInvalid={false}         key={key + style.showPassword}         onChange={toggleVisibility}         value={false}       >
 function create_default_slot$k(ctx) {
 	let t;
 
@@ -21084,7 +21085,7 @@ function create_default_slot$k(ctx) {
 	};
 }
 
-// (119:2) {#if callbackMetadata?.platform?.confirmPassword}
+// (120:2) {#if callbackMetadata?.platform?.confirmPassword}
 function create_if_block$j(ctx) {
 	let confirminput;
 	let current;
@@ -21173,7 +21174,7 @@ function create_key_block$3(ctx) {
 			}
 		});
 
-	let if_block0 = /*showPassword*/ ctx[16] === "checkbox" && create_if_block_1$b(ctx);
+	let if_block0 = /*showPassword*/ ctx[16] === 'checkbox' && create_if_block_1$b(ctx);
 	let if_block1 = /*callbackMetadata*/ ctx[2]?.platform?.confirmPassword && create_if_block$j(ctx);
 
 	return {
@@ -21223,7 +21224,7 @@ function create_key_block$3(ctx) {
 			}
 
 			input.$set(input_changes);
-			if (/*showPassword*/ ctx[16] === "checkbox") if_block0.p(ctx, dirty);
+			if (/*showPassword*/ ctx[16] === 'checkbox') if_block0.p(ctx, dirty);
 
 			if (/*callbackMetadata*/ ctx[2]?.platform?.confirmPassword) {
 				if (if_block1) {
@@ -25440,7 +25441,7 @@ function create_fragment$j(ctx) {
 function instance$j($$self, $$props, $$invalidate) {
 	let { callback } = $$props;
 	let { selfSubmitFunction = null } = $$props;
-	let { pingProtect = { envId: '', consoleLogEnabled: false } } = $$props;
+	let { pingProtect = { envId: '' } } = $$props;
 	let pauseBehavioralData = false;
 
 	onMount(() => {
@@ -27145,7 +27146,7 @@ function get_each_context$6(ctx, list, i) {
 	return child_ctx;
 }
 
-// (73:2) {#if form?.icon && componentStyle !== 'inline'}
+// (70:2) {#if form?.icon && componentStyle !== 'inline'}
 function create_if_block_4$4(ctx) {
 	let div;
 	let shieldicon;
@@ -27185,7 +27186,7 @@ function create_if_block_4$4(ctx) {
 	};
 }
 
-// (89:2) {#if form?.message}
+// (86:2) {#if form?.message}
 function create_if_block_3$6(ctx) {
 	let alert;
 	let current;
@@ -27233,7 +27234,7 @@ function create_if_block_3$6(ctx) {
 	};
 }
 
-// (90:4) <Alert id={formFailureMessageId} needsFocus={alertNeedsFocus} type="error">
+// (87:4) <Alert id={formFailureMessageId} needsFocus={alertNeedsFocus} type="error">
 function create_default_slot_4$1(ctx) {
 	let t_value = interpolate(/*formMessageKey*/ ctx[7], null, /*form*/ ctx[2]?.message) + "";
 	let t;
@@ -27254,7 +27255,7 @@ function create_default_slot_4$1(ctx) {
 	};
 }
 
-// (95:2) {#each step?.callbacks as callback, idx}
+// (92:2) {#each step?.callbacks as callback, idx}
 function create_each_block$6(ctx) {
 	let callbackmapper;
 	let current;
@@ -27307,7 +27308,7 @@ function create_each_block$6(ctx) {
 	};
 }
 
-// (120:61) 
+// (117:61) 
 function create_if_block_2$6(ctx) {
 	let button;
 	let current;
@@ -27356,7 +27357,7 @@ function create_if_block_2$6(ctx) {
 	};
 }
 
-// (116:56) 
+// (113:56) 
 function create_if_block_1$7(ctx) {
 	let button;
 	let current;
@@ -27405,7 +27406,7 @@ function create_if_block_1$7(ctx) {
 	};
 }
 
-// (112:2) {#if !metadata?.step?.derived.isStepSelfSubmittable()}
+// (109:2) {#if !metadata?.step?.derived.isStepSelfSubmittable()}
 function create_if_block$9(ctx) {
 	let button;
 	let current;
@@ -27454,7 +27455,7 @@ function create_if_block$9(ctx) {
 	};
 }
 
-// (121:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
+// (118:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
 function create_default_slot_3$2(ctx) {
 	let t;
 	let current;
@@ -27484,7 +27485,7 @@ function create_default_slot_3$2(ctx) {
 	};
 }
 
-// (117:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
+// (114:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
 function create_default_slot_2$5(ctx) {
 	let t;
 	let current;
@@ -27514,7 +27515,7 @@ function create_default_slot_2$5(ctx) {
 	};
 }
 
-// (113:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
+// (110:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
 function create_default_slot_1$8(ctx) {
 	let t;
 	let current;
@@ -27544,7 +27545,7 @@ function create_default_slot_1$8(ctx) {
 	};
 }
 
-// (66:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus}   onSubmitWhenValid={submitFormWrapper} >
+// (63:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus}   onSubmitWhenValid={submitFormWrapper} >
 function create_default_slot$9(ctx) {
 	let t0;
 	let header;
@@ -27944,9 +27945,7 @@ function instance$g($$self, $$props, $$invalidate) {
 		}
 	});
 
-	onMount(() => {
-		return Promise.all([captureLinks(linkWrapper, journey), initializeProtect()]);
-	});
+	onMount(() => captureLinks(linkWrapper, journey));
 
 	function header_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
@@ -34569,7 +34568,7 @@ function create_else_block(ctx) {
 	};
 }
 
-// (28:0) {#if type === 'modal'}
+// (29:0) {#if type === 'modal'}
 function create_if_block(ctx) {
 	let div;
 	let dialog;
@@ -34639,7 +34638,7 @@ function create_if_block(ctx) {
 	};
 }
 
-// (30:4) <Dialog       bind:dialogEl       bind:this={dialogComp}       dialogId="sampleDialog"       withHeader={$styleStore?.sections?.header}     >
+// (31:4) <Dialog       bind:dialogEl       bind:this={dialogComp}       dialogId="sampleDialog"       withHeader={$styleStore?.sections?.header}     >
 function create_default_slot(ctx) {
 	let journey_1;
 	let updating_formEl;
@@ -34772,6 +34771,7 @@ const journey = api.journey;
 const component = componentApi;
 const request = api.request;
 const user = api.user;
+const protect = api.protect;
 
 function instance($$self, $$props, $$invalidate) {
 	let $styleStore;
@@ -47241,5 +47241,5 @@ var browser = /*#__PURE__*/_mergeNamespaces({
     toString: toString
 }, [browser$1]);
 
-export { component, configuration, Widget as default, journey, request, user };
+export { component, configuration, Widget as default, journey, protect, request, user };
 //# sourceMappingURL=index.js.map

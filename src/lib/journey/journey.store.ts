@@ -96,9 +96,6 @@ export const journeyStore: Writable<JourneyStoreValue> = writable({
   successful: false,
   response: null,
   recaptchaAction: null,
-  pingProtect: {
-    envId: '',
-  },
 });
 
 /**
@@ -144,10 +141,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
       successful: false,
       response: null,
       recaptchaAction: nextOptions?.recaptchaAction,
-      pingProtect: {
-        envId: nextOptions?.pingProtect?.envId ?? '',
-        consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-      },
     });
 
     try {
@@ -215,11 +208,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
         successful: false,
         response: null,
         recaptchaAction: nextOptions?.recaptchaAction,
-        pingProtect: {
-          envId: nextOptions?.pingProtect?.envId ?? '',
-          consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-          behavioralDataCollection: false,
-        },
       });
     } else if (nextStep.type === StepType.LoginSuccess) {
       /**
@@ -237,10 +225,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
         successful: true,
         response: nextStep.payload,
         recaptchaAction: nextOptions?.recaptchaAction,
-        pingProtect: {
-          envId: nextOptions?.pingProtect?.envId ?? '',
-          consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-        },
       });
     } else if (nextStep.type === StepType.LoginFailure) {
       /**
@@ -357,10 +341,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
           successful: false,
           response: null,
           recaptchaAction: null,
-          pingProtect: {
-            envId: '',
-            consoleLogEnabled: false,
-          },
         });
       } else if (restartedStep.type === StepType.LoginSuccess) {
         journeyStore.set({
@@ -388,10 +368,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
           successful: false,
           response: restartedStep.payload,
           recaptchaAction: null,
-          pingProtect: {
-            envId: nextOptions?.pingProtect?.envId ?? '',
-            consoleLogEnabled: nextOptions?.pingProtect?.consoleLogEnabled,
-          },
         });
       }
     }
@@ -443,9 +419,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
       successful: false,
       response: null,
       recaptchaAction: null,
-      pingProtect: {
-        envId: '',
-      },
     });
   }
 

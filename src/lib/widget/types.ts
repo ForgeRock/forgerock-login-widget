@@ -24,6 +24,7 @@ export type ConfigurationApi = ReturnType<typeof api.configuration>;
 export type JourneyApi = ReturnType<typeof api.journey>;
 export type UserInfoApi = ReturnType<typeof api.user.info>;
 export type UserTokensApi = ReturnType<typeof api.user.tokens>;
+export type Protect = { start: Promise<void> };
 
 // Widget API Options Type
 export type JourneyOptions = JourneyApiOptionsInit;

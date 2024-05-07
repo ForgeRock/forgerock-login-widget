@@ -11,6 +11,7 @@
   export const component = componentApi;
   export const request = api.request;
   export const user = api.user;
+  export const protect = api.protect;
 </script>
 
 <script lang="ts">

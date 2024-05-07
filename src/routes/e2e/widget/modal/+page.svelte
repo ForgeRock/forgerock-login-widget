@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
 
-  import Widget, { configuration, component, journey, user } from '$package/index';
+  import Widget, { configuration, component, journey, protect, user } from '$package/index';
 
   const config = configuration();
   const componentEvents = component();
@@ -203,6 +203,21 @@
       });
     }
     new Widget({ target: widgetEl });
+    if (initializePingProtectEarly) {
+      try {
+        await protect.start({
+          envId: initializePingProtectEarly,
+          behavioralDataCollection: pauseBehavioralData === 'true',
+          consoleLogEnabled:
+            initializePingProtectEarly && initializePingProtectEarly?.length !== 0 ? true : false,
+        });
+        await protect.getData();
+        protect.pauseBehavioralData();
+        protect.resumeBehavioralData();
+      } catch (err) {
+        console.error(err);
+      }
+    }
   });
 </script>
 
@@ -222,15 +237,6 @@
           journey: journeyParam || authIndexValueParam || undefined,
           resumeUrl: suspendedIdParam ? location.href : undefined,
           recaptchaAction: recaptchaParam ?? undefined,
-          pingProtect: {
-            behavioralDataCollection: pauseBehavioralData === 'true',
-            envId:
-              initializePingProtectEarly && initializePingProtectEarly?.length !== 0
-                ? initializePingProtectEarly
-                : '',
-            consoleLogEnabled:
-              initializePingProtectEarly && initializePingProtectEarly?.length !== 0 ? true : false,
-          },
         });
         componentEvents.open();
       }}

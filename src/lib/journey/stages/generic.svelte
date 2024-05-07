@@ -27,7 +27,6 @@
   } from '$journey/journey.interfaces';
   import BackTo from './_utilities/back-to.svelte';
   import { captureLinks } from './_utilities/stage.utilities';
-  import { initializeProtect } from './_utilities/initializeProtect';
   import type { Maybe } from '$lib/interfaces';
   import CallbackMapper from '$journey/_utilities/callback-mapper.svelte';
 
@@ -78,9 +77,7 @@
     }
   });
 
-  onMount(() => {
-    return Promise.all([captureLinks(linkWrapper, journey), initializeProtect()]);
-  });
+  onMount(() => captureLinks(linkWrapper, journey));
 
   $: {
     shouldRedirectFromStep(step) && FRAuth.redirect(step);

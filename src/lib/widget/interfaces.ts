@@ -20,14 +20,12 @@ export interface JourneyOptions {
 export interface JourneyOptionsChange {
   forgerock?: StepOptions;
   journey: string;
-  pingProtect: InitParams | Partial<InitParams>;
 }
 export interface JourneyOptionsStart {
   forgerock?: StepOptions;
   journey?: string;
   resumeUrl?: string; // current URL if resuming a journey/tree
   recaptchaAction?: string;
-  pingProtect?: InitParams | Partial<InitParams>;
 }
 export interface ModalApi {
   close(args?: { reason: 'auto' | 'external' | 'user' }): void;
@@ -40,6 +38,14 @@ export interface Response {
   oauth?: OAuthTokenStoreValue;
   user?: UserStoreValue;
 }
+
+export interface Protect {
+  start: (config: InitParams) => Promise<void>;
+  resumeBehavioralData: () => void;
+  pauseBehavioralData: () => void;
+  getData: () => Promise<string | undefined>;
+}
+
 export interface WidgetConfigOptions {
   forgerock?: z.infer<typeof partialConfigSchema>;
   content?: z.infer<typeof partialStringsSchema>;

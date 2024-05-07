@@ -1,18 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import T from '$components/_utilities/locale-strings.svelte';
-  import type { JourneyOptionsStart } from '$lib/widget/types';
   import type { PingOneProtectEvaluationCallback } from '@forgerock/javascript-sdk';
-  import { PIProtect } from '@forgerock/ping-protect';
+  import { PIProtect, type InitParams } from '@forgerock/ping-protect';
   import Spinner from '$components/primitives/spinner/spinner.svelte';
   import type { SelfSubmitFunction } from '$journey/journey.interfaces';
   import type { Maybe } from '$lib/interfaces';
 
   export let callback: PingOneProtectEvaluationCallback;
   export let selfSubmitFunction: Maybe<SelfSubmitFunction> = null;
-  export let pingProtect: JourneyOptionsStart['pingProtect'] = {
+  export let pingProtect: InitParams = {
     envId: '',
-    consoleLogEnabled: false,
   };
 
   let pauseBehavioralData = false;

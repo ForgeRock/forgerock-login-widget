@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [20.x]
+        node: [20.10.0, 18.x]
         os: [macos-latest]
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
   install:
     strategy:
       matrix:
-        node: [20.x, 18.x]
+        node: [20.10.0, 18.x]
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -65,7 +65,7 @@ jobs:
     needs: [build]
     strategy:
       matrix:
-        node: [20.x]
+        node: [20.10.0]
         os: [macos-latest, ubuntu-latest]
         shardIndex: [1, 2, 3, 4]
         shardTotal: [4]
@@ -79,6 +79,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
       - name: Restore npm dependencies
         uses: actions/cache/restore@v4
         with:
@@ -93,7 +97,7 @@ jobs:
         with:
           name: package-${{ matrix.node }}
           path: package
-      - run: npm run build:app
+      - run: npm run build
       - name: e2e
         run: npm run ci:e2e -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
       - name: Upload blob report to GitHub Actions Artifacts
@@ -106,7 +110,7 @@ jobs:
   merge-e2e-report:
     strategy:
       matrix:
-        node: [20.x, 18.x]
+        node: [20.10.0]
         os: [macos-latest, ubuntu-latest]
     # Merge reports after playwright-tests, even if some shards have failed
     if: always()
@@ -136,7 +140,7 @@ jobs:
           merge-multiple: true
 
       - name: Merge into HTML Report
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
+        run: npx playwright merge-reports --config=merge.config.ts ./all-blob-reports
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
@@ -148,7 +152,7 @@ jobs:
     needs: install
     strategy:
       matrix:
-        node: [20.x, 18.x]
+        node: [18.x]
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:

@@ -5,6 +5,8 @@ import {
   SessionManager,
   type ConfigOptions,
 } from '@forgerock/javascript-sdk';
+import { PIProtect } from '@forgerock/ping-protect';
+import type { InitParams } from '@forgerock/ping-protect';
 import { derived, get, type Readable } from 'svelte/store';
 
 import { logErrorAndThrow } from '$lib/_utilities/errors.utilities';
@@ -25,6 +27,7 @@ import type {
   JourneyOptions,
   JourneyOptionsChange,
   JourneyOptionsStart,
+  Protect,
   WidgetConfigOptions,
 } from '../interfaces';
 import type { JourneyStore, JourneyStoreValue } from '$journey/journey.interfaces';
@@ -206,7 +209,6 @@ export function widgetApiFactory(componentApi: ReturnType<typeof _componentApi>)
           ...startOptions?.forgerock,
           // Only include a `tree` property if the `journey` options prop is truthy
           ...(startOptions?.journey && { tree: startOptions?.journey }),
-          pingProtect: startOptions?.pingProtect ?? {},
         });
       }
       return new Promise((resolve, reject) => {
@@ -332,11 +334,44 @@ export function widgetApiFactory(componentApi: ReturnType<typeof _componentApi>)
     },
   };
 
+  const protect: Protect = {
+    async start(options: InitParams) {
+      try {
+        await PIProtect.start(options);
+      } catch (err) {
+        console.error('[SignalsSDK] failed to start.', err);
+      }
+    },
+    pauseBehavioralData() {
+      try {
+        return PIProtect.pauseBehavioralData();
+      } catch (err) {
+        console.error('[SignalsSDK] failed to pause behavioral data collection.', err);
+      }
+    },
+    resumeBehavioralData() {
+      try {
+        return PIProtect.resumeBehavioralData();
+      } catch (err) {
+        console.error('[SignalsSDK] failed to resume behavioral data collection.', err);
+      }
+    },
+    async getData() {
+      try {
+        const token = await PIProtect.getData();
+        return token;
+      } catch (err) {
+        console.error('[SignalsSDK] failed to get data.', err);
+      }
+    },
+  };
+
   return {
     component: componentApi,
     configuration,
     getStores,
     journey,
+    protect,
     request: HttpClient.request.bind(HttpClient),
     user,
   };

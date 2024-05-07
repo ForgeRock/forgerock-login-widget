@@ -5,7 +5,6 @@ import type {
   Step,
   StepOptions,
 } from '@forgerock/javascript-sdk';
-import type { InitParams } from '@forgerock/ping-protect';
 import type { Writable } from 'svelte/store';
 import type { Maybe } from '$lib/interfaces';
 
@@ -22,7 +21,6 @@ export interface CallbackMetadata {
 }
 export interface StartOptions extends StepOptions {
   recaptchaAction?: string;
-  pingProtect?: InitParams | Partial<InitParams>;
 }
 export interface JourneyStore extends Pick<Writable<JourneyStoreValue>, 'subscribe'> {
   next: (prevStep?: StepTypes, nextOptions?: StepOptions) => void;
@@ -61,7 +59,6 @@ export interface JourneyStoreValue {
   successful: boolean;
   response: Maybe<Step>;
   recaptchaAction?: Maybe<string>;
-  pingProtect?: InitParams | Partial<InitParams>;
 }
 export interface StackStore extends Pick<Writable<StepOptions[]>, 'subscribe'> {
   latest: () => Promise<StepOptions>;
