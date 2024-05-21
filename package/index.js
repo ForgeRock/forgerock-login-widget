@@ -9637,7 +9637,7 @@ var shouldContainAnUppercase = "Should contain an uppercase letter";
 var shouldContainALowercase = "Should contain a lowercase letter";
 var shouldContainASymbol = "Should contain a symbol";
 var showPassword = "Show password";
-var signalsEvaluation = "Evaluating...";
+var signalsEvaluation = "Evaluating device information...";
 var skipButton = "Skip";
 var sn = "Last name";
 var submit = "Submit";
@@ -11265,47 +11265,17 @@ function widgetApiFactory(componentApi) {
             return { get: wrappedGet, subscribe };
         },
     };
-    const protect = {
-        async start(options) {
-            try {
-                await e.start(options);
-            }
-            catch (err) {
-                console.error('[SignalsSDK] failed to start.', err);
-            }
-        },
-        pauseBehavioralData() {
-            try {
-                return e.pauseBehavioralData();
-            }
-            catch (err) {
-                console.error('[SignalsSDK] failed to pause behavioral data collection.', err);
-            }
-        },
-        resumeBehavioralData() {
-            try {
-                return e.resumeBehavioralData();
-            }
-            catch (err) {
-                console.error('[SignalsSDK] failed to resume behavioral data collection.', err);
-            }
-        },
-        async getData() {
-            try {
-                const token = await e.getData();
-                return token;
-            }
-            catch (err) {
-                console.error('[SignalsSDK] failed to get data.', err);
-            }
-        },
-    };
     return {
         component: componentApi,
         configuration,
         getStores,
         journey,
-        protect,
+        protect: {
+            start: e.start.bind(e),
+            getData: e.getData.bind(e),
+            pauseBehavioralData: e.pauseBehavioralData.bind(e),
+            resumeBehavioralData: e.resumeBehavioralData.bind(e),
+        },
         request: D.request.bind(D),
         user,
     };
@@ -12721,16 +12691,21 @@ class Alert extends SvelteComponent {
 function create_fragment$13(ctx) {
 	let div;
 	let span;
-	let t;
+	let t0;
 	let div_class_value;
+	let t1;
 	let current;
-	t = new Locale_strings({ props: { key: "loading" } });
+	t0 = new Locale_strings({ props: { key: "loading" } });
+	const default_slot_template = /*#slots*/ ctx[3].default;
+	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[2], null);
 
 	return {
 		c() {
 			div = element("div");
 			span = element("span");
-			create_component(t.$$.fragment);
+			create_component(t0.$$.fragment);
+			t1 = space();
+			if (default_slot) default_slot.c();
 			attr(span, "class", "tw_sr-only");
 			attr(div, "class", div_class_value = `tw_spinner tw_animate-spin tw_border-4 tw_inline-block tw_rounded-full ${/*colorClass*/ ctx[0]} ${/*layoutClasses*/ ctx[1]}`);
 			attr(div, "role", "status");
@@ -12738,40 +12713,67 @@ function create_fragment$13(ctx) {
 		m(target, anchor) {
 			insert(target, div, anchor);
 			append(div, span);
-			mount_component(t, span, null);
+			mount_component(t0, span, null);
+			insert(target, t1, anchor);
+
+			if (default_slot) {
+				default_slot.m(target, anchor);
+			}
+
 			current = true;
 		},
 		p(ctx, [dirty]) {
 			if (!current || dirty & /*colorClass, layoutClasses*/ 3 && div_class_value !== (div_class_value = `tw_spinner tw_animate-spin tw_border-4 tw_inline-block tw_rounded-full ${/*colorClass*/ ctx[0]} ${/*layoutClasses*/ ctx[1]}`)) {
 				attr(div, "class", div_class_value);
 			}
+
+			if (default_slot) {
+				if (default_slot.p && (!current || dirty & /*$$scope*/ 4)) {
+					update_slot_base(
+						default_slot,
+						default_slot_template,
+						ctx,
+						/*$$scope*/ ctx[2],
+						!current
+						? get_all_dirty_from_scope(/*$$scope*/ ctx[2])
+						: get_slot_changes(default_slot_template, /*$$scope*/ ctx[2], dirty, null),
+						null
+					);
+				}
+			}
 		},
 		i(local) {
 			if (current) return;
-			transition_in(t.$$.fragment, local);
+			transition_in(t0.$$.fragment, local);
+			transition_in(default_slot, local);
 			current = true;
 		},
 		o(local) {
-			transition_out(t.$$.fragment, local);
+			transition_out(t0.$$.fragment, local);
+			transition_out(default_slot, local);
 			current = false;
 		},
 		d(detaching) {
 			if (detaching) detach(div);
-			destroy_component(t);
+			destroy_component(t0);
+			if (detaching) detach(t1);
+			if (default_slot) default_slot.d(detaching);
 		}
 	};
 }
 
 function instance$15($$self, $$props, $$invalidate) {
+	let { $$slots: slots = {}, $$scope } = $$props;
 	let { colorClass } = $$props;
 	let { layoutClasses } = $$props;
 
 	$$self.$$set = $$props => {
 		if ('colorClass' in $$props) $$invalidate(0, colorClass = $$props.colorClass);
 		if ('layoutClasses' in $$props) $$invalidate(1, layoutClasses = $$props.layoutClasses);
+		if ('$$scope' in $$props) $$invalidate(2, $$scope = $$props.$$scope);
 	};
 
-	return [colorClass, layoutClasses];
+	return [colorClass, layoutClasses, $$scope, slots];
 }
 
 class Spinner extends SvelteComponent {
@@ -25360,16 +25362,19 @@ class Metadata extends SvelteComponent {
 /* src/lib/journey/callbacks/ping-protect-evaluation/ping-protect-evaluation.svelte generated by Svelte v3.55.1 */
 
 function create_default_slot$a(ctx) {
+	let p;
 	let t;
 	let current;
 	t = new Locale_strings({ props: { key: "signalsEvaluation" } });
 
 	return {
 		c() {
+			p = element("p");
 			create_component(t.$$.fragment);
 		},
 		m(target, anchor) {
-			mount_component(t, target, anchor);
+			insert(target, p, anchor);
+			mount_component(t, p, null);
 			current = true;
 		},
 		p: noop,
@@ -25383,7 +25388,8 @@ function create_default_slot$a(ctx) {
 			current = false;
 		},
 		d(detaching) {
-			destroy_component(t, detaching);
+			if (detaching) detach(p);
+			destroy_component(t);
 		}
 	};
 }

@@ -45,6 +45,6 @@
 
 <div class="tw_text-center tw_w-full tw_py-4">
   <Spinner colorClass="tw_text-primary-light" layoutClasses="tw_h-24 tw_mb-6 tw_w-24">
-    <T key="signalsEvaluation" />
+    <p><T key="signalsEvaluation" /></p>
   </Spinner>
 </div>

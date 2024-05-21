@@ -75,7 +75,7 @@
   "shouldContainALowercase": "Should contain a lowercase letter",
   "shouldContainASymbol": "Should contain a symbol",
   "showPassword": "Show password",
-  "signalsEvaluation": "Evaluating...",
+  "signalsEvaluation": "Evaluating device information.",
   "skipButton": "Skip",
   "sn": "Last name",
   "submit": "Submit",

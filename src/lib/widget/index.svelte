@@ -1,7 +1,6 @@
 <script context="module" lang="ts">
   import { widgetApiFactory } from './_utilities/api.utilities';
   import { componentApi } from './_utilities/component.utilities';
-
   import './main.css';
 
   const api = widgetApiFactory(componentApi());

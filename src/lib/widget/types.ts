@@ -16,6 +16,7 @@ import type {
 import type { JourneyStoreValue as JourneyStoreEventValue } from '$journey/journey.interfaces';
 import type { OAuthTokenStoreValue as OAuthTokenStoreEventValue } from '$lib/oauth/oauth.store';
 import type { UserStoreValue as UserStoreEventValue } from '$lib/user/user.store';
+import type { PIProtect } from '@forgerock/ping-protect';
 
 const api = widgetApiFactory(componentApi());
 
@@ -24,8 +25,12 @@ export type ConfigurationApi = ReturnType<typeof api.configuration>;
 export type JourneyApi = ReturnType<typeof api.journey>;
 export type UserInfoApi = ReturnType<typeof api.user.info>;
 export type UserTokensApi = ReturnType<typeof api.user.tokens>;
-export type Protect = { start: Promise<void> };
-
+export type ProtectApi = {
+  start: Pick<typeof PIProtect, 'start'>;
+  getData: Pick<typeof PIProtect, 'getData'>;
+  resumeBehavioralData: Pick<typeof PIProtect, 'resumeBehavioralData'>;
+  pauseBehavioralData: Pick<typeof PIProtect, 'pauseBehavioralData'>;
+};
 // Widget API Options Type
 export type JourneyOptions = JourneyApiOptionsInit;
 export type JourneyOptionsChange = JourneyApiOptionsChange;

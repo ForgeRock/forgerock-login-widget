@@ -22,8 +22,8 @@ test('Widget calls PingProtect via callback', async ({ page }) => {
     ),
   ).toBe(true);
 
-  await page.getByPlaceholder(' ').click();
-  await page.getByPlaceholder(' ').fill('jlowery');
+  await page.getByLabel('Username').click();
+  await page.getByLabel('Username').fill('jlowery');
   await page.getByRole('button', { name: 'Next' }).click();
 
   await expect(page.getByText('Risk')).toBeVisible();
