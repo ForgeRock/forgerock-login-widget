@@ -105,13 +105,13 @@
     {showMessage}
     {type}
     value={typeof value === 'string' ? value : ''}
-  > 
+  >
     <svelte:fragment slot="input-button">
-      {#if showPassword === "button"}
+      {#if showPassword === 'button'}
         <button
-        class={`tw_password-button dark:tw_password-button_dark tw_focusable-element tw_input-base dark:tw_input-base_dark`}
-        on:click={toggleVisibility}
-        type="button"
+          class={`tw_password-button dark:tw_password-button_dark tw_focusable-element tw_input-base dark:tw_input-base_dark`}
+          on:click={toggleVisibility}
+          type="button"
         >
           <EyeIcon classes="tw_password-icon dark:tw_password-icon_dark" visible={isVisible}>
             <T key="showPassword" />
@@ -122,11 +122,12 @@
     <slot />
   </Input>
 
-  {#if showPassword === "checkbox"}
-    <div class="tw_w-full tw_input-spacing" >
-      <Checkbox isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}
+  {#if showPassword === 'checkbox'}
+    <div class="tw_w-full tw_input-spacing">
+      <Checkbox
+        isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}
         isInvalid={false}
-        key = {key + style.showPassword}
+        key={key + style.showPassword}
         onChange={toggleVisibility}
         value={false}
       >
@@ -144,8 +145,7 @@
       {resetValue}
       showMessage={doPasswordsMatch === false}
       {style}
-      isFirstInvalidInput = {callbackMetadata?.derived.isFirstInvalidInput || false}
+      isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}
     />
   {/if}
-  
 {/key}

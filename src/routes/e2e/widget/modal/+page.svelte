@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
 
-  import Widget, { configuration, component, journey, user } from '$package/index';
+  import Widget, { configuration, component, journey, protect, user } from '$package/index';
 
   const config = configuration();
   const componentEvents = component();
@@ -12,8 +12,12 @@
   let journeyParam = $page.url.searchParams.get('journey');
   let recaptchaParam = $page.url.searchParams.get('recaptchaAction');
   let suspendedIdParam = $page.url.searchParams.get('suspendedId');
-  let showPasswordParam = $page.url.searchParams.get('showPassword') as "none" | "button" | "checkbox";
-
+  let showPasswordParam = $page.url.searchParams.get('showPassword') as
+    | 'none'
+    | 'button'
+    | 'checkbox';
+  let initializePingProtectEarly = $page.url.searchParams.get('initializePingProtectEarly');
+  let pauseBehavioralData = $page.url.searchParams.get('pauseBehavioralData');
   type UserResponseObj = {
     family_name: string;
     given_name: string;
@@ -55,14 +59,15 @@
       const response = await fetch(`${window.location.origin}/api/locale`);
       content = response.ok && (await response.json());
     }
-
     config.set({
       forgerock: {
         clientId: 'WebOAuthClient',
         redirectUri: `${window.location.origin}/callback`,
         scope: 'openid profile email me.read',
         serverConfig: {
-          baseUrl: 'https://openam-sdks.forgeblocks.com/am/',
+          baseUrl: journeyParam?.includes('PingProtect')
+            ? 'https://openam-protect2.forgeblocks.com/am'
+            : 'https://openam-sdks.forgeblocks.com/am/',
           timeout: 5000,
         },
         realmPath: 'alpha',
@@ -127,6 +132,17 @@
       },
     });
     new Widget({ target: widgetEl });
+    if (initializePingProtectEarly) {
+      await protect.start({
+        envId: initializePingProtectEarly,
+        behavioralDataCollection: pauseBehavioralData === 'true',
+        consoleLogEnabled:
+          initializePingProtectEarly && initializePingProtectEarly?.length !== 0 ? true : false,
+      });
+      await protect.getData();
+      protect.pauseBehavioralData();
+      protect.resumeBehavioralData();
+    }
   });
 </script>
 

@@ -6,7 +6,7 @@ import {
   StepType,
   FRCallback,
 } from '@forgerock/javascript-sdk';
-import type { StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type { StepOptions } from '@forgerock/javascript-sdk';
 import { get, writable, type Writable } from 'svelte/store';
 
 import { htmlDecode } from '$journey/_utilities/decode.utilities';
@@ -105,7 +105,6 @@ export const journeyStore: Writable<JourneyStoreValue> = writable({
  */
 export function initialize(initOptions?: StepOptions): JourneyStore {
   const stack = initializeStack();
-
   let stepNumber = 0;
 
   async function next(prevStep?: StepTypes, nextOptions?: StartOptions, resumeUrl?: string) {
@@ -197,7 +196,6 @@ export function initialize(initOptions?: StepOptions): JourneyStore {
 
       // Iterate on a successful progression
       stepNumber = stepNumber + 1;
-
       journeyStore.set({
         completed: false,
         error: null,

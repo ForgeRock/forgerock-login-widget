@@ -1,5 +1,10 @@
-import type { FRStep, FRLoginFailure, FRLoginSuccess } from '@forgerock/javascript-sdk';
-import type { Step, StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type {
+  FRStep,
+  FRLoginFailure,
+  FRLoginSuccess,
+  Step,
+  StepOptions,
+} from '@forgerock/javascript-sdk';
 import type { Writable } from 'svelte/store';
 import type { Maybe } from '$lib/interfaces';
 

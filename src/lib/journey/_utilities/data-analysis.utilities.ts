@@ -12,6 +12,8 @@ const selfSubmittingCallbacks = [
   CallbackType.DeviceProfileCallback,
   CallbackType.PollingWaitCallback,
   CallbackType.SelectIdPCallback,
+  CallbackType.PingOneProtectInitializeCallback,
+  CallbackType.PingOneProtectEvaluationCallback,
 ] as const;
 
 export type SelfSubmittingCallbacks = (typeof selfSubmittingCallbacks)[number];

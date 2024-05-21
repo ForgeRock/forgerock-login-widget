@@ -6,6 +6,7 @@ import {
   type ConfigOptions,
 } from '@forgerock/javascript-sdk';
 import { derived, get, type Readable } from 'svelte/store';
+import { PIProtect } from '@forgerock/ping-protect';
 
 import { logErrorAndThrow } from '$lib/_utilities/errors.utilities';
 import configure from '$lib/sdk.config';
@@ -336,6 +337,12 @@ export function widgetApiFactory(componentApi: ReturnType<typeof _componentApi>)
     configuration,
     getStores,
     journey,
+    protect: {
+      start: PIProtect.start.bind(PIProtect),
+      getData: PIProtect.getData.bind(PIProtect),
+      pauseBehavioralData: PIProtect.pauseBehavioralData.bind(PIProtect),
+      resumeBehavioralData: PIProtect.resumeBehavioralData.bind(PIProtect),
+    },
     request: HttpClient.request.bind(HttpClient),
     user,
   };
