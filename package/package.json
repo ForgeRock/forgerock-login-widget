@@ -12,8 +12,7 @@
     "url": "https://github.com/forgerock/forgerock-web-login-framework.git"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "license": "MIT",
   "dependencies": {},
