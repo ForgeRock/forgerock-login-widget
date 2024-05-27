@@ -60,7 +60,7 @@
   "devDependencies": {
     "@babel/core": "^7.23.9",
     "@hcaptcha/types": "^1.0.3",
-    "@playwright/test": "^1.44.0",
+    "@playwright/test": "^1.44.1",
     "@rollup/plugin-alias": "^5.1.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-json": "^6.1.0",
