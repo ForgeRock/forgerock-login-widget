@@ -72,7 +72,7 @@ jobs:
           HUSKY: 0
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NPM_TOKEN: ${{ inputs.releaseToNpm && secrets.NPM_TOKEN || secrets.VERDACCIO_NPM_TOKEN }}
-          NPM_CONFIG_REGISTRY: ${{ inputs.releaseToNpm == true && 'https://example.com' || 'https://npm.petrov.ca/' }}
+          NPM_CONFIG_REGISTRY: ${{ inputs.releaseToNpm == true && 'https://registry.npmjs.org/' || 'https://npm.petrov.ca/' }}
           VITE_FR_AM_URL: ${{ secrets.VITE_FR_AM_URL }}
           VITE_FR_AM_COOKIE_NAME: ${{ secrets.VITE_FR_AM_COOKIE_NAME }}
           VITE_FR_OAUTH_PUBLIC_CLIENT: ${{ secrets.VITE_FR_OAUTH_PUBLIC_CLIENT }}
