@@ -1,3 +1,10 @@
+# [1.3.0-beta.2](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.3.0-beta.1...v1.3.0-beta.2) (2024-05-28)
+
+
+### Bug Fixes
+
+* **update-zod-config:** zod-config-literals ([37bfde6](https://github.com/forgerock/forgerock-web-login-framework/commit/37bfde63d226c53f2888dcfaad7e6e9ef24eaeba))
+
 # [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-28)
 
 
