@@ -31,7 +31,15 @@ const configSchema = z
       .returns(z.instanceof(FRCallback))
       .optional(),
     clientId: z.string().optional(),
-    logLevel: z.string().optional(),
+    logLevel: z
+      .union([
+        z.literal('none'),
+        z.literal('error'),
+        z.literal('warn'),
+        z.literal('info'),
+        z.literal('debug'),
+      ])
+      .optional(),
     middleware: z.array(z.function()).optional(),
     realmPath: z.string(),
     redirectUri: z.string().optional(),
