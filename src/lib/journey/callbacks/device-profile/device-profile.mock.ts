@@ -1,9 +1,9 @@
-import type { CallbackType } from '@forgerock/javascript-sdk';
+import { CallbackType } from '@forgerock/javascript-sdk';
 
 export const deviceProfileMockNoMessage = {
   callbacks: [
     {
-      type: 'DeviceProfileCallback' as CallbackType,
+      type: CallbackType.DeviceProfileCallback,
       output: [
         {
           name: 'metadata',
@@ -31,7 +31,7 @@ export const deviceProfileMockNoMessage = {
 export const deviceProfileMockMessage = {
   callbacks: [
     {
-      type: 'DeviceProfileCallback' as CallbackType,
+      type: CallbackType.DeviceProfileCallback,
       output: [
         {
           name: 'metadata',

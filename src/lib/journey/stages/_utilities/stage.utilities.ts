@@ -2,7 +2,7 @@ import { get } from 'svelte/store';
 import { configuredJourneysStore } from '$journey/config.store';
 
 import type { StageJourneyObject } from '$journey/journey.interfaces';
-import type { StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type { StepOptions } from '@forgerock/javascript-sdk';
 import type { StoreItem } from '$journey/config.store';
 
 /**

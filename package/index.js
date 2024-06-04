@@ -186,9 +186,8 @@ function children(element) {
 }
 function set_data(text, data) {
     data = '' + data;
-    if (text.data === data)
-        return;
-    text.data = data;
+    if (text.wholeText !== data)
+        text.data = data;
 }
 function set_input_value(input, value) {
     input.value = value == null ? '' : value;
@@ -206,17 +205,16 @@ class HtmlTag {
         if (!this.e) {
             if (this.is_svg)
                 this.e = svg_element(target.nodeName);
-            /** #7364  target for <template> may be provided as #document-fragment(11) */
             else
-                this.e = element((target.nodeType === 11 ? 'TEMPLATE' : target.nodeName));
-            this.t = target.tagName !== 'TEMPLATE' ? target : target.content;
+                this.e = element(target.nodeName);
+            this.t = target;
             this.c(html);
         }
         this.i(anchor);
     }
     h(html) {
         this.e.innerHTML = html;
-        this.n = Array.from(this.e.nodeName === 'TEMPLATE' ? this.e.content.childNodes : this.e.childNodes);
+        this.n = Array.from(this.e.childNodes);
     }
     i(anchor) {
         for (let i = 0; i < this.n.length; i += 1) {
@@ -268,9 +266,9 @@ function afterUpdate(fn) {
 
 const dirty_components = [];
 const binding_callbacks = [];
-let render_callbacks = [];
+const render_callbacks = [];
 const flush_callbacks = [];
-const resolved_promise = /* @__PURE__ */ Promise.resolve();
+const resolved_promise = Promise.resolve();
 let update_scheduled = false;
 function schedule_update() {
     if (!update_scheduled) {
@@ -363,16 +361,6 @@ function update($$) {
         $$.fragment && $$.fragment.p($$.ctx, dirty);
         $$.after_update.forEach(add_render_callback);
     }
-}
-/**
- * Useful for example to execute remaining `afterUpdate` callbacks before executing `destroy`.
- */
-function flush_render_callbacks(fns) {
-    const filtered = [];
-    const targets = [];
-    render_callbacks.forEach((c) => fns.indexOf(c) === -1 ? filtered.push(c) : targets.push(c));
-    targets.forEach((c) => c());
-    render_callbacks = filtered;
 }
 const outroing = new Set();
 let outros;
@@ -488,7 +476,6 @@ function mount_component(component, target, anchor, customElement) {
 function destroy_component(component, detaching) {
     const $$ = component.$$;
     if ($$.fragment !== null) {
-        flush_render_callbacks($$.after_update);
         run_all($$.on_destroy);
         $$.fragment && $$.fragment.d(detaching);
         // TODO null out other refs, including component.$$ (but need to
@@ -599,7 +586,7 @@ const subscriber_queue = [];
 /**
  * Creates a `Readable` store that allows reading by subscription.
  * @param value initial value
- * @param {StartStopNotifier} [start]
+ * @param {StartStopNotifier}start start and stop notifications for subscriptions
  */
 function readable(value, start) {
     return {
@@ -609,7 +596,7 @@ function readable(value, start) {
 /**
  * Create a `Writable` store that allows both updating and reading by subscription.
  * @param {*=}value initial value
- * @param {StartStopNotifier=} start
+ * @param {StartStopNotifier=}start start and stop notifications for subscriptions
  */
 function writable(value, start = noop) {
     let stop;
@@ -644,7 +631,7 @@ function writable(value, start = noop) {
         run(value);
         return () => {
             subscribers.delete(subscriber);
-            if (subscribers.size === 0 && stop) {
+            if (subscribers.size === 0) {
                 stop();
                 stop = null;
             }
@@ -659,7 +646,7 @@ function derived(stores, fn, initial_value) {
         : stores;
     const auto = fn.length < 2;
     return readable(initial_value, (set) => {
-        let started = false;
+        let inited = false;
         const values = [];
         let pending = 0;
         let cleanup = noop;
@@ -679,21 +666,17 @@ function derived(stores, fn, initial_value) {
         const unsubscribers = stores_array.map((store, i) => subscribe(store, (value) => {
             values[i] = value;
             pending &= ~(1 << i);
-            if (started) {
+            if (inited) {
                 sync();
             }
         }, () => {
             pending |= (1 << i);
         }));
-        started = true;
+        inited = true;
         sync();
         return function stop() {
             run_all(unsubscribers);
             cleanup();
-            // We need to set this to false because callbacks can still happen despite having unsubscribed:
-            // Callbacks might already be placed in the queue which doesn't know it should no longer
-            // invoke this derived store.
-            started = false;
         };
     });
 }
@@ -812,3166 +795,2100 @@ function mount(component, element) {
     });
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * constants.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/** @hidden */
-const DEFAULT_TIMEOUT = 5 * 1000;
-const DEFAULT_OAUTH_THRESHOLD = 30 * 1000;
-const PREFIX = 'FR-SDK';
+const T$4 = 5e3, E$3 = 3e4, o$5 = "FR-SDK";
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Sets defaults for options that are required but have no supplied value
- * @param options The options to set defaults for
- * @returns options The options with defaults
- */
-function setDefaults(options) {
+function f$4(t, { type: a, payload: o }) {
+  const i = Object.freeze({ type: a, payload: o });
+  return (e) => {
+    if (!Array.isArray(e))
+      return t;
+    const c = e.map((r) => r);
+    function n() {
+      const r = c.shift();
+      return r && r(t, i, n), t;
+    }
+    return n();
+  };
+}
+
+function T$3(t, o = T$4) {
+  const i = o || T$4, r = new Promise(
+    (n, m) => setTimeout(() => m(new Error("Timeout")), i)
+  );
+  return Promise.race([t, r]);
+}
+
+var e$2 = /* @__PURE__ */ ((E) => (E.Authenticate = "AUTHENTICATE", E.Authorize = "AUTHORIZE", E.EndSession = "END_SESSION", E.Logout = "LOGOUT", E.ExchangeToken = "EXCHANGE_TOKEN", E.RefreshToken = "REFRESH_TOKEN", E.ResumeAuthenticate = "RESUME_AUTHENTICATE", E.RevokeToken = "REVOKE_TOKEN", E.StartAuthenticate = "START_AUTHENTICATE", E.UserInfo = "USER_INFO", E.WellKnown = "WELL_KNOWN", E))(e$2 || {});
+
+function d$3(e, n) {
+  var o, l;
+  if (!e.authorization_endpoint)
+    throw new Error("Wellknown endpoint did not return `authorization_endpoint`");
+  const s = new URL(e.authorization_endpoint).origin;
+  let t, r;
+  n != null && n.paths ? (t = (o = n == null ? void 0 : n.paths) == null ? void 0 : o.authenticate, r = (l = n == null ? void 0 : n.paths) == null ? void 0 : l.sessions) : e.issuer.includes("/am/") ? (t = `${e.issuer.replace("oauth2", "json")}/authenticate`, r = `${e.issuer.replace("oauth2", "json")}/sessions`) : e.issuer.includes("/as/");
+  const a = {
+    ...t ? { authenticate: new URL(t).pathname } : {},
+    authorize: new URL(e.authorization_endpoint).pathname,
+    accessToken: new URL(e.token_endpoint).pathname,
+    endSession: new URL(e.end_session_endpoint).pathname,
+    userInfo: new URL(e.userinfo_endpoint).pathname,
+    revoke: new URL(e.revocation_endpoint).pathname,
+    ...r ? { sessions: new URL(r).pathname } : {}
+  };
+  return {
+    baseUrl: s,
+    paths: a
+  };
+}
+async function p$4(e) {
+  var r;
+  if (!e.serverConfig.wellknown)
+    throw new Error("wellknown URL is missing in options");
+  const i = f$4(
+    {
+      url: new URL((r = e.serverConfig) == null ? void 0 : r.wellknown),
+      init: { method: "GET" }
+    },
+    {
+      type: e$2.WellKnown,
+      payload: {}
+    }
+  )(e.middleware);
+  return await (await T$3(fetch(i.url.toString(), i.init), e.serverConfig.timeout)).json();
+}
+
+function w$1(n) {
+  return {
+    ...n,
+    oauthThreshold: n.oauthThreshold || E$3,
+    logLevel: n.logLevel || "none",
+    platformHeader: n.platformHeader || !1,
+    prefix: n.prefix || o$5
+  };
+}
+let c$3 = class c {
+  /**
+   * Sets the default options.
+   *
+   * @param options The options to use as defaults
+   */
+  static set(e) {
+    if (!this.isValid(e))
+      throw new Error("Configuration is invalid");
+    e.serverConfig && this.validateServerConfig(e.serverConfig), this.options = { ...w$1(e) };
+  }
+  /**
+   * @method setAsync - Asynchronously calls the WellKnown endpoint to collect the APIs for OAuth
+   * @param {AsyncConfigOptions} options - config options with wellknown endpoint URL
+   * @returns {Promise<void>} - Returns a success or failure message object
+   */
+  static async setAsync(e) {
+    if (!e.serverConfig.wellknown)
+      throw new Error(
+        "Missing well-known property. Use `Config.set` method if not using well-known endpoint."
+      );
+    e.serverConfig.baseUrl && console.warn(
+      "The baseUrl property passed in will be ignored, and replaced with well-known origin."
+    );
+    const r = await p$4(e), i = d$3(r);
+    delete e.serverConfig.wellknown;
+    const t = e;
+    t.serverConfig = i, this.set(t);
+  }
+  /**
+   * Merges the provided options with the default options.  Ensures a server configuration exists.
+   *
+   * @param options The options to merge with defaults
+   */
+  static get(e) {
+    if (!this.options && !e)
+      throw new Error("Configuration has not been set");
+    const r = { ...this.options, ...e };
+    if (!r.serverConfig || !r.serverConfig.baseUrl)
+      throw new Error("Server configuration has not been set");
+    return r;
+  }
+  static isValid(e) {
+    return !!(e && e.serverConfig);
+  }
+  static validateServerConfig(e) {
+    e.timeout || (e.timeout = T$4);
+    const r = e.baseUrl;
+    r && r.charAt(r.length - 1) !== "/" && (e.baseUrl = r + "/");
+  }
+};
+
+const E$2 = "forgerock-sdk", o$4 = "javascript";
+
+function n$3(o) {
+  const r = (o || "").split("/").map((t) => t.trim()).filter((t) => t !== "");
+  return r[0] !== "root" && r.unshift("root"), r.map((t) => `realms/${t}`).join("/");
+}
+
+function r$b(t) {
+  const o = t.protocol === "http:" && ["", "80"].indexOf(t.port) === -1 || t.protocol === "https:" && ["", "443"].indexOf(t.port) === -1 ? `:${t.port}` : "";
+  return `${t.protocol}//${t.hostname}${o}`;
+}
+function h$1(t, e, o) {
+  const n = n$3(e), s = {
+    authenticate: `json/${n}/authenticate`,
+    authorize: `oauth2/${n}/authorize`,
+    accessToken: `oauth2/${n}/access_token`,
+    endSession: `oauth2/${n}/connect/endSession`,
+    userInfo: `oauth2/${n}/userinfo`,
+    revoke: `oauth2/${n}/token/revoke`,
+    sessions: `json/${n}/sessions/`
+  };
+  return o && o[t] ? o[t] : s[t];
+}
+function f$3(t, e) {
+  const o = new URL(t);
+  if (e.startsWith("/"))
+    return `${r$b(o)}${e}`;
+  const n = o.pathname.split("/"), s = e.split("/").filter((i) => !!i), a = [...n.slice(0, -1), ...s].join("/");
+  return `${r$b(o)}${a}`;
+}
+function p$3(t) {
+  const e = new URL(t), o = {};
+  return e.searchParams.forEach((n, s) => o[s] = n), o;
+}
+function $$1(t) {
+  const e = [];
+  for (const o in t)
+    t[o] && e.push(o + "=" + encodeURIComponent(t[o]));
+  return e.join("&");
+}
+
+let J$1 = class J {
+  /**
+   * Gets the next step in the authentication tree.
+   *
+   * @param {Step} previousStep The previous step, including any required input.
+   * @param {StepOptions} options Configuration default overrides.
+   * @return {Step} The next step in the authentication tree.
+   */
+  static async next(t, e) {
+    const { middleware: r, platformHeader: n, realmPath: u, serverConfig: i, tree: o, type: a } = c$3.get(e), d = e ? e.query : {}, p = this.constructUrl(i, u, o, d), s = f$4(
+      {
+        url: new URL(p),
+        init: this.configureRequest(t)
+      },
+      {
+        type: t ? e$2.Authenticate : e$2.StartAuthenticate,
+        payload: {
+          tree: o,
+          type: a || "service"
+        }
+      }
+    )(r);
+    n && (s.init.headers instanceof Headers ? s.init.headers.set("X-Requested-Platform", o$4) : Array.isArray(s.init.headers) ? s.init.headers.push(["X-Requested-Platform", o$4]) : s.init.headers ? s.init.headers["X-Requested-Platform"] = o$4 : s.init.headers = {
+      "X-Requested-Platform": o$4
+    });
+    const h = await T$3(fetch(s.url.toString(), s.init), i.timeout);
+    return await this.getResponseJson(h);
+  }
+  static constructUrl(t, e, r, n) {
+    const i = { ...n, ...r ? { authIndexType: "service", authIndexValue: r } : void 0 }, o = Object.keys(i).length > 0 ? `?${$$1(i)}` : "", a = h$1("authenticate", e, t.paths);
+    return f$3(t.baseUrl, `${a}${o}`);
+  }
+  static configureRequest(t) {
     return {
-        ...options,
-        oauthThreshold: options.oauthThreshold || DEFAULT_OAUTH_THRESHOLD,
-        logLevel: options.logLevel || 'none',
+      body: t ? JSON.stringify(t) : void 0,
+      credentials: "include",
+      headers: new Headers({
+        Accept: "application/json",
+        "Accept-API-Version": "protocol=1.0,resource=2.1",
+        "Content-Type": "application/json",
+        "X-Requested-With": E$2
+      }),
+      method: "POST"
     };
-}
-/**
- * Utility for merging configuration defaults with one-off options.
- *
- * Example:
- *
- * ```js
- * // Establish configuration defaults
- * Config.set({
- *   clientId: 'myApp',
- *   serverConfig: { baseUrl: 'https://openam-domain.com/am' },
- *   tree: 'UsernamePassword'
- * });
- *
- * // Specify overrides as needed
- * const configOverrides = { tree: 'PasswordlessWebAuthn' };
- * const step = await FRAuth.next(undefined, configOverrides);
- */
-class Config {
-    /**
-     * Sets the default options.
-     *
-     * @param options The options to use as defaults
-     */
-    static set(options) {
-        if (!this.isValid(options)) {
-            throw new Error('Configuration is invalid');
-        }
-        if (options.serverConfig) {
-            this.validateServerConfig(options.serverConfig);
-        }
-        this.options = {
-            ...setDefaults(options),
-        };
-    }
-    /**
-     * Merges the provided options with the default options.  Ensures a server configuration exists.
-     *
-     * @param options The options to merge with defaults
-     */
-    static get(options) {
-        if (!this.options && !options) {
-            throw new Error('Configuration has not been set');
-        }
-        const merged = { ...this.options, ...options };
-        if (!merged.serverConfig || !merged.serverConfig.baseUrl) {
-            throw new Error('Server configuration has not been set');
-        }
-        return merged;
-    }
-    static isValid(options) {
-        return !!(options && options.serverConfig);
-    }
-    static validateServerConfig(serverConfig) {
-        if (!serverConfig.timeout) {
-            serverConfig.timeout = DEFAULT_TIMEOUT;
-        }
-        const url = serverConfig.baseUrl;
-        if (url && url.charAt(url.length - 1) !== '/') {
-            serverConfig.baseUrl = url + '/';
-        }
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-var ActionTypes;
-(function (ActionTypes) {
-    ActionTypes["Authenticate"] = "AUTHENTICATE";
-    ActionTypes["Authorize"] = "AUTHORIZE";
-    ActionTypes["EndSession"] = "END_SESSION";
-    ActionTypes["Logout"] = "LOGOUT";
-    ActionTypes["ExchangeToken"] = "EXCHANGE_TOKEN";
-    ActionTypes["RefreshToken"] = "REFRESH_TOKEN";
-    ActionTypes["ResumeAuthenticate"] = "RESUME_AUTHENTICATE";
-    ActionTypes["RevokeToken"] = "REVOKE_TOKEN";
-    ActionTypes["StartAuthenticate"] = "START_AUTHENTICATE";
-    ActionTypes["UserInfo"] = "USER_INFO";
-})(ActionTypes || (ActionTypes = {}));
-
-/*
- * @forgerock/javascript-sdk
- *
- * constants.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @module
- * @ignore
- * These are private constants
- */
-const REQUESTED_WITH = 'forgerock-sdk';
-
-/*
- * @forgerock/javascript-sdk
- *
- * timeout.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @module
- * @ignore
- * These are private utility functions
- */
-function withTimeout(promise, timeout = DEFAULT_TIMEOUT) {
-    const effectiveTimeout = timeout || DEFAULT_TIMEOUT;
-    const timeoutP = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), effectiveTimeout));
-    return Promise.race([promise, timeoutP]);
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * realm.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/** @hidden */
-function getRealmUrlPath(realmPath) {
-    // Split the path and scrub segments
-    const names = (realmPath || '')
-        .split('/')
-        .map((x) => x.trim())
-        .filter((x) => x !== '');
-    // Ensure 'root' is the first realm
-    if (names[0] !== 'root') {
-        names.unshift('root');
-    }
-    // Concatenate into a URL path
-    const urlPath = names.map((x) => `realms/${x}`).join('/');
-    return urlPath;
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * url.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Returns the base URL including protocol, hostname and any non-standard port.
- * The returned URL does not include a trailing slash.
- */
-function getBaseUrl(url) {
-    const isNonStandardPort = (url.protocol === 'http:' && ['', '80'].indexOf(url.port) === -1) ||
-        (url.protocol === 'https:' && ['', '443'].indexOf(url.port) === -1);
-    const port = isNonStandardPort ? `:${url.port}` : '';
-    const baseUrl = `${url.protocol}//${url.hostname}${port}`;
-    return baseUrl;
-}
-function getEndpointPath(endpoint, realmPath, customPaths) {
-    const realmUrlPath = getRealmUrlPath(realmPath);
-    const defaultPaths = {
-        authenticate: `json/${realmUrlPath}/authenticate`,
-        authorize: `oauth2/${realmUrlPath}/authorize`,
-        accessToken: `oauth2/${realmUrlPath}/access_token`,
-        endSession: `oauth2/${realmUrlPath}/connect/endSession`,
-        userInfo: `oauth2/${realmUrlPath}/userinfo`,
-        revoke: `oauth2/${realmUrlPath}/token/revoke`,
-        sessions: `json/${realmUrlPath}/sessions/`,
-    };
-    if (customPaths && customPaths[endpoint]) {
-        // TypeScript is not correctly reading the condition above
-        // It's thinking that customPaths[endpoint] may result in undefined
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        return customPaths[endpoint];
-    }
-    else {
-        return defaultPaths[endpoint];
-    }
-}
-function resolve(baseUrl, path) {
-    const url = new URL(baseUrl);
-    if (path.startsWith('/')) {
-        return `${getBaseUrl(url)}${path}`;
-    }
-    const basePath = url.pathname.split('/');
-    const destPath = path.split('/').filter((x) => !!x);
-    const newPath = [...basePath.slice(0, -1), ...destPath].join('/');
-    return `${getBaseUrl(url)}${newPath}`;
-}
-function parseQuery(fullUrl) {
-    const url = new URL(fullUrl);
-    const query = {};
-    url.searchParams.forEach((v, k) => (query[k] = v));
-    return query;
-}
-function stringify(data) {
-    const pairs = [];
-    for (const k in data) {
-        if (data[k]) {
-            pairs.push(k + '=' + encodeURIComponent(data[k]));
-        }
-    }
-    return pairs.join('&');
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * middleware.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @function middlewareWrapper - A "Node" and "Redux" style middleware that is called just before
- * the request is made from the SDK. This allows you access to the request for modification.
- * @param request - A request object container of the URL and the Request Init object
- * @param action - The action object that is passed into the middleware communicating intent
- * @param action.type - A "Redux" style type that contains the serialized action
- * @param action.payload - The payload of the action that can contain metadata
- * @returns {function} - Function that takes middleware parameter & runs middleware against request
- */
-function middlewareWrapper(request, 
-// eslint-disable-next-line
-{ type, payload }) {
-    // no mutation and no reassignment
-    const actionCopy = Object.freeze({ type, payload });
-    return (middleware) => {
-        if (!Array.isArray(middleware)) {
-            return request;
-        }
-        // Copy middleware so the `shift` below doesn't mutate source
-        const mwareCopy = middleware.map((fn) => fn);
-        function iterator() {
-            const nextMiddlewareToBeCalled = mwareCopy.shift();
-            nextMiddlewareToBeCalled && nextMiddlewareToBeCalled(request, actionCopy, iterator);
-            return request;
-        }
-        return iterator();
-    };
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides direct access to the OpenAM authentication tree API.
- */
-class Auth {
-    /**
-     * Gets the next step in the authentication tree.
-     *
-     * @param {Step} previousStep The previous step, including any required input.
-     * @param {StepOptions} options Configuration default overrides.
-     * @return {Step} The next step in the authentication tree.
-     */
-    static async next(previousStep, options) {
-        const { middleware, realmPath, serverConfig, tree, type } = Config.get(options);
-        const query = options ? options.query : {};
-        const url = this.constructUrl(serverConfig, realmPath, tree, query);
-        const runMiddleware = middlewareWrapper({
-            url: new URL(url),
-            init: this.configureRequest(previousStep),
-        }, {
-            type: previousStep ? ActionTypes.Authenticate : ActionTypes.StartAuthenticate,
-            payload: {
-                tree,
-                type: type ? type : 'service',
-            },
-        });
-        const req = runMiddleware(middleware);
-        const res = await withTimeout(fetch(req.url.toString(), req.init), serverConfig.timeout);
-        const json = await this.getResponseJson(res);
-        return json;
-    }
-    static constructUrl(serverConfig, realmPath, tree, query) {
-        const treeParams = tree ? { authIndexType: 'service', authIndexValue: tree } : undefined;
-        const params = { ...query, ...treeParams };
-        const queryString = Object.keys(params).length > 0 ? `?${stringify(params)}` : '';
-        const path = getEndpointPath('authenticate', realmPath, serverConfig.paths);
-        const url = resolve(serverConfig.baseUrl, `${path}${queryString}`);
-        return url;
-    }
-    static configureRequest(step) {
-        const init = {
-            body: step ? JSON.stringify(step) : undefined,
-            credentials: 'include',
-            headers: new Headers({
-                Accept: 'application/json',
-                'Accept-API-Version': 'protocol=1.0,resource=2.1',
-                'Content-Type': 'application/json',
-                'X-Requested-With': REQUESTED_WITH,
-            }),
-            method: 'POST',
-        };
-        return init;
-    }
-    static async getResponseJson(res) {
-        const contentType = res.headers.get('content-type');
-        const isJson = contentType && contentType.indexOf('application/json') > -1;
-        const json = isJson ? await res.json() : {};
-        json.status = res.status;
-        json.ok = res.ok;
-        return json;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Known errors that can occur during authentication.
- */
-var ErrorCode;
-(function (ErrorCode) {
-    ErrorCode["BadRequest"] = "BAD_REQUEST";
-    ErrorCode["Timeout"] = "TIMEOUT";
-    ErrorCode["Unauthorized"] = "UNAUTHORIZED";
-    ErrorCode["Unknown"] = "UNKNOWN";
-})(ErrorCode || (ErrorCode = {}));
-/**
- * Types of callbacks directly supported by the SDK.
- */
-var CallbackType;
-(function (CallbackType) {
-    CallbackType["BooleanAttributeInputCallback"] = "BooleanAttributeInputCallback";
-    CallbackType["ChoiceCallback"] = "ChoiceCallback";
-    CallbackType["ConfirmationCallback"] = "ConfirmationCallback";
-    CallbackType["DeviceProfileCallback"] = "DeviceProfileCallback";
-    CallbackType["HiddenValueCallback"] = "HiddenValueCallback";
-    CallbackType["KbaCreateCallback"] = "KbaCreateCallback";
-    CallbackType["MetadataCallback"] = "MetadataCallback";
-    CallbackType["NameCallback"] = "NameCallback";
-    CallbackType["NumberAttributeInputCallback"] = "NumberAttributeInputCallback";
-    CallbackType["PasswordCallback"] = "PasswordCallback";
-    CallbackType["PollingWaitCallback"] = "PollingWaitCallback";
-    CallbackType["ReCaptchaCallback"] = "ReCaptchaCallback";
-    CallbackType["RedirectCallback"] = "RedirectCallback";
-    CallbackType["SelectIdPCallback"] = "SelectIdPCallback";
-    CallbackType["StringAttributeInputCallback"] = "StringAttributeInputCallback";
-    CallbackType["SuspendedTextOutputCallback"] = "SuspendedTextOutputCallback";
-    CallbackType["TermsAndConditionsCallback"] = "TermsAndConditionsCallback";
-    CallbackType["TextInputCallback"] = "TextInputCallback";
-    CallbackType["TextOutputCallback"] = "TextOutputCallback";
-    CallbackType["ValidatedCreatePasswordCallback"] = "ValidatedCreatePasswordCallback";
-    CallbackType["ValidatedCreateUsernameCallback"] = "ValidatedCreateUsernameCallback";
-})(CallbackType || (CallbackType = {}));
-
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-var PolicyKey;
-(function (PolicyKey) {
-    PolicyKey["CannotContainCharacters"] = "CANNOT_CONTAIN_CHARACTERS";
-    PolicyKey["CannotContainDuplicates"] = "CANNOT_CONTAIN_DUPLICATES";
-    PolicyKey["CannotContainOthers"] = "CANNOT_CONTAIN_OTHERS";
-    PolicyKey["LeastCapitalLetters"] = "AT_LEAST_X_CAPITAL_LETTERS";
-    PolicyKey["LeastNumbers"] = "AT_LEAST_X_NUMBERS";
-    PolicyKey["MatchRegexp"] = "MATCH_REGEXP";
-    PolicyKey["MaximumLength"] = "MAX_LENGTH";
-    PolicyKey["MaximumNumber"] = "MAXIMUM_NUMBER_VALUE";
-    PolicyKey["MinimumLength"] = "MIN_LENGTH";
-    PolicyKey["MinimumNumber"] = "MINIMUM_NUMBER_VALUE";
-    PolicyKey["Required"] = "REQUIRED";
-    PolicyKey["Unique"] = "UNIQUE";
-    PolicyKey["UnknownPolicy"] = "UNKNOWN_POLICY";
-    PolicyKey["ValidArrayItems"] = "VALID_ARRAY_ITEMS";
-    PolicyKey["ValidDate"] = "VALID_DATE";
-    PolicyKey["ValidEmailAddress"] = "VALID_EMAIL_ADDRESS_FORMAT";
-    PolicyKey["ValidNameFormat"] = "VALID_NAME_FORMAT";
-    PolicyKey["ValidNumber"] = "VALID_NUMBER";
-    PolicyKey["ValidPhoneFormat"] = "VALID_PHONE_FORMAT";
-    PolicyKey["ValidQueryFilter"] = "VALID_QUERY_FILTER";
-    PolicyKey["ValidType"] = "VALID_TYPE";
-})(PolicyKey || (PolicyKey = {}));
-
-/*
- * @forgerock/javascript-sdk
- *
- * strings.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @module
- * @ignore
- * These are private utility functions
- */
-function plural(n, singularText, pluralText) {
-    if (n === 1) {
-        return singularText;
-    }
-    return pluralText !== undefined ? pluralText : singularText + 's';
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * helpers.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-function getProp(obj, prop, defaultValue) {
-    if (!obj || obj[prop] === undefined) {
-        return defaultValue;
-    }
-    return obj[prop];
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * message-creator.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-const defaultMessageCreator = {
-    [PolicyKey.CannotContainCharacters]: (property, params) => {
-        const forbiddenChars = getProp(params, 'forbiddenChars', '');
-        return `${property} must not contain following characters: "${forbiddenChars}"`;
-    },
-    [PolicyKey.CannotContainDuplicates]: (property, params) => {
-        const duplicateValue = getProp(params, 'duplicateValue', '');
-        return `${property}  must not contain duplicates: "${duplicateValue}"`;
-    },
-    [PolicyKey.CannotContainOthers]: (property, params) => {
-        const disallowedFields = getProp(params, 'disallowedFields', '');
-        return `${property} must not contain: "${disallowedFields}"`;
-    },
-    [PolicyKey.LeastCapitalLetters]: (property, params) => {
-        const numCaps = getProp(params, 'numCaps', 0);
-        return `${property} must contain at least ${numCaps} capital ${plural(numCaps, 'letter')}`;
-    },
-    [PolicyKey.LeastNumbers]: (property, params) => {
-        const numNums = getProp(params, 'numNums', 0);
-        return `${property} must contain at least ${numNums} numeric ${plural(numNums, 'value')}`;
-    },
-    [PolicyKey.MatchRegexp]: (property) => `${property} has failed the "MATCH_REGEXP" policy`,
-    [PolicyKey.MaximumLength]: (property, params) => {
-        const maxLength = getProp(params, 'maxLength', 0);
-        return `${property} must be at most ${maxLength} ${plural(maxLength, 'character')}`;
-    },
-    [PolicyKey.MaximumNumber]: (property) => `${property} has failed the "MAXIMUM_NUMBER_VALUE" policy`,
-    [PolicyKey.MinimumLength]: (property, params) => {
-        const minLength = getProp(params, 'minLength', 0);
-        return `${property} must be at least ${minLength} ${plural(minLength, 'character')}`;
-    },
-    [PolicyKey.MinimumNumber]: (property) => `${property} has failed the "MINIMUM_NUMBER_VALUE" policy`,
-    [PolicyKey.Required]: (property) => `${property} is required`,
-    [PolicyKey.Unique]: (property) => `${property} must be unique`,
-    [PolicyKey.UnknownPolicy]: (property, params) => {
-        const policyRequirement = getProp(params, 'policyRequirement', 'Unknown');
-        return `${property}: Unknown policy requirement "${policyRequirement}"`;
-    },
-    [PolicyKey.ValidArrayItems]: (property) => `${property} has failed the "VALID_ARRAY_ITEMS" policy`,
-    [PolicyKey.ValidDate]: (property) => `${property} has an invalid date`,
-    [PolicyKey.ValidEmailAddress]: (property) => `${property} has an invalid email address`,
-    [PolicyKey.ValidNameFormat]: (property) => `${property} has an invalid name format`,
-    [PolicyKey.ValidNumber]: (property) => `${property} has an invalid number`,
-    [PolicyKey.ValidPhoneFormat]: (property) => `${property} has an invalid phone number`,
-    [PolicyKey.ValidQueryFilter]: (property) => `${property} has failed the "VALID_QUERY_FILTER" policy`,
-    [PolicyKey.ValidType]: (property) => `${property} has failed the "VALID_TYPE" policy`,
+  }
+  static async getResponseJson(t) {
+    const e = t.headers.get("content-type"), n = e && e.indexOf("application/json") > -1 ? await t.json() : {};
+    return n.status = t.status, n.ok = t.ok, n;
+  }
 };
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Utility for processing policy failures into human readable messages.
- *
- * Example:
- *
- * ```js
- * // Create message overrides and extensions as needed
- * const messageCreator = {
- *   [PolicyKey.unique]: (property: string) => (
- *     `this is a custom message for "UNIQUE" policy of ${property}`
- *   ),
- *   CUSTOM_POLICY: (property: string, params: any) => (
- *     `this is a custom message for "${params.policyRequirement}" policy of ${property}`
- *   ),
- * };
- *
- * const thisStep = await FRAuth.next(previousStep);
- *
- * if (thisStep.type === StepType.LoginFailure) {
- *   const messagesStepMethod = thisStep.getProcessedMessage(messageCreator);
- *   const messagesClassMethod = FRPolicy.parseErrors(thisStep, messageCreator)
- * }
- */
-class FRPolicy {
-    /**
-     * Parses policy errors and generates human readable error messages.
-     *
-     * @param {Step} err The step containing the error.
-     * @param {MessageCreator} messageCreator
-     * Extensible and overridable custom error messages for policy failures.
-     * @return {ProcessedPropertyError[]} Array of objects containing all processed policy errors.
-     */
-    static parseErrors(err, messageCreator) {
-        const errors = [];
-        if (err.detail && err.detail.failedPolicyRequirements) {
-            err.detail.failedPolicyRequirements.map((x) => {
-                errors.push.apply(errors, [
-                    {
-                        detail: x,
-                        messages: this.parseFailedPolicyRequirement(x, messageCreator),
-                    },
-                ]);
-            });
+var l = /* @__PURE__ */ ((a) => (a.BooleanAttributeInputCallback = "BooleanAttributeInputCallback", a.ChoiceCallback = "ChoiceCallback", a.ConfirmationCallback = "ConfirmationCallback", a.DeviceProfileCallback = "DeviceProfileCallback", a.HiddenValueCallback = "HiddenValueCallback", a.KbaCreateCallback = "KbaCreateCallback", a.MetadataCallback = "MetadataCallback", a.NameCallback = "NameCallback", a.NumberAttributeInputCallback = "NumberAttributeInputCallback", a.PasswordCallback = "PasswordCallback", a.PingOneProtectEvaluationCallback = "PingOneProtectEvaluationCallback", a.PingOneProtectInitializeCallback = "PingOneProtectInitializeCallback", a.PollingWaitCallback = "PollingWaitCallback", a.ReCaptchaCallback = "ReCaptchaCallback", a.RedirectCallback = "RedirectCallback", a.SelectIdPCallback = "SelectIdPCallback", a.StringAttributeInputCallback = "StringAttributeInputCallback", a.SuspendedTextOutputCallback = "SuspendedTextOutputCallback", a.TermsAndConditionsCallback = "TermsAndConditionsCallback", a.TextInputCallback = "TextInputCallback", a.TextOutputCallback = "TextOutputCallback", a.ValidatedCreatePasswordCallback = "ValidatedCreatePasswordCallback", a.ValidatedCreateUsernameCallback = "ValidatedCreateUsernameCallback", a))(l || {});
+
+var _$4 = /* @__PURE__ */ ((A) => (A.CannotContainCharacters = "CANNOT_CONTAIN_CHARACTERS", A.CannotContainDuplicates = "CANNOT_CONTAIN_DUPLICATES", A.CannotContainOthers = "CANNOT_CONTAIN_OTHERS", A.LeastCapitalLetters = "AT_LEAST_X_CAPITAL_LETTERS", A.LeastNumbers = "AT_LEAST_X_NUMBERS", A.MatchRegexp = "MATCH_REGEXP", A.MaximumLength = "MAX_LENGTH", A.MaximumNumber = "MAXIMUM_NUMBER_VALUE", A.MinimumLength = "MIN_LENGTH", A.MinimumNumber = "MINIMUM_NUMBER_VALUE", A.Required = "REQUIRED", A.Unique = "UNIQUE", A.UnknownPolicy = "UNKNOWN_POLICY", A.ValidArrayItems = "VALID_ARRAY_ITEMS", A.ValidDate = "VALID_DATE", A.ValidEmailAddress = "VALID_EMAIL_ADDRESS_FORMAT", A.ValidNameFormat = "VALID_NAME_FORMAT", A.ValidNumber = "VALID_NUMBER", A.ValidPhoneFormat = "VALID_PHONE_FORMAT", A.ValidQueryFilter = "VALID_QUERY_FILTER", A.ValidType = "VALID_TYPE", A))(_$4 || {});
+
+function f$2(o, r, n) {
+  return o === 1 ? r : n !== void 0 ? n : r + "s";
+}
+
+function n$2(r, t, e) {
+  return !r || r[t] === void 0 ? e : r[t];
+}
+
+const u$3 = {
+  [_$4.CannotContainCharacters]: (a, n) => {
+    const t = n$2(n, "forbiddenChars", "");
+    return `${a} must not contain following characters: "${t}"`;
+  },
+  [_$4.CannotContainDuplicates]: (a, n) => {
+    const t = n$2(n, "duplicateValue", "");
+    return `${a}  must not contain duplicates: "${t}"`;
+  },
+  [_$4.CannotContainOthers]: (a, n) => {
+    const t = n$2(n, "disallowedFields", "");
+    return `${a} must not contain: "${t}"`;
+  },
+  [_$4.LeastCapitalLetters]: (a, n) => {
+    const t = n$2(n, "numCaps", 0);
+    return `${a} must contain at least ${t} capital ${f$2(t, "letter")}`;
+  },
+  [_$4.LeastNumbers]: (a, n) => {
+    const t = n$2(n, "numNums", 0);
+    return `${a} must contain at least ${t} numeric ${f$2(t, "value")}`;
+  },
+  [_$4.MatchRegexp]: (a) => `${a} has failed the "MATCH_REGEXP" policy`,
+  [_$4.MaximumLength]: (a, n) => {
+    const t = n$2(n, "maxLength", 0);
+    return `${a} must be at most ${t} ${f$2(t, "character")}`;
+  },
+  [_$4.MaximumNumber]: (a) => `${a} has failed the "MAXIMUM_NUMBER_VALUE" policy`,
+  [_$4.MinimumLength]: (a, n) => {
+    const t = n$2(n, "minLength", 0);
+    return `${a} must be at least ${t} ${f$2(t, "character")}`;
+  },
+  [_$4.MinimumNumber]: (a) => `${a} has failed the "MINIMUM_NUMBER_VALUE" policy`,
+  [_$4.Required]: (a) => `${a} is required`,
+  [_$4.Unique]: (a) => `${a} must be unique`,
+  [_$4.UnknownPolicy]: (a, n) => {
+    const t = n$2(n, "policyRequirement", "Unknown");
+    return `${a}: Unknown policy requirement "${t}"`;
+  },
+  [_$4.ValidArrayItems]: (a) => `${a} has failed the "VALID_ARRAY_ITEMS" policy`,
+  [_$4.ValidDate]: (a) => `${a} has an invalid date`,
+  [_$4.ValidEmailAddress]: (a) => `${a} has an invalid email address`,
+  [_$4.ValidNameFormat]: (a) => `${a} has an invalid name format`,
+  [_$4.ValidNumber]: (a) => `${a} has an invalid number`,
+  [_$4.ValidPhoneFormat]: (a) => `${a} has an invalid phone number`,
+  [_$4.ValidQueryFilter]: (a) => `${a} has failed the "VALID_QUERY_FILTER" policy`,
+  [_$4.ValidType]: (a) => `${a} has failed the "VALID_TYPE" policy`
+};
+
+let y$1 = class y {
+  /**
+   * Parses policy errors and generates human readable error messages.
+   *
+   * @param {Step} err The step containing the error.
+   * @param {MessageCreator} messageCreator
+   * Extensible and overridable custom error messages for policy failures.
+   * @return {ProcessedPropertyError[]} Array of objects containing all processed policy errors.
+   */
+  static parseErrors(e, r) {
+    const s = [];
+    return e.detail && e.detail.failedPolicyRequirements && e.detail.failedPolicyRequirements.map((t) => {
+      s.push.apply(s, [
+        {
+          detail: t,
+          messages: this.parseFailedPolicyRequirement(t, r)
         }
-        return errors;
+      ]);
+    }), s;
+  }
+  /**
+   * Parses a failed policy and returns a string array of error messages.
+   *
+   * @param {FailedPolicyRequirement} failedPolicy The detail data of the failed policy.
+   * @param {MessageCreator} customMessage
+   * Extensible and overridable custom error messages for policy failures.
+   * @return {string[]} Array of strings with all processed policy errors.
+   */
+  static parseFailedPolicyRequirement(e, r) {
+    const s = [];
+    return e.policyRequirements.map((t) => {
+      s.push(
+        this.parsePolicyRequirement(e.property, t, r)
+      );
+    }), s;
+  }
+  /**
+   * Parses a policy error into a human readable error message.
+   *
+   * @param {string} property The property with the policy failure.
+   * @param {PolicyRequirement} policy The policy failure data.
+   * @param {MessageCreator} customMessage
+   * Extensible and overridable custom error messages for policy failures.
+   * @return {string} Human readable error message.
+   */
+  static parsePolicyRequirement(e, r, s = {}) {
+    const t = typeof r == "string" ? JSON.parse(r) : { ...r }, a = t.policyRequirement, o = s[a] || u$3[a] || u$3[_$4.UnknownPolicy], c = t.params ? { ...t.params, policyRequirement: a } : { policyRequirement: a };
+    return o(e, c);
+  }
+};
+
+var r$a = /* @__PURE__ */ ((i) => (i.LoginFailure = "LoginFailure", i.LoginSuccess = "LoginSuccess", i.Step = "Step", i))(r$a || {});
+
+let i$9 = class i {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    this.payload = e, this.type = r$a.LoginFailure;
+  }
+  /**
+   * Gets the error code.
+   */
+  getCode() {
+    return Number(this.payload.code);
+  }
+  /**
+   * Gets the failure details.
+   */
+  getDetail() {
+    return this.payload.detail;
+  }
+  /**
+   * Gets the failure message.
+   */
+  getMessage() {
+    return this.payload.message;
+  }
+  /**
+   * Gets processed failure message.
+   */
+  getProcessedMessage(e) {
+    return y$1.parseErrors(this.payload, e);
+  }
+  /**
+   * Gets the failure reason.
+   */
+  getReason() {
+    return this.payload.reason;
+  }
+};
+
+let r$9 = class r {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    this.payload = e, this.type = r$a.LoginSuccess;
+  }
+  /**
+   * Gets the step's realm.
+   */
+  getRealm() {
+    return this.payload.realm;
+  }
+  /**
+   * Gets the step's session token.
+   */
+  getSessionToken() {
+    return this.payload.tokenId;
+  }
+  /**
+   * Gets the step's success URL.
+   */
+  getSuccessUrl() {
+    return this.payload.successUrl;
+  }
+};
+
+let r$8 = class r {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    this.payload = e;
+  }
+  /**
+   * Gets the name of this callback type.
+   */
+  getType() {
+    return this.payload.type;
+  }
+  /**
+   * Gets the value of the specified input element, or the first element if `selector` is not
+   * provided.
+   *
+   * @param selector The index position or name of the desired element
+   */
+  getInputValue(e = 0) {
+    return this.getArrayElement(this.payload.input, e).value;
+  }
+  /**
+   * Sets the value of the specified input element, or the first element if `selector` is not
+   * provided.
+   *
+   * @param selector The index position or name of the desired element
+   */
+  setInputValue(e, t = 0) {
+    this.getArrayElement(this.payload.input, t).value = e;
+  }
+  /**
+   * Gets the value of the specified output element, or the first element if `selector`
+   * is not provided.
+   *
+   * @param selector The index position or name of the desired element
+   */
+  getOutputValue(e = 0) {
+    return this.getArrayElement(this.payload.output, e).value;
+  }
+  /**
+   * Gets the value of the first output element with the specified name or the
+   * specified default value.
+   *
+   * @param name The name of the desired element
+   */
+  getOutputByName(e, t) {
+    const n = this.payload.output.find((a) => a.name === e);
+    return n ? n.value : t;
+  }
+  getArrayElement(e, t = 0) {
+    if (e === void 0)
+      throw new Error(`No NameValue array was provided to search (selector ${t})`);
+    if (typeof t == "number") {
+      if (t < 0 || t > e.length - 1)
+        throw new Error(`Selector index ${t} is out of range`);
+      return e[t];
     }
-    /**
-     * Parses a failed policy and returns a string array of error messages.
-     *
-     * @param {FailedPolicyRequirement} failedPolicy The detail data of the failed policy.
-     * @param {MessageCreator} customMessage
-     * Extensible and overridable custom error messages for policy failures.
-     * @return {string[]} Array of strings with all processed policy errors.
-     */
-    static parseFailedPolicyRequirement(failedPolicy, messageCreator) {
-        const errors = [];
-        failedPolicy.policyRequirements.map((policyRequirement) => {
-            errors.push(this.parsePolicyRequirement(failedPolicy.property, policyRequirement, messageCreator));
-        });
-        return errors;
+    if (typeof t == "string") {
+      const n = e.find((a) => a.name === t);
+      if (!n)
+        throw new Error(`Missing callback input entry "${t}"`);
+      return n;
     }
-    /**
-     * Parses a policy error into a human readable error message.
-     *
-     * @param {string} property The property with the policy failure.
-     * @param {PolicyRequirement} policy The policy failure data.
-     * @param {MessageCreator} customMessage
-     * Extensible and overridable custom error messages for policy failures.
-     * @return {string} Human readable error message.
-     */
-    static parsePolicyRequirement(property, policy, messageCreator = {}) {
-        // AM is returning policy requirement failures as JSON strings
-        const policyObject = typeof policy === 'string' ? JSON.parse(policy) : { ...policy };
-        const policyRequirement = policyObject.policyRequirement;
-        // Determine which message creator function to use
-        const effectiveMessageCreator = messageCreator[policyRequirement] ||
-            defaultMessageCreator[policyRequirement] ||
-            defaultMessageCreator[PolicyKey.UnknownPolicy];
-        // Flatten the parameters and create the message
-        const params = policyObject.params
-            ? { ...policyObject.params, policyRequirement }
-            : { policyRequirement };
-        const message = effectiveMessageCreator(property, params);
-        return message;
+    if (typeof t == "object" && t.test && t.exec) {
+      const n = e.find((a) => t.test(a.name));
+      if (!n)
+        throw new Error(`Missing callback input entry "${t}"`);
+      return n;
     }
+    throw new Error("Invalid selector value type");
+  }
+};
+
+let s$4 = class s extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    super(e), this.payload = e;
+  }
+  /**
+   * Gets the attribute name.
+   */
+  getName() {
+    return this.getOutputByName("name", "");
+  }
+  /**
+   * Gets the attribute prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Gets whether the attribute is required.
+   */
+  isRequired() {
+    return this.getOutputByName("required", !1);
+  }
+  /**
+   * Gets the callback's failed policies.
+   */
+  getFailedPolicies() {
+    const e = this.getOutputByName(
+      "failedPolicies",
+      []
+    );
+    try {
+      return e.map((t) => JSON.parse(t));
+    } catch {
+      throw new Error(
+        'Unable to parse "failed policies" from the ForgeRock server. The JSON within `AttributeInputCallback` was either malformed or missing.'
+      );
+    }
+  }
+  /**
+   * Gets the callback's applicable policies.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getPolicies() {
+    return this.getOutputByName("policies", {});
+  }
+  /**
+   * Set if validating value only.
+   */
+  setValidateOnly(e) {
+    this.setInputValue(e, /validateOnly/);
+  }
+  /**
+   * Sets the attribute's value.
+   */
+  setValue(e) {
+    this.setInputValue(e);
+  }
+};
+
+class h extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the choice's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Gets the choice's default answer.
+   */
+  getDefaultChoice() {
+    return this.getOutputByName("defaultChoice", 0);
+  }
+  /**
+   * Gets the choice's possible answers.
+   */
+  getChoices() {
+    return this.getOutputByName("choices", []);
+  }
+  /**
+   * Sets the choice's answer by index position.
+   */
+  setChoiceIndex(t) {
+    const e = this.getChoices().length;
+    if (t < 0 || t > e - 1)
+      throw new Error(`${t} is out of bounds`);
+    this.setInputValue(t);
+  }
+  /**
+   * Sets the choice's answer by value.
+   */
+  setChoiceValue(t) {
+    const e = this.getChoices().indexOf(t);
+    if (e === -1)
+      throw new Error(`"${t}" is not a valid choice`);
+    this.setInputValue(e);
+  }
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Types of steps returned by the authentication tree.
- */
-var StepType;
-(function (StepType) {
-    StepType["LoginFailure"] = "LoginFailure";
-    StepType["LoginSuccess"] = "LoginSuccess";
-    StepType["Step"] = "Step";
-})(StepType || (StepType = {}));
+let i$8 = class i extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the index position of the confirmation's default answer.
+   */
+  getDefaultOption() {
+    return Number(this.getOutputByName("defaultOption", 0));
+  }
+  /**
+   * Gets the confirmation's message type.
+   */
+  getMessageType() {
+    return Number(this.getOutputByName("messageType", 0));
+  }
+  /**
+   * Gets the confirmation's possible answers.
+   */
+  getOptions() {
+    return this.getOutputByName("options", []);
+  }
+  /**
+   * Gets the confirmation's option type.
+   */
+  getOptionType() {
+    return Number(this.getOutputByName("optionType", 0));
+  }
+  /**
+   * Gets the confirmation's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Set option index.
+   */
+  setOptionIndex(t) {
+    if (t !== 0 && t !== 1)
+      throw new Error(`"${t}" is not a valid choice`);
+    this.setInputValue(t);
+  }
+  /**
+   * Set option value.
+   */
+  setOptionValue(t) {
+    const e = this.getOptions().indexOf(t);
+    if (e === -1)
+      throw new Error(`"${t}" is not a valid choice`);
+    this.setInputValue(e);
+  }
+};
 
-/*
- * @forgerock/javascript-sdk
- *
- * fr-login-failure.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-class FRLoginFailure {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        this.payload = payload;
-        /**
-         * The type of step.
-         */
-        this.type = StepType.LoginFailure;
+let i$7 = class i extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    super(e), this.payload = e;
+  }
+  /**
+   * Gets the callback's data.
+   */
+  getMessage() {
+    return this.getOutputByName("message", "");
+  }
+  /**
+   * Does callback require metadata?
+   */
+  isMetadataRequired() {
+    return this.getOutputByName("metadata", !1);
+  }
+  /**
+   * Does callback require location data?
+   */
+  isLocationRequired() {
+    return this.getOutputByName("location", !1);
+  }
+  /**
+   * Sets the profile.
+   */
+  setProfile(e) {
+    this.setInputValue(JSON.stringify(e));
+  }
+};
+
+let t$2 = class t extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(a) {
+    super(a), this.payload = a;
+  }
+};
+
+let u$2 = class u extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Gets the callback's list of pre-defined security questions.
+   */
+  getPredefinedQuestions() {
+    return this.getOutputByName("predefinedQuestions", []);
+  }
+  /**
+   * Sets the callback's security question.
+   */
+  setQuestion(t) {
+    this.setValue("question", t);
+  }
+  /**
+   * Sets the callback's security question answer.
+   */
+  setAnswer(t) {
+    this.setValue("answer", t);
+  }
+  setValue(t, s) {
+    if (!this.payload.input)
+      throw new Error("KBA payload is missing input");
+    const e = this.payload.input.find((i) => i.name.endsWith(t));
+    if (!e)
+      throw new Error(`No input has name ending in "${t}"`);
+    e.value = s;
+  }
+};
+
+let s$3 = class s extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback's data.
+   */
+  getData() {
+    return this.getOutputByName("data", {});
+  }
+};
+
+let r$7 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Sets the username.
+   */
+  setName(t) {
+    this.setInputValue(t);
+  }
+};
+
+let r$6 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback's failed policies.
+   */
+  getFailedPolicies() {
+    return this.getOutputByName("failedPolicies", []);
+  }
+  /**
+   * Gets the callback's applicable policies.
+   */
+  getPolicies() {
+    return this.getOutputByName("policies", []);
+  }
+  /**
+   * Gets the callback's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Sets the password.
+   */
+  setPassword(t) {
+    this.setInputValue(t);
+  }
+};
+
+let r$5 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback's pauseBehavioralData value.
+   * @returns {boolean}
+   */
+  getPauseBehavioralData() {
+    return this.getOutputByName("pauseBehavioralData", !1);
+  }
+  /**
+   * @method setData - Set the result of data collection
+   * @param {string} data - Data from calling pingProtect.get()
+   * @returns {void}
+   */
+  setData(t) {
+    this.setInputValue(t, /signals/);
+  }
+  /**
+   * @method setClientError - Set the client error message
+   * @param {string} errorMessage - Error message
+   * @returns {void}
+   */
+  setClientError(t) {
+    this.setInputValue(t, /clientError/);
+  }
+};
+
+let i$6 = class i extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Get callback's initialization config settings
+   */
+  getConfig() {
+    return {
+      envId: this.getOutputByName("envId", ""),
+      consoleLogEnabled: this.getOutputByName("consoleLogEnabled", !1),
+      deviceAttributesToIgnore: this.getOutputByName("deviceAttributesToIgnore", []),
+      customHost: this.getOutputByName("customHost", ""),
+      lazyMetadata: this.getOutputByName("lazyMetadata", !1),
+      behavioralDataCollection: this.getOutputByName("behavioralDataCollection", !0),
+      deviceKeyRsyncIntervals: this.getOutputByName("deviceKeyRsyncIntervals", 14),
+      enableTrust: this.getOutputByName("enableTrust", !1),
+      disableTags: this.getOutputByName("disableTags", !1),
+      disableHub: this.getOutputByName("disableHub", !1)
+    };
+  }
+  setClientError(t) {
+    this.setInputValue(t, /clientError/);
+  }
+};
+
+let r$4 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the message to display while polling.
+   */
+  getMessage() {
+    return this.getOutputByName("message", "");
+  }
+  /**
+   * Gets the polling interval in milliseconds.
+   */
+  getWaitTime() {
+    return Number(this.getOutputByName("waitTime", 0));
+  }
+};
+
+let r$3 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the reCAPTCHA site key.
+   */
+  getSiteKey() {
+    return this.getOutputByName("recaptchaSiteKey", "");
+  }
+  /**
+   * Sets the reCAPTCHA result.
+   */
+  setResult(t) {
+    this.setInputValue(t);
+  }
+};
+
+let c$2 = class c extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the redirect URL.
+   */
+  getRedirectUrl() {
+    return this.getOutputByName("redirectUrl", "");
+  }
+};
+
+let d$2 = class d extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(r) {
+    super(r), this.payload = r;
+  }
+  /**
+   * Gets the available providers.
+   */
+  getProviders() {
+    return this.getOutputByName("providers", []);
+  }
+  /**
+   * Sets the provider by name.
+   */
+  setProvider(r) {
+    const t = this.getProviders().find((e) => e.provider === r);
+    if (!t)
+      throw new Error(`"${r}" is not a valid choice`);
+    this.setInputValue(t.provider);
+  }
+};
+
+let u$1 = class u extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    super(e), this.payload = e;
+  }
+  /**
+   * Gets the message content.
+   */
+  getMessage() {
+    return this.getOutputByName("message", "");
+  }
+  /**
+   * Gets the message type.
+   */
+  getMessageType() {
+    return this.getOutputByName("messageType", "");
+  }
+};
+
+let a$5 = class a extends u$1 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+};
+
+let a$4 = class a extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the terms and conditions content.
+   */
+  getTerms() {
+    return this.getOutputByName("terms", "");
+  }
+  /**
+   * Gets the version of the terms and conditions.
+   */
+  getVersion() {
+    return this.getOutputByName("version", "");
+  }
+  /**
+   * Gets the date of the terms and conditions.
+   */
+  getCreateDate() {
+    const t = this.getOutputByName("createDate", "");
+    return new Date(t);
+  }
+  /**
+   * Sets the callback's acceptance.
+   */
+  setAccepted(t = !0) {
+    this.setInputValue(t);
+  }
+};
+
+let r$2 = class r extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(t) {
+    super(t), this.payload = t;
+  }
+  /**
+   * Gets the callback's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Sets the callback's input value.
+   */
+  setInput(t) {
+    this.setInputValue(t);
+  }
+};
+
+let i$5 = class i extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    super(e), this.payload = e;
+  }
+  /**
+   * Gets the callback's failed policies.
+   */
+  getFailedPolicies() {
+    const e = this.getOutputByName(
+      "failedPolicies",
+      []
+    );
+    try {
+      return e.map((t) => JSON.parse(t));
+    } catch {
+      throw new Error(
+        'Unable to parse "failed policies" from the ForgeRock server. The JSON within `ValidatedCreatePasswordCallback` was either malformed or missing.'
+      );
     }
-    /**
-     * Gets the error code.
-     */
-    getCode() {
-        return Number(this.payload.code);
+  }
+  /**
+   * Gets the callback's applicable policies.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getPolicies() {
+    return this.getOutputByName("policies", {});
+  }
+  /**
+   * Gets the callback's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Gets whether the password is required.
+   */
+  isRequired() {
+    return this.getOutputByName("required", !1);
+  }
+  /**
+   * Sets the callback's password.
+   */
+  setPassword(e) {
+    this.setInputValue(e);
+  }
+  /**
+   * Set if validating value only.
+   */
+  setValidateOnly(e) {
+    this.setInputValue(e, /validateOnly/);
+  }
+};
+
+let s$2 = class s extends r$8 {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   */
+  constructor(e) {
+    super(e), this.payload = e;
+  }
+  /**
+   * Gets the callback's prompt.
+   */
+  getPrompt() {
+    return this.getOutputByName("prompt", "");
+  }
+  /**
+   * Gets the callback's failed policies.
+   */
+  getFailedPolicies() {
+    const e = this.getOutputByName(
+      "failedPolicies",
+      []
+    );
+    try {
+      return e.map((t) => JSON.parse(t));
+    } catch {
+      throw new Error(
+        'Unable to parse "failed policies" from the ForgeRock server. The JSON within `ValidatedCreateUsernameCallback` was either malformed or missing.'
+      );
     }
-    /**
-     * Gets the failure details.
-     */
-    getDetail() {
-        return this.payload.detail;
-    }
-    /**
-     * Gets the failure message.
-     */
-    getMessage() {
-        return this.payload.message;
-    }
-    /**
-     * Gets processed failure message.
-     */
-    getProcessedMessage(messageCreator) {
-        return FRPolicy.parseErrors(this.payload, messageCreator);
-    }
-    /**
-     * Gets the failure reason.
-     */
-    getReason() {
-        return this.payload.reason;
-    }
+  }
+  /**
+   * Gets the callback's applicable policies.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getPolicies() {
+    return this.getOutputByName("policies", {});
+  }
+  /**
+   * Gets whether the username is required.
+   */
+  isRequired() {
+    return this.getOutputByName("required", !1);
+  }
+  /**
+   * Sets the callback's username.
+   */
+  setName(e) {
+    this.setInputValue(e);
+  }
+  /**
+   * Set if validating value only.
+   */
+  setValidateOnly(e) {
+    this.setInputValue(e, /validateOnly/);
+  }
+};
+
+function L$1(e) {
+  switch (e.type) {
+    case l.BooleanAttributeInputCallback:
+      return new s$4(e);
+    case l.ChoiceCallback:
+      return new h(e);
+    case l.ConfirmationCallback:
+      return new i$8(e);
+    case l.DeviceProfileCallback:
+      return new i$7(e);
+    case l.HiddenValueCallback:
+      return new t$2(e);
+    case l.KbaCreateCallback:
+      return new u$2(e);
+    case l.MetadataCallback:
+      return new s$3(e);
+    case l.NameCallback:
+      return new r$7(e);
+    case l.NumberAttributeInputCallback:
+      return new s$4(e);
+    case l.PasswordCallback:
+      return new r$6(e);
+    case l.PingOneProtectEvaluationCallback:
+      return new r$5(e);
+    case l.PingOneProtectInitializeCallback:
+      return new i$6(e);
+    case l.PollingWaitCallback:
+      return new r$4(e);
+    case l.ReCaptchaCallback:
+      return new r$3(e);
+    case l.RedirectCallback:
+      return new c$2(e);
+    case l.SelectIdPCallback:
+      return new d$2(e);
+    case l.StringAttributeInputCallback:
+      return new s$4(e);
+    case l.SuspendedTextOutputCallback:
+      return new a$5(e);
+    case l.TermsAndConditionsCallback:
+      return new a$4(e);
+    case l.TextInputCallback:
+      return new r$2(e);
+    case l.TextOutputCallback:
+      return new u$1(e);
+    case l.ValidatedCreatePasswordCallback:
+      return new i$5(e);
+    case l.ValidatedCreateUsernameCallback:
+      return new s$2(e);
+    default:
+      return new r$8(e);
+  }
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * fr-login-success.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-class FRLoginSuccess {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        this.payload = payload;
-        /**
-         * The type of step.
-         */
-        this.type = StepType.LoginSuccess;
+let i$4 = class i {
+  /**
+   * @param payload The raw payload returned by OpenAM
+   * @param callbackFactory A function that returns am implementation of FRCallback
+   */
+  constructor(t, e) {
+    this.payload = t, this.type = r$a.Step, this.callbacks = [], t.callbacks && (this.callbacks = this.convertCallbacks(t.callbacks, e));
+  }
+  /**
+   * Gets the first callback of the specified type in this step.
+   *
+   * @param type The type of callback to find.
+   */
+  getCallbackOfType(t) {
+    const e = this.getCallbacksOfType(t);
+    if (e.length !== 1)
+      throw new Error(`Expected 1 callback of type "${t}", but found ${e.length}`);
+    return e[0];
+  }
+  /**
+   * Gets all callbacks of the specified type in this step.
+   *
+   * @param type The type of callback to find.
+   */
+  getCallbacksOfType(t) {
+    return this.callbacks.filter((e) => e.getType() === t);
+  }
+  /**
+   * Sets the value of the first callback of the specified type in this step.
+   *
+   * @param type The type of callback to find.
+   * @param value The value to set for the callback.
+   */
+  setCallbackValue(t, e) {
+    const a = this.getCallbacksOfType(t);
+    if (a.length !== 1)
+      throw new Error(`Expected 1 callback of type "${t}", but found ${a.length}`);
+    a[0].setInputValue(e);
+  }
+  /**
+   * Gets the step's description.
+   */
+  getDescription() {
+    return this.payload.description;
+  }
+  /**
+   * Gets the step's header.
+   */
+  getHeader() {
+    return this.payload.header;
+  }
+  /**
+   * Gets the step's stage.
+   */
+  getStage() {
+    return this.payload.stage;
+  }
+  convertCallbacks(t, e) {
+    return t.map((l) => (e || L$1)(l) || L$1(l));
+  }
+};
+
+let f$1 = class f {
+  static get previousStepKey() {
+    return `${c$3.get().prefix}-PreviousStep`;
+  }
+  /**
+   * Requests the next step in the authentication tree.
+   *
+   * Call `FRAuth.next()` recursively.  At each step, check for session token or error, otherwise
+   * populate the step's callbacks and call `next()` again.
+   *
+   * Example:
+   *
+   * ```js
+   * async function nextStep(previousStep) {
+   *   const thisStep = await FRAuth.next(previousStep);
+   *
+   *   switch (thisStep.type) {
+   *     case StepType.LoginSuccess:
+   *       const token = thisStep.getSessionToken();
+   *       break;
+   *     case StepType.LoginFailure:
+   *       const detail = thisStep.getDetail();
+   *       break;
+   *     case StepType.Step:
+   *       // Populate `thisStep` callbacks here, and then continue
+   *       thisStep.setInputValue('foo');
+   *       nextStep(thisStep);
+   *       break;
+   *   }
+   * }
+   * ```
+   *
+   * @param previousStep The previous step with its callback values populated
+   * @param options Configuration overrides
+   * @return The next step in the authentication tree
+   */
+  static async next(t, r) {
+    const e = await J$1.next(t ? t.payload : void 0, r);
+    if (e.authId) {
+      const a = r ? r.callbackFactory : void 0;
+      return new i$4(e, a);
     }
-    /**
-     * Gets the step's realm.
-     */
-    getRealm() {
-        return this.payload.realm;
+    return !e.authId && e.ok ? new r$9(e) : new i$9(e);
+  }
+  /**
+   * Redirects to the URL identified in the RedirectCallback and saves the full
+   * step information to localStorage for retrieval when user returns from login.
+   *
+   * Example:
+   * ```js
+   * forgerock.FRAuth.redirect(step);
+   * ```
+   */
+  static redirect(t) {
+    const e = t.getCallbackOfType(l.RedirectCallback).getRedirectUrl();
+    localStorage.setItem(this.previousStepKey, JSON.stringify(t)), location.assign(e);
+  }
+  /**
+   * Resumes a tree after returning from an external client or provider.
+   * Requires the full URL of the current window. It will parse URL for
+   * key-value pairs as well as, if required, retrieves previous step.
+   *
+   * Example;
+   * ```js
+   * forgerock.FRAuth.resume(window.location.href)
+   * ```
+   */
+  static async resume(t, r) {
+    const e = new URL(t), a = e.searchParams.get("code"), n = e.searchParams.get("error"), i = e.searchParams.get("errorCode"), m = e.searchParams.get("errorMessage"), s = e.searchParams.get("form_post_entry"), l = e.searchParams.get("nonce"), u = e.searchParams.get("RelayState"), c = e.searchParams.get("responsekey"), d = e.searchParams.get("scope"), o = e.searchParams.get("state"), g = e.searchParams.get("suspendedId"), h = e.searchParams.get("authIndexValue") ?? void 0;
+    let y;
+    function S() {
+      return a && o || s || c;
     }
-    /**
-     * Gets the step's session token.
-     */
-    getSessionToken() {
-        return this.payload.tokenId;
+    if (S()) {
+      const p = localStorage.getItem(this.previousStepKey);
+      if (!p)
+        throw new Error("Error: could not retrieve original redirect information.");
+      try {
+        y = JSON.parse(p);
+      } catch {
+        throw new Error("Error: could not parse redirect params or step information");
+      }
+      localStorage.removeItem(this.previousStepKey);
     }
-    /**
-     * Gets the step's success URL.
-     */
-    getSuccessUrl() {
-        return this.payload.successUrl;
-    }
+    const P = {
+      ...r,
+      query: {
+        // Conditionally spread properties into object. Don't spread props with undefined/null.
+        ...a && { code: a },
+        ...n && { error: n },
+        ...i && { errorCode: i },
+        ...m && { errorMessage: m },
+        ...s && { form_post_entry: s },
+        ...l && { nonce: l },
+        ...u && { RelayState: u },
+        ...c && { responsekey: c },
+        ...d && { scope: d },
+        ...o && { state: o },
+        ...g && { suspendedId: g },
+        // Allow developer to add or override params with their own.
+        ...r && r.query
+      },
+      ...((r == null ? void 0 : r.tree) ?? h) && {
+        tree: (r == null ? void 0 : r.tree) ?? h
+      }
+    };
+    return await this.next(y, P);
+  }
+  /**
+   * Requests the first step in the authentication tree.
+   * This is essentially an alias to calling FRAuth.next without a previous step.
+   *
+   * @param options Configuration overrides
+   * @return The next step in the authentication tree
+   */
+  static async start(t) {
+    return await f.next(void 0, t);
+  }
+};
+
+const o$3 = [
+  "userAgent",
+  "appName",
+  "appCodeName",
+  "appVersion",
+  "appMinorVersion",
+  "buildID",
+  "product",
+  "productSub",
+  "vendor",
+  "vendorSub",
+  "browserLanguage"
+], a$3 = [
+  "fontNames",
+  "displayProps",
+  "browserProps",
+  "hardwareProps",
+  "platformProps"
+], e$1 = 3e4, r$1 = {
+  mac: ["Macintosh", "MacIntel", "MacPPC", "Mac68K"],
+  windows: ["Win32", "Win64", "Windows", "WinCE"],
+  ios: ["iPhone", "iPad", "iPod"]
+}, n$1 = ["width", "height", "pixelDepth", "orientation.angle"], s$1 = [
+  "cursive",
+  "monospace",
+  "serif",
+  "sans-serif",
+  "fantasy",
+  "Arial",
+  "Arial Black",
+  "Arial Narrow",
+  "Arial Rounded MT Bold",
+  "Bookman Old Style",
+  "Bradley Hand ITC",
+  "Century",
+  "Century Gothic",
+  "Comic Sans MS",
+  "Courier",
+  "Courier New",
+  "Georgia",
+  "Gentium",
+  "Impact",
+  "King",
+  "Lucida Console",
+  "Lalit",
+  "Modena",
+  "Monotype Corsiva",
+  "Papyrus",
+  "Tahoma",
+  "TeX",
+  "Times",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+  "Verona"
+], i$3 = [
+  "cpuClass",
+  "deviceMemory",
+  "hardwareConcurrency",
+  "maxTouchPoints",
+  "oscpu"
+], t$1 = ["language", "platform", "userLanguage", "systemLanguage"];
+
+let p$2 = class p {
+  /**
+   * @method reduceToObject - goes one to two levels into source to collect attribute
+   * @param props - array of strings; can use dot notation for two level lookup
+   * @param src - source of attributes to check
+   */
+  // eslint-disable-next-line
+  reduceToObject(n, t) {
+    return n.reduce((e, o) => {
+      if (o.includes(".")) {
+        const l = o.split("."), d = l[0], i = l[1], s = t[d] && t[d][i];
+        e[i] = s ?? "";
+      } else
+        e[o] = t[o] != null ? t[o] : null;
+      return e;
+    }, {});
+  }
+  /**
+   * @method reduceToString - goes one level into source to collect attribute
+   * @param props - array of strings
+   * @param src - source of attributes to check
+   */
+  // eslint-disable-next-line
+  reduceToString(n, t) {
+    return n.reduce((e, o) => (e = `${e}${t[o].filename};`, e), "");
+  }
+};
+
+class t {
+  static enabled() {
+    const { logLevel: o } = c$3.get();
+    return {
+      none: 0,
+      error: 25,
+      warn: 50,
+      info: 75,
+      debug: 100
+    }[o];
+  }
+  static info(...o) {
+    const { logger: e } = c$3.get();
+    this.enabled() >= 50 && (e && e.info ? e.info(...o) : console.info(...o));
+  }
+  static warn(...o) {
+    const { logger: e } = c$3.get();
+    this.enabled() >= 50 && (e && e.warn ? e.warn(...o) : console.warn(...o));
+  }
+  static error(...o) {
+    const { logger: e } = c$3.get();
+    this.enabled() >= 25 && (e && e.error ? e.error(...o) : console.error(...o));
+  }
+  static log(...o) {
+    const { logger: e } = c$3.get();
+    this.enabled() >= 75 && (e && e.log ? e.log(...o) : console.log(...o));
+  }
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Base class for authentication tree callback wrappers.
- */
-class FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        this.payload = payload;
+let O$1 = class O extends p$2 {
+  constructor(t) {
+    super(), this.config = {
+      fontNames: s$1,
+      devicePlatforms: r$1,
+      displayProps: n$1,
+      browserProps: o$3,
+      hardwareProps: i$3,
+      platformProps: t$1
+    }, t && Object.keys(t).forEach((e) => {
+      if (!a$3.includes(e))
+        throw new Error("Device profile configuration category does not exist.");
+      this.config[e] = t[e];
+    });
+  }
+  getBrowserMeta() {
+    return typeof navigator > "u" ? (t.warn("Cannot collect browser metadata. navigator is not defined."), {}) : this.reduceToObject(this.config.browserProps, navigator);
+  }
+  getBrowserPluginsNames() {
+    return typeof navigator < "u" && navigator.plugins ? this.reduceToString(Object.keys(navigator.plugins), navigator.plugins) : (t.warn("Cannot collect browser plugin information. navigator.plugins is not defined."), "");
+  }
+  getDeviceName() {
+    if (typeof navigator > "u")
+      return t.warn("Cannot collect device name. navigator is not defined."), "";
+    const t$1 = navigator.userAgent, e = navigator.platform;
+    switch (!0) {
+      case this.config.devicePlatforms.mac.includes(e):
+        return "Mac (Browser)";
+      case this.config.devicePlatforms.ios.includes(e):
+        return `${e} (Browser)`;
+      case this.config.devicePlatforms.windows.includes(e):
+        return "Windows (Browser)";
+      case (/Android/.test(e) || /Android/.test(t$1)):
+        return "Android (Browser)";
+      case (/CrOS/.test(t$1) || /Chromebook/.test(t$1)):
+        return "Chrome OS (Browser)";
+      case /Linux/.test(e):
+        return "Linux (Browser)";
+      default:
+        return `${e || "Unknown"} (Browser)`;
     }
-    /**
-     * Gets the name of this callback type.
-     */
-    getType() {
-        return this.payload.type;
-    }
-    /**
-     * Gets the value of the specified input element, or the first element if `selector` is not
-     * provided.
-     *
-     * @param selector The index position or name of the desired element
-     */
-    getInputValue(selector = 0) {
-        return this.getArrayElement(this.payload.input, selector).value;
-    }
-    /**
-     * Sets the value of the specified input element, or the first element if `selector` is not
-     * provided.
-     *
-     * @param selector The index position or name of the desired element
-     */
-    setInputValue(value, selector = 0) {
-        this.getArrayElement(this.payload.input, selector).value = value;
-    }
-    /**
-     * Gets the value of the specified output element, or the first element if `selector`
-     * is not provided.
-     *
-     * @param selector The index position or name of the desired element
-     */
-    getOutputValue(selector = 0) {
-        return this.getArrayElement(this.payload.output, selector).value;
-    }
-    /**
-     * Gets the value of the first output element with the specified name or the
-     * specified default value.
-     *
-     * @param name The name of the desired element
-     */
-    getOutputByName(name, defaultValue) {
-        const output = this.payload.output.find((x) => x.name === name);
-        return output ? output.value : defaultValue;
-    }
-    getArrayElement(array, selector = 0) {
-        if (array === undefined) {
-            throw new Error(`No NameValue array was provided to search (selector ${selector})`);
+  }
+  getDisplayMeta() {
+    return typeof screen > "u" ? (t.warn("Cannot collect screen information. screen is not defined."), {}) : this.reduceToObject(this.config.displayProps, screen);
+  }
+  getHardwareMeta() {
+    return typeof navigator > "u" ? (t.warn("Cannot collect OS metadata. Navigator is not defined."), {}) : this.reduceToObject(this.config.hardwareProps, navigator);
+  }
+  getIdentifier() {
+    const t$1 = `${c$3.get().prefix}-DeviceID`;
+    if (!(typeof globalThis.crypto < "u" && globalThis.crypto.getRandomValues))
+      return t.warn("Cannot generate profile ID. Crypto and/or getRandomValues is not supported."), "";
+    if (!localStorage)
+      return t.warn("Cannot store profile ID. localStorage is not supported."), "";
+    let e = localStorage.getItem(t$1);
+    return e || (e = globalThis.crypto.getRandomValues(new Uint32Array(3)).join("-"), localStorage.setItem(t$1, e)), e;
+  }
+  getInstalledFonts() {
+    if (typeof document > "u")
+      return t.warn("Cannot collect font data. Global document object is undefined."), "";
+    const t$1 = document.createElement("canvas");
+    if (!t$1)
+      return t.warn("Cannot collect font data. Browser does not support canvas element"), "";
+    const e = t$1.getContext && t$1.getContext("2d");
+    if (!e)
+      return t.warn("Cannot collect font data. Browser does not support 2d canvas context"), "";
+    const o = "abcdefghi0123456789";
+    e.font = "72px Comic Sans";
+    const i = e.measureText(o).width;
+    return this.config.fontNames.reduce((r, a) => (e.font = `72px ${a}, Comic Sans`, e.measureText(o).width !== i && (r = `${r}${a};`), r), "");
+  }
+  async getLocationCoordinates() {
+    return typeof navigator < "u" && navigator.geolocation ? new Promise(async (t$1) => {
+      navigator.geolocation.getCurrentPosition(
+        (e) => t$1({
+          latitude: e.coords.latitude,
+          longitude: e.coords.longitude
+        }),
+        (e) => {
+          t.warn(
+            "Cannot collect geolocation information. " + e.code + ": " + e.message
+          ), t$1({});
+        },
+        {
+          enableHighAccuracy: !0,
+          timeout: e$1,
+          maximumAge: 0
         }
-        if (typeof selector === 'number') {
-            if (selector < 0 || selector > array.length - 1) {
-                throw new Error(`Selector index ${selector} is out of range`);
-            }
-            return array[selector];
+      );
+    }) : (t.warn(
+      "Cannot collect geolocation information. navigator.geolocation is not defined."
+    ), Promise.resolve({}));
+  }
+  getOSMeta() {
+    return typeof navigator > "u" ? (t.warn("Cannot collect OS metadata. navigator is not defined."), {}) : this.reduceToObject(this.config.platformProps, navigator);
+  }
+  async getProfile({ location: t, metadata: e }) {
+    const o = {
+      identifier: this.getIdentifier()
+    };
+    return e && (o.metadata = {
+      hardware: {
+        ...this.getHardwareMeta(),
+        display: this.getDisplayMeta()
+      },
+      browser: {
+        ...this.getBrowserMeta(),
+        plugins: this.getBrowserPluginsNames()
+      },
+      platform: {
+        ...this.getOSMeta(),
+        deviceName: this.getDeviceName(),
+        fonts: this.getInstalledFonts(),
+        timezone: this.getTimezoneOffset()
+      }
+    }), t && (o.location = await this.getLocationCoordinates()), o;
+  }
+  getTimezoneOffset() {
+    try {
+      return (/* @__PURE__ */ new Date()).getTimezoneOffset();
+    } catch {
+      return t.warn("Cannot collect timezone information. getTimezoneOffset is not defined."), null;
+    }
+  }
+};
+
+let i$2 = class i {
+  /**
+   * @method isQRCodeStep - determines if step contains QR Code callbacks
+   * @param {FRStep} step - step object from AM response
+   * @returns {boolean}
+   */
+  static isQRCodeStep(s) {
+    const t = s.getCallbacksOfType(l.HiddenValueCallback);
+    return t.length === 0 ? !1 : !!this.getQRCodeURICb(t);
+  }
+  /**
+   * @method getQRCodeData - gets the necessary information from the QR Code callbacks
+   * @param {FRStep} step - step object from AM response
+   * @returns {QRCodeData}
+   */
+  static getQRCodeData(s) {
+    const t = s.getCallbacksOfType(l.HiddenValueCallback);
+    if (t.length === 0)
+      throw new Error(
+        "QR Code step must contain a HiddenValueCallback. Use `FRQRCode.isQRCodeStep` to guard."
+      );
+    const e = this.getQRCodeURICb(t), a = e ? e.getOutputValue("value") : "", u = typeof a == "string" && a.includes("otpauth://") ? "otp" : "push", n = s.getCallbacksOfType(l.TextOutputCallback).find((o) => o.getMessageType() !== "4");
+    return {
+      message: n ? n.getMessage() : "",
+      use: u,
+      uri: typeof a == "string" ? a : ""
+    };
+  }
+  static getQRCodeURICb(s) {
+    return s.find((t) => {
+      const e = t.getOutputValue("value");
+      return typeof e == "string" ? (e == null ? void 0 : e.includes("otpauth://")) || (e == null ? void 0 : e.includes("pushauth://")) : !1;
+    });
+  }
+};
+
+function o$2(e) {
+  const s = e.match(/\s[\w\W]"([\w]*)\\/g);
+  return Array.isArray(s) && s.map((a) => {
+    const r = a.match(/"([\w]*)\\/);
+    return Array.isArray(r) ? r[1] : "";
+  }) || [];
+}
+function y(e) {
+  var c, a, r;
+  return ((r = (a = (c = e == null ? void 0 : e.match(/<em\s*.*>\s*.*<\/em>/g)) == null ? void 0 : c[0]) == null ? void 0 : a.replace("<em>", "")) == null ? void 0 : r.replace("</em>", "")) ?? "New Security Key";
+}
+
+let p$1 = class p {
+  static getDeviceName(t) {
+    var e;
+    const a = ((e = this.getDisplayCallback(t)) == null ? void 0 : e.getOutputByName("message", "")) ?? "";
+    return y(a);
+  }
+  /**
+   * Retrieves the recovery codes by parsing the JavaScript message text in callback.
+   *
+   * @param step The step to evaluate
+   * @return Recovery Code values in array
+   */
+  static getCodes(t) {
+    var e;
+    const a = (e = this.getDisplayCallback(t)) == null ? void 0 : e.getOutputByName("message", "");
+    return o$2(a || "");
+  }
+  /**
+   * Determines if the given step is a Display Recovery Codes step.
+   *
+   * @param step The step to evaluate
+   * @return Is this step a Display Recovery Codes step
+   */
+  static isDisplayStep(t) {
+    return !!this.getDisplayCallback(t);
+  }
+  /**
+   * Gets the recovery codes step.
+   *
+   * @param step The step to evaluate
+   * @return gets the Display Recovery Codes' callback
+   */
+  static getDisplayCallback(t) {
+    return t.getCallbacksOfType(l.TextOutputCallback).find((a) => {
+      const e = a.getOutputByName("message", void 0);
+      return e && (e.includes("Recovery Codes") || e.includes("recovery codes"));
+    });
+  }
+};
+
+class n {
+  /**
+   * Retrieve tokens.
+   */
+  static async get(t) {
+    const e = localStorage.getItem(`${c$3.get().prefix}-${t}`);
+    if (e)
+      try {
+        return JSON.parse(e || "");
+      } catch {
+        throw new Error("Could not parse token object from localStorage");
+      }
+  }
+  /**
+   * Saves tokens.
+   */
+  static async set(t, e) {
+    const o = JSON.stringify(e);
+    localStorage.setItem(`${c$3.get().prefix}-${t}`, o);
+  }
+  /**
+   * Removes stored tokens.
+   */
+  static async remove(t) {
+    localStorage.removeItem(`${c$3.get().prefix}-${t}`);
+  }
+}
+
+let a$2 = class a {
+  /**
+   * Retrieve tokens.
+   */
+  static async get(e) {
+    const t = sessionStorage.getItem(`${c$3.get().prefix}-${e}`);
+    if (t)
+      try {
+        return JSON.parse(t || "");
+      } catch {
+        throw new Error("Could not parse token from sessionStorage");
+      }
+  }
+  /**
+   * Saves tokens.
+   */
+  static async set(e, t) {
+    const s = JSON.stringify(t);
+    sessionStorage.setItem(`${c$3.get().prefix}-${e}`, s);
+  }
+  /**
+   * Removes stored tokens.
+   */
+  static async remove(e) {
+    sessionStorage.removeItem(`${c$3.get().prefix}-${e}`);
+  }
+};
+
+let d$1 = class d {
+  /**
+   * Gets stored tokens.
+   */
+  static async get() {
+    const { clientId: t$1, tokenStore: e } = this.getClientConfig();
+    if (e === "sessionStorage")
+      return await a$2.get(t$1);
+    if (e === "localStorage")
+      return await n.get(t$1);
+    if (e === "indexedDB")
+      t.warn("IndexedDB is not supported in this version.");
+    else if (e && e.get)
+      return await e.get(t$1);
+    return await n.get(t$1);
+  }
+  /**
+   * Saves tokens.
+   */
+  static async set(t$1) {
+    const { clientId: e, tokenStore: r } = this.getClientConfig();
+    if (r === "sessionStorage")
+      return await a$2.set(e, t$1);
+    if (r === "localStorage")
+      return await n.set(e, t$1);
+    if (r === "indexedDB")
+      t.warn("IndexedDB is not supported in this version.");
+    else if (r && r.set)
+      return await r.set(e, t$1);
+    return await n.set(e, t$1);
+  }
+  /**
+   * Removes stored tokens.
+   */
+  static async remove() {
+    const { clientId: t$1, tokenStore: e } = this.getClientConfig();
+    if (e === "sessionStorage")
+      return await a$2.remove(t$1);
+    if (e === "localStorage")
+      return await n.remove(t$1);
+    if (e === "indexedDB")
+      t.warn("IndexedDB is not supported in this version.");
+    else if (e && e.remove)
+      return await e.remove(t$1);
+    return await n.remove(t$1);
+  }
+  static getClientConfig() {
+    const { clientId: t = "unconfiguredClient", tokenStore: e = "localStorage" } = c$3.get();
+    return { clientId: t, tokenStore: e };
+  }
+};
+
+function o$1(t) {
+  return t.ok || Math.floor(t.status / 100) === 4;
+}
+
+let c$1 = class c {
+  /**
+   * Creates a random state.
+   */
+  static createState() {
+    return this.createRandomString(16);
+  }
+  /**
+   * Creates a random verifier.
+   */
+  static createVerifier() {
+    return this.createRandomString(32);
+  }
+  /**
+   * Creates a SHA-256 hash of the verifier.
+   *
+   * @param verifier The verifier to hash
+   */
+  static async createChallenge(e) {
+    const t = await this.sha256(e);
+    return this.base64UrlEncode(t);
+  }
+  /**
+   * Creates a base64 encoded, URL-friendly version of the specified array.
+   *
+   * @param array The array of numbers to encode
+   */
+  static base64UrlEncode(e) {
+    const t = Array.prototype.slice.call(e);
+    return btoa(String.fromCharCode.apply(null, t)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  }
+  /**
+   * Creates a SHA-256 hash of the specified string.
+   *
+   * @param value The string to hash
+   */
+  static async sha256(e) {
+    const t = new TextEncoder().encode(e), a = await crypto.subtle.digest("SHA-256", t);
+    return new Uint8Array(a);
+  }
+  /**
+   * Creates a random string.
+   *
+   * @param size The number for entropy (default: 32)
+   */
+  static createRandomString(e = 32) {
+    const t = new Uint8Array(e);
+    return crypto.getRandomValues(t), btoa(t.join("")).replace(/[^a-zA-Z0-9]+/, "");
+  }
+};
+
+const A$1 = {
+  // AM error for consent requirement
+  AuthenticationConsentRequired: "Authentication or consent required",
+  // Manual iframe error
+  AuthorizationTimeout: "Authorization timed out",
+  // Chromium browser error
+  FailedToFetch: "Failed to fetch",
+  // Mozilla browser error
+  NetworkError: "NetworkError when attempting to fetch resource.",
+  // Webkit browser error
+  CORSError: "Cross-origin redirection",
+  // prompt=none errors
+  InteractionNotAllowed: "The request requires some interaction that is not allowed.",
+  // PingOne login error
+  LoginRequired: "User authentication is required"
+};
+let b$1 = class b {
+  static async createAuthorizeUrl(e) {
+    const { clientId: t, middleware: o, redirectUri: n, scope: i } = c$3.get(e), r = {
+      ...e.query,
+      client_id: t,
+      redirect_uri: n,
+      response_type: e.responseType,
+      scope: i,
+      state: e.state,
+      ...e.prompt ? { prompt: e.prompt } : {}
+    };
+    if (e.verifier) {
+      const a = await c$1.createChallenge(e.verifier);
+      r.code_challenge = a, r.code_challenge_method = "S256";
+    }
+    const s = f$4(
+      {
+        url: new URL(this.getUrl("authorize", r, e)),
+        init: {}
+      },
+      { type: e$2.Authorize }
+    ), { url: c } = s(o);
+    return c.toString();
+  }
+  /**
+   * Calls the authorize URL with an iframe. If successful,
+   * it returns the callback URL with authentication code,
+   * optionally using PKCE.
+   * Method renamed in v3.
+   * Original Name: getAuthorizeUrl
+   * New Name: getAuthCodeByIframe
+   */
+  static async getAuthCodeByIframe(e) {
+    const t = await this.createAuthorizeUrl({ ...e, prompt: "none" }), { serverConfig: o } = c$3.get(e);
+    return new Promise((n, i) => {
+      const r = document.createElement("iframe"), s = () => {
+      };
+      let c = s, a = s, d = 0;
+      a = () => {
+        clearTimeout(d), r.removeEventListener("load", c), r.remove();
+      }, c = () => {
+        if (r.contentWindow) {
+          const u = r.contentWindow.location.href;
+          (this.containsAuthCode(u) || this.containsAuthError(u)) && (a(), n(u));
         }
-        if (typeof selector === 'string') {
-            const input = array.find((x) => x.name === selector);
-            if (!input) {
-                throw new Error(`Missing callback input entry "${selector}"`);
-            }
-            return input;
-        }
-        // Duck typing for RegEx
-        if (typeof selector === 'object' && selector.test && Boolean(selector.exec)) {
-            const input = array.find((x) => selector.test(x.name));
-            if (!input) {
-                throw new Error(`Missing callback input entry "${selector}"`);
-            }
-            return input;
-        }
-        throw new Error('Invalid selector value type');
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * attribute-input-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect attributes.
- *
- * @typeparam T Maps to StringAttributeInputCallback, NumberAttributeInputCallback and
- *     BooleanAttributeInputCallback, respectively
- */
-class AttributeInputCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the attribute name.
-     */
-    getName() {
-        return this.getOutputByName('name', '');
-    }
-    /**
-     * Gets the attribute prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Gets whether the attribute is required.
-     */
-    isRequired() {
-        return this.getOutputByName('required', false);
-    }
-    /**
-     * Gets the callback's failed policies.
-     */
-    getFailedPolicies() {
-        const failedPolicies = this.getOutputByName('failedPolicies', []);
-        try {
-            return failedPolicies.map((v) => JSON.parse(v));
-        }
-        catch (err) {
-            throw new Error('Unable to parse "failed policies" from the ForgeRock server. The JSON within `AttributeInputCallback` was either malformed or missing.');
-        }
-    }
-    /**
-     * Gets the callback's applicable policies.
-     */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getPolicies() {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this.getOutputByName('policies', {});
-    }
-    /**
-     * Set if validating value only.
-     */
-    setValidateOnly(value) {
-        this.setInputValue(value, /validateOnly/);
-    }
-    /**
-     * Sets the attribute's value.
-     */
-    setValue(value) {
-        this.setInputValue(value);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * choice-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect an answer to a choice.
- */
-class ChoiceCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the choice's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Gets the choice's default answer.
-     */
-    getDefaultChoice() {
-        return this.getOutputByName('defaultChoice', 0);
-    }
-    /**
-     * Gets the choice's possible answers.
-     */
-    getChoices() {
-        return this.getOutputByName('choices', []);
-    }
-    /**
-     * Sets the choice's answer by index position.
-     */
-    setChoiceIndex(index) {
-        const length = this.getChoices().length;
-        if (index < 0 || index > length - 1) {
-            throw new Error(`${index} is out of bounds`);
-        }
-        this.setInputValue(index);
-    }
-    /**
-     * Sets the choice's answer by value.
-     */
-    setChoiceValue(value) {
-        const index = this.getChoices().indexOf(value);
-        if (index === -1) {
-            throw new Error(`"${value}" is not a valid choice`);
-        }
-        this.setInputValue(index);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * confirmation-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect a confirmation to a message.
- */
-class ConfirmationCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the index position of the confirmation's default answer.
-     */
-    getDefaultOption() {
-        return Number(this.getOutputByName('defaultOption', 0));
-    }
-    /**
-     * Gets the confirmation's message type.
-     */
-    getMessageType() {
-        return Number(this.getOutputByName('messageType', 0));
-    }
-    /**
-     * Gets the confirmation's possible answers.
-     */
-    getOptions() {
-        return this.getOutputByName('options', []);
-    }
-    /**
-     * Gets the confirmation's option type.
-     */
-    getOptionType() {
-        return Number(this.getOutputByName('optionType', 0));
-    }
-    /**
-     * Gets the confirmation's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Set option index.
-     */
-    setOptionIndex(index) {
-        if (index !== 0 && index !== 1) {
-            throw new Error(`"${index}" is not a valid choice`);
-        }
-        this.setInputValue(index);
-    }
-    /**
-     * Set option value.
-     */
-    setOptionValue(value) {
-        const index = this.getOptions().indexOf(value);
-        if (index === -1) {
-            throw new Error(`"${value}" is not a valid choice`);
-        }
-        this.setInputValue(index);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * device-profile-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect device profile data.
- */
-class DeviceProfileCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's data.
-     */
-    getMessage() {
-        return this.getOutputByName('message', '');
-    }
-    /**
-     * Does callback require metadata?
-     */
-    isMetadataRequired() {
-        return this.getOutputByName('metadata', false);
-    }
-    /**
-     * Does callback require location data?
-     */
-    isLocationRequired() {
-        return this.getOutputByName('location', false);
-    }
-    /**
-     * Sets the profile.
-     */
-    setProfile(profile) {
-        this.setInputValue(JSON.stringify(profile));
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * hidden-value-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect information indirectly from the user.
- */
-class HiddenValueCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * kba-create-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect KBA-style security questions and answers.
- */
-class KbaCreateCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Gets the callback's list of pre-defined security questions.
-     */
-    getPredefinedQuestions() {
-        return this.getOutputByName('predefinedQuestions', []);
-    }
-    /**
-     * Sets the callback's security question.
-     */
-    setQuestion(question) {
-        this.setValue('question', question);
-    }
-    /**
-     * Sets the callback's security question answer.
-     */
-    setAnswer(answer) {
-        this.setValue('answer', answer);
-    }
-    setValue(type, value) {
-        if (!this.payload.input) {
-            throw new Error('KBA payload is missing input');
-        }
-        const input = this.payload.input.find((x) => x.name.endsWith(type));
-        if (!input) {
-            throw new Error(`No input has name ending in "${type}"`);
-        }
-        input.value = value;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * metadata-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to deliver and collect miscellaneous data.
- */
-class MetadataCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's data.
-     */
-    getData() {
-        return this.getOutputByName('data', {});
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * name-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect a username.
- */
-class NameCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Sets the username.
-     */
-    setName(name) {
-        this.setInputValue(name);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * password-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect a password.
- */
-class PasswordCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's failed policies.
-     */
-    getFailedPolicies() {
-        return this.getOutputByName('failedPolicies', []);
-    }
-    /**
-     * Gets the callback's applicable policies.
-     */
-    getPolicies() {
-        return this.getOutputByName('policies', []);
-    }
-    /**
-     * Gets the callback's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Sets the password.
-     */
-    setPassword(password) {
-        this.setInputValue(password);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * polling-wait-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to instruct the system to poll while a backend process completes.
- */
-class PollingWaitCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the message to display while polling.
-     */
-    getMessage() {
-        return this.getOutputByName('message', '');
-    }
-    /**
-     * Gets the polling interval in milliseconds.
-     */
-    getWaitTime() {
-        return Number(this.getOutputByName('waitTime', 0));
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * recaptcha-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to integrate reCAPTCHA.
- */
-class ReCaptchaCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the reCAPTCHA site key.
-     */
-    getSiteKey() {
-        return this.getOutputByName('recaptchaSiteKey', '');
-    }
-    /**
-     * Sets the reCAPTCHA result.
-     */
-    setResult(result) {
-        this.setInputValue(result);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * redirect-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect an answer to a choice.
- */
-class RedirectCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the redirect URL.
-     */
-    getRedirectUrl() {
-        return this.getOutputByName('redirectUrl', '');
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * select-idp-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect an answer to a choice.
- */
-class SelectIdPCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the available providers.
-     */
-    getProviders() {
-        return this.getOutputByName('providers', []);
-    }
-    /**
-     * Sets the provider by name.
-     */
-    setProvider(value) {
-        const item = this.getProviders().find((item) => item.provider === value);
-        if (!item) {
-            throw new Error(`"${value}" is not a valid choice`);
-        }
-        this.setInputValue(item.provider);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * text-output-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to display a message.
- */
-class TextOutputCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the message content.
-     */
-    getMessage() {
-        return this.getOutputByName('message', '');
-    }
-    /**
-     * Gets the message type.
-     */
-    getMessageType() {
-        return this.getOutputByName('messageType', '');
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * suspended-text-output-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to display a message.
- */
-class SuspendedTextOutputCallback extends TextOutputCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * terms-and-conditions-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect acceptance of terms and conditions.
- */
-class TermsAndConditionsCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the terms and conditions content.
-     */
-    getTerms() {
-        return this.getOutputByName('terms', '');
-    }
-    /**
-     * Gets the version of the terms and conditions.
-     */
-    getVersion() {
-        return this.getOutputByName('version', '');
-    }
-    /**
-     * Gets the date of the terms and conditions.
-     */
-    getCreateDate() {
-        const date = this.getOutputByName('createDate', '');
-        return new Date(date);
-    }
-    /**
-     * Sets the callback's acceptance.
-     */
-    setAccepted(accepted = true) {
-        this.setInputValue(accepted);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * text-input-callback.ts
- *
- * Copyright (c) 2022 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to retrieve input from the user.
- */
-class TextInputCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Sets the callback's input value.
-     */
-    setInput(input) {
-        this.setInputValue(input);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * validated-create-password-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect a valid platform password.
- */
-class ValidatedCreatePasswordCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's failed policies.
-     */
-    getFailedPolicies() {
-        const failedPolicies = this.getOutputByName('failedPolicies', []);
-        try {
-            return failedPolicies.map((v) => JSON.parse(v));
-        }
-        catch (err) {
-            throw new Error('Unable to parse "failed policies" from the ForgeRock server. The JSON within `ValidatedCreatePasswordCallback` was either malformed or missing.');
-        }
-    }
-    /**
-     * Gets the callback's applicable policies.
-     */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getPolicies() {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this.getOutputByName('policies', {});
-    }
-    /**
-     * Gets the callback's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Gets whether the password is required.
-     */
-    isRequired() {
-        return this.getOutputByName('required', false);
-    }
-    /**
-     * Sets the callback's password.
-     */
-    setPassword(password) {
-        this.setInputValue(password);
-    }
-    /**
-     * Set if validating value only.
-     */
-    setValidateOnly(value) {
-        this.setInputValue(value, /validateOnly/);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * validated-create-username-callback.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a callback used to collect a valid platform username.
- */
-class ValidatedCreateUsernameCallback extends FRCallback {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     */
-    constructor(payload) {
-        super(payload);
-        this.payload = payload;
-    }
-    /**
-     * Gets the callback's prompt.
-     */
-    getPrompt() {
-        return this.getOutputByName('prompt', '');
-    }
-    /**
-     * Gets the callback's failed policies.
-     */
-    getFailedPolicies() {
-        const failedPolicies = this.getOutputByName('failedPolicies', []);
-        try {
-            return failedPolicies.map((v) => JSON.parse(v));
-        }
-        catch (err) {
-            throw new Error('Unable to parse "failed policies" from the ForgeRock server. The JSON within `ValidatedCreateUsernameCallback` was either malformed or missing.');
-        }
-    }
-    /**
-     * Gets the callback's applicable policies.
-     */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getPolicies() {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this.getOutputByName('policies', {});
-    }
-    /**
-     * Gets whether the username is required.
-     */
-    isRequired() {
-        return this.getOutputByName('required', false);
-    }
-    /**
-     * Sets the callback's username.
-     */
-    setName(name) {
-        this.setInputValue(name);
-    }
-    /**
-     * Set if validating value only.
-     */
-    setValidateOnly(value) {
-        this.setInputValue(value, /validateOnly/);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * factory.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @hidden
- */
-function createCallback(callback) {
-    switch (callback.type) {
-        case CallbackType.BooleanAttributeInputCallback:
-            return new AttributeInputCallback(callback);
-        case CallbackType.ChoiceCallback:
-            return new ChoiceCallback(callback);
-        case CallbackType.ConfirmationCallback:
-            return new ConfirmationCallback(callback);
-        case CallbackType.DeviceProfileCallback:
-            return new DeviceProfileCallback(callback);
-        case CallbackType.HiddenValueCallback:
-            return new HiddenValueCallback(callback);
-        case CallbackType.KbaCreateCallback:
-            return new KbaCreateCallback(callback);
-        case CallbackType.MetadataCallback:
-            return new MetadataCallback(callback);
-        case CallbackType.NameCallback:
-            return new NameCallback(callback);
-        case CallbackType.NumberAttributeInputCallback:
-            return new AttributeInputCallback(callback);
-        case CallbackType.PasswordCallback:
-            return new PasswordCallback(callback);
-        case CallbackType.PollingWaitCallback:
-            return new PollingWaitCallback(callback);
-        case CallbackType.ReCaptchaCallback:
-            return new ReCaptchaCallback(callback);
-        case CallbackType.RedirectCallback:
-            return new RedirectCallback(callback);
-        case CallbackType.SelectIdPCallback:
-            return new SelectIdPCallback(callback);
-        case CallbackType.StringAttributeInputCallback:
-            return new AttributeInputCallback(callback);
-        case CallbackType.SuspendedTextOutputCallback:
-            return new SuspendedTextOutputCallback(callback);
-        case CallbackType.TermsAndConditionsCallback:
-            return new TermsAndConditionsCallback(callback);
-        case CallbackType.TextInputCallback:
-            return new TextInputCallback(callback);
-        case CallbackType.TextOutputCallback:
-            return new TextOutputCallback(callback);
-        case CallbackType.ValidatedCreatePasswordCallback:
-            return new ValidatedCreatePasswordCallback(callback);
-        case CallbackType.ValidatedCreateUsernameCallback:
-            return new ValidatedCreateUsernameCallback(callback);
+      }, d = setTimeout(() => {
+        a(), i(new Error(A$1.AuthorizationTimeout));
+      }, o.timeout), r.style.display = "none", r.addEventListener("load", c), document.body.appendChild(r), r.src = t;
+    });
+  }
+  /**
+   * Exchanges an authorization code for OAuth tokens.
+   */
+  static async getOAuth2Tokens(e) {
+    const { clientId: t, redirectUri: o } = c$3.get(e), n = {
+      client_id: t,
+      code: e.authorizationCode,
+      grant_type: "authorization_code",
+      redirect_uri: o
+    };
+    e.verifier && (n.code_verifier = e.verifier);
+    const i = $$1(n), r = {
+      body: i,
+      headers: new Headers({
+        "Content-Length": i.length.toString(),
+        "Content-Type": "application/x-www-form-urlencoded"
+      }),
+      method: "POST"
+    }, s = await this.request("accessToken", void 0, !1, r, e), c = await this.getBody(s);
+    if (s.status !== 200) {
+      const u = typeof c == "string" ? `Expected 200, received ${s.status}` : this.parseError(c);
+      throw new Error(u);
+    }
+    const a = c;
+    if (!a.access_token)
+      throw new Error("Access token not found in response");
+    let d;
+    return a.expires_in && (d = Date.now() + a.expires_in * 1e3), {
+      accessToken: a.access_token,
+      idToken: a.id_token,
+      refreshToken: a.refresh_token,
+      tokenExpiry: d
+    };
+  }
+  /**
+   * Gets OIDC user information.
+   */
+  static async getUserInfo(e) {
+    const t = await this.request("userInfo", void 0, !0, void 0, e);
+    if (t.status !== 200)
+      throw new Error(`Failed to get user info; received ${t.status}`);
+    return await t.json();
+  }
+  /**
+   * Invokes the OIDC end session endpoint.
+   * Can result in a redirect to `/signoff` if using PingOne
+   * It's best to explicitly provide the logout redirect URL in options
+   *
+   * @function endSession - call authorization server to end associated session
+   * @param options {LogoutOptions} - an extension of ConfigOptions, but with two additional props
+   * @param options.logoutRedirectUri {string} - the URL you want the AS to redirect to after signout
+   * @param options.redirect {boolean} - to explicitly deactivate redirect, pass `false`
+   */
+  static async endSession(e) {
+    const t = { ...e };
+    delete t.redirect, delete t.logoutRedirectUri;
+    const o = {}, n = await d$1.get();
+    o.id_token_hint = n && n.idToken || (e && "idToken" in e ? e.idToken : "");
+    const i = await this.request("endSession", o, !0, void 0, t, {
+      redirect: e == null ? void 0 : e.redirect,
+      logoutRedirectUri: e == null ? void 0 : e.logoutRedirectUri
+    });
+    if (!o$1(i))
+      throw new Error(`Failed to end session; received ${i.status}`);
+    return i;
+  }
+  /**
+   * Immediately revokes the stored access token.
+   */
+  static async revokeToken(e) {
+    const { clientId: t } = c$3.get(e), o = await d$1.get(), n = o && o.accessToken, i = {
+      client_id: t
+    };
+    n && (i.token = n);
+    const r = {
+      body: $$1(i),
+      credentials: "include",
+      headers: new Headers({
+        "Content-Type": "application/x-www-form-urlencoded"
+      }),
+      method: "POST"
+    }, s = await this.request("revoke", void 0, !1, r, e);
+    if (!o$1(s))
+      throw new Error(`Failed to revoke token; received ${s.status}`);
+    return s;
+  }
+  static async request(e, t, o, n, i, r) {
+    const { redirectUri: s, middleware: c, serverConfig: a } = c$3.get(i), d = r != null && r.logoutRedirectUri ? r.logoutRedirectUri : s, u = this.getUrl(e, t, i), m = (w) => {
+      switch (w) {
+        case "accessToken":
+          return e$2.ExchangeToken;
+        case "endSession":
+          return e$2.EndSession;
+        case "revoke":
+          return e$2.RevokeToken;
         default:
-            return new FRCallback(callback);
+          return e$2.UserInfo;
+      }
+    };
+    if (n = n || {}, o) {
+      const w = await d$1.get(), v = w && w.accessToken;
+      n.credentials = "include", n.headers = n.headers || new Headers(), n.headers.set("Authorization", `Bearer ${v}`);
     }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * fr-step.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Represents a single step of an authentication tree.
- */
-class FRStep {
-    /**
-     * @param payload The raw payload returned by OpenAM
-     * @param callbackFactory A function that returns am implementation of FRCallback
-     */
-    constructor(payload, callbackFactory) {
-        this.payload = payload;
-        /**
-         * The type of step.
-         */
-        this.type = StepType.Step;
-        /**
-         * The callbacks contained in this step.
-         */
-        this.callbacks = [];
-        if (payload.callbacks) {
-            this.callbacks = this.convertCallbacks(payload.callbacks, callbackFactory);
-        }
+    const h = f$4(
+      { url: new URL(u), init: n },
+      { type: m(e) }
+    )(c);
+    return m(e) === e$2.EndSession && // endSession action only
+    (r == null ? void 0 : r.redirect) === !0 ? (h.url.searchParams.append("post_logout_redirect_uri", d || ""), window.location.assign(h.url.toString()), new Response()) : m(e) === e$2.EndSession && // endSession action only
+    (r == null ? void 0 : r.redirect) !== !1 && // Only `false` explicitly disables this behavior for rare edge cases
+    // If we explicitly get a logout redirect URL, then that's enough of a hint to redirect
+    // If we don't have that, let's see if they are calling the typical PingOne `/signoff` endpoint
+    (r != null && r.logoutRedirectUri || this.getUrl("endSession").includes("/as/signoff")) ? (h.url.searchParams.append("post_logout_redirect_uri", d || ""), window.location.assign(h.url.toString()), new Response()) : await T$3(fetch(h.url.toString(), h.init), a.timeout);
+  }
+  static containsAuthCode(e) {
+    return !!e && /code=([^&]+)/.test(e);
+  }
+  static containsAuthError(e) {
+    return !!e && /error=([^&]+)/.test(e);
+  }
+  static async getBody(e) {
+    const t = e.headers.get("Content-Type");
+    return t && t.indexOf("application/json") > -1 ? await e.json() : await e.text();
+  }
+  static parseError(e) {
+    if (e) {
+      if (e.error && e.error_description)
+        return `${e.error}: ${e.error_description}`;
+      if (e.code && e.message)
+        return `${e.code}: ${e.message}`;
     }
-    /**
-     * Gets the first callback of the specified type in this step.
-     *
-     * @param type The type of callback to find.
-     */
-    getCallbackOfType(type) {
-        const callbacks = this.getCallbacksOfType(type);
-        if (callbacks.length !== 1) {
-            throw new Error(`Expected 1 callback of type "${type}", but found ${callbacks.length}`);
-        }
-        return callbacks[0];
-    }
-    /**
-     * Gets all callbacks of the specified type in this step.
-     *
-     * @param type The type of callback to find.
-     */
-    getCallbacksOfType(type) {
-        return this.callbacks.filter((x) => x.getType() === type);
-    }
-    /**
-     * Sets the value of the first callback of the specified type in this step.
-     *
-     * @param type The type of callback to find.
-     * @param value The value to set for the callback.
-     */
-    setCallbackValue(type, value) {
-        const callbacks = this.getCallbacksOfType(type);
-        if (callbacks.length !== 1) {
-            throw new Error(`Expected 1 callback of type "${type}", but found ${callbacks.length}`);
-        }
-        callbacks[0].setInputValue(value);
-    }
-    /**
-     * Gets the step's description.
-     */
-    getDescription() {
-        return this.payload.description;
-    }
-    /**
-     * Gets the step's header.
-     */
-    getHeader() {
-        return this.payload.header;
-    }
-    /**
-     * Gets the step's stage.
-     */
-    getStage() {
-        return this.payload.stage;
-    }
-    convertCallbacks(callbacks, callbackFactory) {
-        const converted = callbacks.map((x) => {
-            // This gives preference to the provided factory and falls back to our default implementation
-            return (callbackFactory || createCallback)(x) || createCallback(x);
-        });
-        return converted;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides access to the OpenAM authentication tree API.
- */
-class FRAuth {
-    /**
-     * Requests the next step in the authentication tree.
-     *
-     * Call `FRAuth.next()` recursively.  At each step, check for session token or error, otherwise
-     * populate the step's callbacks and call `next()` again.
-     *
-     * Example:
-     *
-     * ```js
-     * async function nextStep(previousStep) {
-     *   const thisStep = await FRAuth.next(previousStep);
-     *
-     *   switch (thisStep.type) {
-     *     case StepType.LoginSuccess:
-     *       const token = thisStep.getSessionToken();
-     *       break;
-     *     case StepType.LoginFailure:
-     *       const detail = thisStep.getDetail();
-     *       break;
-     *     case StepType.Step:
-     *       // Populate `thisStep` callbacks here, and then continue
-     *       thisStep.setInputValue('foo');
-     *       nextStep(thisStep);
-     *       break;
-     *   }
-     * }
-     * ```
-     *
-     * @param previousStep The previous step with its callback values populated
-     * @param options Configuration overrides
-     * @return The next step in the authentication tree
-     */
-    static async next(previousStep, options) {
-        const nextPayload = await Auth.next(previousStep ? previousStep.payload : undefined, options);
-        if (nextPayload.authId) {
-            // If there's an authId, tree has not been completed
-            const callbackFactory = options ? options.callbackFactory : undefined;
-            return new FRStep(nextPayload, callbackFactory);
-        }
-        if (!nextPayload.authId && nextPayload.ok) {
-            // If there's no authId, and the response is OK, tree is complete
-            return new FRLoginSuccess(nextPayload);
-        }
-        // If there's no authId, and the response is not OK, tree has failure
-        return new FRLoginFailure(nextPayload);
-    }
-    /**
-     * Redirects to the URL identified in the RedirectCallback and saves the full
-     * step information to localStorage for retrieval when user returns from login.
-     *
-     * Example:
-     * ```js
-     * forgerock.FRAuth.redirect(step);
-     * ```
-     */
-    static redirect(step) {
-        const cb = step.getCallbackOfType(CallbackType.RedirectCallback);
-        const redirectUrl = cb.getRedirectUrl();
-        localStorage.setItem(this.previousStepKey, JSON.stringify(step));
-        location.assign(redirectUrl);
-    }
-    /**
-     * Resumes a tree after returning from an external client or provider.
-     * Requires the full URL of the current window. It will parse URL for
-     * key-value pairs as well as, if required, retrieves previous step.
-     *
-     * Example;
-     * ```js
-     * forgerock.FRAuth.resume(window.location.href)
-     * ```
-     */
-    static async resume(url, options) {
-        const parsedUrl = new URL(url);
-        const code = parsedUrl.searchParams.get('code');
-        const error = parsedUrl.searchParams.get('error');
-        const errorCode = parsedUrl.searchParams.get('errorCode');
-        const errorMessage = parsedUrl.searchParams.get('errorMessage');
-        const form_post_entry = parsedUrl.searchParams.get('form_post_entry');
-        const nonce = parsedUrl.searchParams.get('nonce');
-        const RelayState = parsedUrl.searchParams.get('RelayState');
-        const responsekey = parsedUrl.searchParams.get('responsekey');
-        const scope = parsedUrl.searchParams.get('scope');
-        const state = parsedUrl.searchParams.get('state');
-        const suspendedId = parsedUrl.searchParams.get('suspendedId');
-        const authIndexValue = parsedUrl.searchParams.get('authIndexValue') ?? undefined;
-        let previousStep;
-        function requiresPreviousStep() {
-            return (code && state) || form_post_entry || responsekey;
-        }
-        /**
-         * If we are returning back from a provider, the previous redirect step data is required.
-         * Retrieve the previous step from localStorage, and then delete it to remove stale data.
-         * If suspendedId is present, no previous step data is needed, so skip below conditional.
-         */
-        if (requiresPreviousStep()) {
-            const redirectStepString = localStorage.getItem(this.previousStepKey);
-            if (!redirectStepString) {
-                throw new Error('Error: could not retrieve original redirect information.');
-            }
-            try {
-                previousStep = JSON.parse(redirectStepString);
-            }
-            catch (err) {
-                throw new Error('Error: could not parse redirect params or step information');
-            }
-            localStorage.removeItem(this.previousStepKey);
-        }
-        /**
-         * Construct options object from the options parameter and key-value pairs from URL.
-         * Ensure query parameters from current URL are the last properties spread in the object.
-         */
-        const nextOptions = {
-            ...options,
-            query: {
-                // Conditionally spread properties into object. Don't spread props with undefined/null.
-                ...(code && { code }),
-                ...(error && { error }),
-                ...(errorCode && { errorCode }),
-                ...(errorMessage && { errorMessage }),
-                ...(form_post_entry && { form_post_entry }),
-                ...(nonce && { nonce }),
-                ...(RelayState && { RelayState }),
-                ...(responsekey && { responsekey }),
-                ...(scope && { scope }),
-                ...(state && { state }),
-                ...(suspendedId && { suspendedId }),
-                // Allow developer to add or override params with their own.
-                ...(options && options.query),
-            },
-            ...((options?.tree ?? authIndexValue) && {
-                tree: options?.tree ?? authIndexValue,
-            }),
-        };
-        return await this.next(previousStep, nextOptions);
-    }
-    /**
-     * Requests the first step in the authentication tree.
-     * This is essentially an alias to calling FRAuth.next without a previous step.
-     *
-     * @param options Configuration overrides
-     * @return The next step in the authentication tree
-     */
-    static async start(options) {
-        return await FRAuth.next(undefined, options);
-    }
-}
-FRAuth.previousStepKey = `${PREFIX}-PreviousStep`;
-
-/*
- * @forgerock/javascript-sdk
- *
- * defaults.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-const browserProps = [
-    'userAgent',
-    'appName',
-    'appCodeName',
-    'appVersion',
-    'appMinorVersion',
-    'buildID',
-    'product',
-    'productSub',
-    'vendor',
-    'vendorSub',
-    'browserLanguage',
-];
-const configurableCategories = [
-    'fontNames',
-    'displayProps',
-    'browserProps',
-    'hardwareProps',
-    'platformProps',
-];
-const delay = 30 * 1000;
-const devicePlatforms = {
-    mac: ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'],
-    windows: ['Win32', 'Win64', 'Windows', 'WinCE'],
-    ios: ['iPhone', 'iPad', 'iPod'],
+  }
+  static getUrl(e, t, o) {
+    const { realmPath: n, serverConfig: i } = c$3.get(o), r = h$1(e, n, i.paths);
+    let s = f$3(i.baseUrl, r);
+    return t && (s += `?${$$1(t)}`), s;
+  }
 };
-const displayProps = ['width', 'height', 'pixelDepth', 'orientation.angle'];
-const fontNames = [
-    'cursive',
-    'monospace',
-    'serif',
-    'sans-serif',
-    'fantasy',
-    'Arial',
-    'Arial Black',
-    'Arial Narrow',
-    'Arial Rounded MT Bold',
-    'Bookman Old Style',
-    'Bradley Hand ITC',
-    'Century',
-    'Century Gothic',
-    'Comic Sans MS',
-    'Courier',
-    'Courier New',
-    'Georgia',
-    'Gentium',
-    'Impact',
-    'King',
-    'Lucida Console',
-    'Lalit',
-    'Modena',
-    'Monotype Corsiva',
-    'Papyrus',
-    'Tahoma',
-    'TeX',
-    'Times',
-    'Times New Roman',
-    'Trebuchet MS',
-    'Verdana',
-    'Verona',
-];
-const hardwareProps = [
-    'cpuClass',
-    'deviceMemory',
-    'hardwareConcurrency',
-    'maxTouchPoints',
-    'oscpu',
-];
-const platformProps = ['language', 'platform', 'userLanguage', 'systemLanguage'];
 
-/*
- * @forgerock/javascript-sdk
- *
- * collector.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @class Collector - base class for FRDevice
- * Generic collector functions for collecting a device profile attributes
- */
-class Collector {
-    /**
-     * @method reduceToObject - goes one to two levels into source to collect attribute
-     * @param props - array of strings; can use dot notation for two level lookup
-     * @param src - source of attributes to check
-     */
-    // eslint-disable-next-line
-    reduceToObject(props, src) {
-        return props.reduce((prev, curr) => {
-            if (curr.includes('.')) {
-                const propArr = curr.split('.');
-                const prop1 = propArr[0];
-                const prop2 = propArr[1];
-                const prop = src[prop1] && src[prop1][prop2];
-                prev[prop2] = prop != undefined ? prop : '';
-            }
-            else {
-                prev[curr] = src[curr] != undefined ? src[curr] : null;
-            }
-            return prev;
-        }, {});
-    }
-    /**
-     * @method reduceToString - goes one level into source to collect attribute
-     * @param props - array of strings
-     * @param src - source of attributes to check
-     */
-    // eslint-disable-next-line
-    reduceToString(props, src) {
-        return props.reduce((prev, curr) => {
-            prev = `${prev}${src[curr].filename};`;
-            return prev;
-        }, '');
-    }
-}
-
-class FRLogger {
-    static enabled() {
-        const { logLevel } = Config.get();
-        /*
-         * Return an object
-         * which satisfies the LogLevelRating type
-         * and has a key of the current log level
-         * and a value of the log level rating
-         */
-        const logLevels = {
-            none: 0,
-            error: 25,
-            warn: 50,
-            info: 75,
-            debug: 100,
-        };
-        return logLevels[logLevel];
-    }
-    static info(...msgs) {
-        const { logger } = Config.get();
-        if (this.enabled() >= 50) {
-            if (logger && logger.info) {
-                logger.info(...msgs);
-            }
-            else {
-                console.info(...msgs);
-            }
-        }
-    }
-    static warn(...msgs) {
-        const { logger } = Config.get();
-        if (this.enabled() >= 50) {
-            if (logger && logger.warn) {
-                logger.warn(...msgs);
-            }
-            else {
-                console.warn(...msgs);
-            }
-        }
-    }
-    static error(...msgs) {
-        const { logger } = Config.get();
-        if (this.enabled() >= 25) {
-            if (logger && logger.error) {
-                logger.error(...msgs);
-            }
-            else {
-                console.error(...msgs);
-            }
-        }
-    }
-    static log(...msgs) {
-        const { logger } = Config.get();
-        if (this.enabled() >= 75) {
-            if (logger && logger.log) {
-                logger.log(...msgs);
-            }
-            else {
-                console.log(...msgs);
-            }
-        }
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @class FRDevice - Collects user device metadata
- *
- * Example:
- *
- * ```js
- * // Instantiate new device object (w/optional config, if needed)
- * const device = new forgerock.FRDevice(
- *   // optional configuration
- * );
- * // override any instance methods, if needed
- * // e.g.: device.getDisplayMeta = () => {};
- *
- * // Call getProfile with required argument obj of boolean properties
- * // of location and metadata
- * const profile = await device.getProfile({
- *   location: isLocationRequired,
- *   metadata: isMetadataRequired,
- * });
- * ```
- */
-class FRDevice extends Collector {
-    constructor(config) {
-        super();
-        this.config = {
-            fontNames,
-            devicePlatforms,
-            displayProps,
-            browserProps,
-            hardwareProps,
-            platformProps,
-        };
-        if (config) {
-            Object.keys(config).forEach((key) => {
-                if (!configurableCategories.includes(key)) {
-                    throw new Error('Device profile configuration category does not exist.');
-                }
-                this.config[key] = config[key];
-            });
-        }
-    }
-    getBrowserMeta() {
-        if (typeof navigator === 'undefined') {
-            FRLogger.warn('Cannot collect browser metadata. navigator is not defined.');
-            return {};
-        }
-        return this.reduceToObject(this.config.browserProps, navigator);
-    }
-    getBrowserPluginsNames() {
-        if (!(typeof navigator !== 'undefined' && navigator.plugins)) {
-            FRLogger.warn('Cannot collect browser plugin information. navigator.plugins is not defined.');
-            return '';
-        }
-        return this.reduceToString(Object.keys(navigator.plugins), navigator.plugins);
-    }
-    getDeviceName() {
-        if (typeof navigator === 'undefined') {
-            FRLogger.warn('Cannot collect device name. navigator is not defined.');
-            return '';
-        }
-        const userAgent = navigator.userAgent;
-        const platform = navigator.platform;
-        switch (true) {
-            case this.config.devicePlatforms.mac.includes(platform):
-                return 'Mac (Browser)';
-            case this.config.devicePlatforms.ios.includes(platform):
-                return `${platform} (Browser)`;
-            case this.config.devicePlatforms.windows.includes(platform):
-                return 'Windows (Browser)';
-            case /Android/.test(platform) || /Android/.test(userAgent):
-                return 'Android (Browser)';
-            case /CrOS/.test(userAgent) || /Chromebook/.test(userAgent):
-                return 'Chrome OS (Browser)';
-            case /Linux/.test(platform):
-                return 'Linux (Browser)';
-            default:
-                return `${platform || 'Unknown'} (Browser)`;
-        }
-    }
-    getDisplayMeta() {
-        if (typeof screen === 'undefined') {
-            FRLogger.warn('Cannot collect screen information. screen is not defined.');
-            return {};
-        }
-        return this.reduceToObject(this.config.displayProps, screen);
-    }
-    getHardwareMeta() {
-        if (typeof navigator === 'undefined') {
-            FRLogger.warn('Cannot collect OS metadata. Navigator is not defined.');
-            return {};
-        }
-        return this.reduceToObject(this.config.hardwareProps, navigator);
-    }
-    getIdentifier() {
-        const storageKey = `${PREFIX}-DeviceID`;
-        if (!(typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues)) {
-            FRLogger.warn('Cannot generate profile ID. Crypto and/or getRandomValues is not supported.');
-            return '';
-        }
-        if (!localStorage) {
-            FRLogger.warn('Cannot store profile ID. localStorage is not supported.');
-            return '';
-        }
-        let id = localStorage.getItem(storageKey);
-        if (!id) {
-            // generate ID, 3 sections of random numbers: "714524572-2799534390-3707617532"
-            id = globalThis.crypto.getRandomValues(new Uint32Array(3)).join('-');
-            localStorage.setItem(storageKey, id);
-        }
-        return id;
-    }
-    getInstalledFonts() {
-        if (typeof document === undefined) {
-            FRLogger.warn('Cannot collect font data. Global document object is undefined.');
-            return '';
-        }
-        const canvas = document.createElement('canvas');
-        if (!canvas) {
-            FRLogger.warn('Cannot collect font data. Browser does not support canvas element');
-            return '';
-        }
-        const context = canvas.getContext && canvas.getContext('2d');
-        if (!context) {
-            FRLogger.warn('Cannot collect font data. Browser does not support 2d canvas context');
-            return '';
-        }
-        const text = 'abcdefghi0123456789';
-        context.font = '72px Comic Sans';
-        const baseWidth = context.measureText(text).width;
-        const installedFonts = this.config.fontNames.reduce((prev, curr) => {
-            context.font = `72px ${curr}, Comic Sans`;
-            const newWidth = context.measureText(text).width;
-            if (newWidth !== baseWidth) {
-                prev = `${prev}${curr};`;
-            }
-            return prev;
-        }, '');
-        return installedFonts;
-    }
-    async getLocationCoordinates() {
-        if (!(typeof navigator !== 'undefined' && navigator.geolocation)) {
-            FRLogger.warn('Cannot collect geolocation information. navigator.geolocation is not defined.');
-            return Promise.resolve({});
-        }
-        // eslint-disable-next-line no-async-promise-executor
-        return new Promise(async (resolve) => {
-            navigator.geolocation.getCurrentPosition((position) => resolve({
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-            }), (error) => {
-                FRLogger.warn('Cannot collect geolocation information. ' + error.code + ': ' + error.message);
-                resolve({});
-            }, {
-                enableHighAccuracy: true,
-                timeout: delay,
-                maximumAge: 0,
-            });
-        });
-    }
-    getOSMeta() {
-        if (typeof navigator === 'undefined') {
-            FRLogger.warn('Cannot collect OS metadata. navigator is not defined.');
-            return {};
-        }
-        return this.reduceToObject(this.config.platformProps, navigator);
-    }
-    async getProfile({ location, metadata }) {
-        const profile = {
-            identifier: this.getIdentifier(),
-        };
-        if (metadata) {
-            profile.metadata = {
-                hardware: {
-                    ...this.getHardwareMeta(),
-                    display: this.getDisplayMeta(),
-                },
-                browser: {
-                    ...this.getBrowserMeta(),
-                    plugins: this.getBrowserPluginsNames(),
-                },
-                platform: {
-                    ...this.getOSMeta(),
-                    deviceName: this.getDeviceName(),
-                    fonts: this.getInstalledFonts(),
-                    timezone: this.getTimezoneOffset(),
-                },
-            };
-        }
-        if (location) {
-            profile.location = await this.getLocationCoordinates();
-        }
-        return profile;
-    }
-    getTimezoneOffset() {
-        try {
-            return new Date().getTimezoneOffset();
-        }
-        catch (err) {
-            FRLogger.warn('Cannot collect timezone information. getTimezoneOffset is not defined.');
-            return null;
-        }
-    }
-}
-
-/**
- * @class FRQRCode - A utility class for handling QR Code steps
- *
- * Example:
- *
- * ```js
- * const isQRCodeStep = FRQRCode.isQRCodeStep(step);
- * let qrCodeData;
- * if (isQRCodeStep) {
- *   qrCodeData = FRQRCode.getQRCodeData(step);
- * }
- * ```
- */
-class FRQRCode {
-    /**
-     * @method isQRCodeStep - determines if step contains QR Code callbacks
-     * @param {FRStep} step - step object from AM response
-     * @returns {boolean}
-     */
-    static isQRCodeStep(step) {
-        const hiddenValueCb = step.getCallbacksOfType(CallbackType.HiddenValueCallback);
-        // QR Codes step should have at least one HiddenValueCallback
-        if (hiddenValueCb.length === 0) {
-            return false;
-        }
-        return !!this.getQRCodeURICb(hiddenValueCb);
-    }
-    /**
-     * @method getQRCodeData - gets the necessary information from the QR Code callbacks
-     * @param {FRStep} step - step object from AM response
-     * @returns {QRCodeData}
-     */
-    static getQRCodeData(step) {
-        const hiddenValueCb = step.getCallbacksOfType(CallbackType.HiddenValueCallback);
-        // QR Codes step should have at least one HiddenValueCallback
-        if (hiddenValueCb.length === 0) {
-            throw new Error('QR Code step must contain a HiddenValueCallback. Use `FRQRCode.isQRCodeStep` to guard.');
-        }
-        const qrCodeURICb = this.getQRCodeURICb(hiddenValueCb);
-        const outputValue = qrCodeURICb ? qrCodeURICb.getOutputValue('value') : '';
-        const qrCodeUse = typeof outputValue === 'string' && outputValue.includes('otpauth://') ? 'otp' : 'push';
-        const messageCbs = step.getCallbacksOfType(CallbackType.TextOutputCallback);
-        const displayMessageCb = messageCbs.find((cb) => {
-            const textOutputCallback = cb;
-            return textOutputCallback.getMessageType() !== '4';
-        });
-        return {
-            message: displayMessageCb ? displayMessageCb.getMessage() : '',
-            use: qrCodeUse,
-            uri: typeof outputValue === 'string' ? outputValue : '',
-        };
-    }
-    static getQRCodeURICb(hiddenValueCbs) {
-        // Look for a HiddenValueCallback with an OTP URI
-        return hiddenValueCbs.find((cb) => {
-            const outputValue = cb.getOutputValue('value');
-            if (typeof outputValue === 'string') {
-                return outputValue?.includes('otpauth://') || outputValue?.includes('pushauth://');
-            }
-            return false;
-        });
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * script-parser.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-function parseDisplayRecoveryCodesText(text) {
-    /**
-     * e.g. ` ...
-     *    "<div class=\"text-center\">\n" +
-     *    "iZmEtxvQ00\n" +
-     *    "</div>\n" +
-     * ... `
-     */
-    const recoveryCodesMatches = text.match(/\s[\w\W]"([\w]*)\\/g);
-    const recoveryCodes = Array.isArray(recoveryCodesMatches) &&
-        recoveryCodesMatches.map((substr) => {
-            // e.g. `"iZmEtxvQ00\`
-            const arr = substr.match(/"([\w]*)\\/);
-            return Array.isArray(arr) ? arr[1] : '';
-        });
-    return recoveryCodes || [];
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Utility for handling recovery code nodes.
- *
- * Example:
- *
- * ```js
- * // Determine if step is Display Recovery Codes step
- * const isDisplayRecoveryCodesStep = FRRecoveryCodes.isDisplayStep(step);
- * if (isDisplayRecoveryCodesStep) {
- *   const recoveryCodes = FRRecoveryCodes.getCodes(step);
- *   // Do the UI needful
- * }
- * ```
- */
-class FRRecoveryCodes {
-    /**
-     * Retrieves the recovery codes by parsing the JavaScript message text in callback.
-     *
-     * @param step The step to evaluate
-     * @return Recovery Code values in array
-     */
-    static getCodes(step) {
-        const text = this.getDisplayCallback(step)?.getOutputByName('message', '');
-        return parseDisplayRecoveryCodesText(text || '');
-    }
-    /**
-     * Determines if the given step is a Display Recovery Codes step.
-     *
-     * @param step The step to evaluate
-     * @return Is this step a Display Recovery Codes step
-     */
-    static isDisplayStep(step) {
-        return !!this.getDisplayCallback(step);
-    }
-    /**
-     * Gets the recovery codes step.
-     *
-     * @param step The step to evaluate
-     * @return gets the Display Recovery Codes' callback
-     */
-    static getDisplayCallback(step) {
-        return step
-            .getCallbacksOfType(CallbackType.TextOutputCallback)
-            .find((x) => {
-            const cb = x.getOutputByName('message', undefined);
-            return cb && (cb.includes('Recovery Codes') || cb.includes('recovery codes'));
-        });
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * local-storage.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides wrapper for tokens with localStorage.
- */
-class LocalStorageWrapper {
-    /**
-     * Retrieve tokens.
-     */
-    static async get(clientId) {
-        const tokenString = localStorage.getItem(`${PREFIX}-${clientId}`);
-        // If there is no stored token, or the token is not an object, return null
-        if (!tokenString) {
-            // This is a normal state, so resolve with undefined
-            return;
-        }
-        try {
-            return JSON.parse(tokenString || '');
-        }
-        catch (err) {
-            // This is an error state, so reject
-            throw new Error('Could not parse token object from localStorage');
-        }
-    }
-    /**
-     * Saves tokens.
-     */
-    static async set(clientId, tokens) {
-        const tokenString = JSON.stringify(tokens);
-        localStorage.setItem(`${PREFIX}-${clientId}`, tokenString);
-    }
-    /**
-     * Removes stored tokens.
-     */
-    static async remove(clientId) {
-        localStorage.removeItem(`${PREFIX}-${clientId}`);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * session-storage.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides wrapper for tokens with sessionStorage.
- */
-class SessionStorageWrapper {
-    /**
-     * Retrieve tokens.
-     */
-    static async get(clientId) {
-        const tokenString = sessionStorage.getItem(`${PREFIX}-${clientId}`);
-        // If there is no stored token, or the token is not an object, return null
-        if (!tokenString) {
-            // This is a normal state, so resolve with undefined
-            return;
-        }
-        try {
-            return JSON.parse(tokenString || '');
-        }
-        catch (err) {
-            // This is an error state, so reject
-            throw new Error('Could not parse token from sessionStorage');
-        }
-    }
-    /**
-     * Saves tokens.
-     */
-    static async set(clientId, tokens) {
-        const tokenString = JSON.stringify(tokens);
-        sessionStorage.setItem(`${PREFIX}-${clientId}`, tokenString);
-    }
-    /**
-     * Removes stored tokens.
-     */
-    static async remove(clientId) {
-        sessionStorage.removeItem(`${PREFIX}-${clientId}`);
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020-2021 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides access to the token storage API.
- * The type of storage (localStorage, sessionStorage, etc) can be configured
- * through `tokenStore` object on the SDK configuration.
- */
-class TokenStorage {
-    /**
-     * Gets stored tokens.
-     */
-    static async get() {
-        const { clientId, tokenStore } = this.getClientConfig();
-        if (tokenStore === 'sessionStorage') {
-            return await SessionStorageWrapper.get(clientId);
-        }
-        else if (tokenStore === 'localStorage') {
-            return await LocalStorageWrapper.get(clientId);
-            // Preserving this condition for communicating its removal
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-        }
-        else if (tokenStore === 'indexedDB') {
-            FRLogger.warn('IndexedDB is not supported in this version.');
-        }
-        else if (tokenStore && tokenStore.get) {
-            // User supplied token store
-            return await tokenStore.get(clientId);
-        }
-        return await LocalStorageWrapper.get(clientId);
-    }
-    /**
-     * Saves tokens.
-     */
-    static async set(tokens) {
-        const { clientId, tokenStore } = this.getClientConfig();
-        if (tokenStore === 'sessionStorage') {
-            return await SessionStorageWrapper.set(clientId, tokens);
-        }
-        else if (tokenStore === 'localStorage') {
-            return await LocalStorageWrapper.set(clientId, tokens);
-            // Preserving this condition for communicating its removal
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-        }
-        else if (tokenStore === 'indexedDB') {
-            FRLogger.warn('IndexedDB is not supported in this version.');
-        }
-        else if (tokenStore && tokenStore.set) {
-            // User supplied token store
-            return await tokenStore.set(clientId, tokens);
-        }
-        return await LocalStorageWrapper.set(clientId, tokens);
-    }
-    /**
-     * Removes stored tokens.
-     */
-    static async remove() {
-        const { clientId, tokenStore } = this.getClientConfig();
-        if (tokenStore === 'sessionStorage') {
-            return await SessionStorageWrapper.remove(clientId);
-        }
-        else if (tokenStore === 'localStorage') {
-            return await LocalStorageWrapper.remove(clientId);
-            // Preserving this condition for communicating its removal
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-        }
-        else if (tokenStore === 'indexedDB') {
-            FRLogger.warn('IndexedDB is not supported in this version.');
-        }
-        else if (tokenStore && tokenStore.remove) {
-            // User supplied token store
-            return await tokenStore.remove(clientId);
-        }
-        return await LocalStorageWrapper.remove(clientId);
-    }
-    static getClientConfig() {
-        const { clientId = 'unconfiguredClient', tokenStore = 'localStorage' } = Config.get();
-        return { clientId, tokenStore };
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * http.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @module
- * @ignore
- * These are private utility functions
- */
-function isOkOr4xx(response) {
-    return response.ok || Math.floor(response.status / 100) === 4;
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * pkce.ts
- *
- * Copyright (c) 2020-2021 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Helper class for generating verifier, challenge and state strings used for
- * Proof Key for Code Exchange (PKCE).
- */
-class PKCE {
-    /**
-     * Creates a random state.
-     */
-    static createState() {
-        return this.createRandomString(16);
-    }
-    /**
-     * Creates a random verifier.
-     */
-    static createVerifier() {
-        return this.createRandomString(32);
-    }
-    /**
-     * Creates a SHA-256 hash of the verifier.
-     *
-     * @param verifier The verifier to hash
-     */
-    static async createChallenge(verifier) {
-        const sha256 = await this.sha256(verifier);
-        const challenge = this.base64UrlEncode(sha256);
-        return challenge;
-    }
-    /**
-     * Creates a base64 encoded, URL-friendly version of the specified array.
-     *
-     * @param array The array of numbers to encode
-     */
-    static base64UrlEncode(array) {
-        const numbers = Array.prototype.slice.call(array);
-        const ascii = btoa(String.fromCharCode.apply(null, numbers));
-        const urlEncoded = ascii.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-        return urlEncoded;
-    }
-    /**
-     * Creates a SHA-256 hash of the specified string.
-     *
-     * @param value The string to hash
-     */
-    static async sha256(value) {
-        const uint8Array = new TextEncoder().encode(value);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
-        const hashArray = new Uint8Array(hashBuffer);
-        return hashArray;
-    }
-    /**
-     * Creates a random string.
-     *
-     * @param size The number for entropy (default: 32)
-     */
-    static createRandomString(num = 32) {
-        const random = new Uint8Array(num);
-        crypto.getRandomValues(random);
-        return btoa(random.join('')).replace(/[^a-zA-Z0-9]+/, '');
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Specifies the type of OAuth flow to invoke.
- */
-var ResponseType;
-(function (ResponseType) {
-    ResponseType["Code"] = "code";
-    ResponseType["Token"] = "token";
-})(ResponseType || (ResponseType = {}));
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020-2021 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-const allowedErrors = {
-    // AM error for consent requirement
-    AuthenticationConsentRequired: 'Authentication or consent required',
-    // Manual iframe error
-    AuthorizationTimeout: 'Authorization timed out',
-    // Chromium browser error
-    FailedToFetch: 'Failed to fetch',
-    // Mozilla browser error
-    NetworkError: 'NetworkError when attempting to fetch resource.',
-    // Webkit browser error
-    CORSError: 'Cross-origin redirection',
-    // prompt=none errors
-    InteractionNotAllowed: 'The request requires some interaction that is not allowed.',
+let M$1 = class M {
+  /**
+   * Ends the current session.
+   */
+  static async logout(i) {
+    const { middleware: s, platformHeader: a, realmPath: n, serverConfig: r } = c$3.get(i), d = {
+      credentials: "include",
+      headers: new Headers({
+        "Accept-API-Version": "protocol=1.0,resource=2.0",
+        "X-Requested-With": E$2
+      }),
+      method: "POST"
+    }, l = `${h$1("sessions", n, r.paths)}?_action=logout`, m = f$3(r.baseUrl, l), e = f$4(
+      { url: new URL(m), init: d },
+      { type: e$2.Logout }
+    )(s);
+    a && (e.init.headers instanceof Headers ? e.init.headers.set("X-Requested-Platform", o$4) : Array.isArray(e.init.headers) ? e.init.headers.push(["X-Requested-Platform", o$4]) : e.init.headers ? e.init.headers["X-Requested-Platform"] = o$4 : e.init.headers = {
+      "X-Requested-Platform": o$4
+    });
+    const o = await T$3(fetch(e.url.toString(), e.init), r.timeout);
+    if (!o$1(o))
+      throw new Error(`Failed to log out; received ${o.status}`);
+    return o;
+  }
 };
-/**
- * OAuth 2.0 client.
- */
-class OAuth2Client {
-    static async createAuthorizeUrl(options) {
-        const { clientId, middleware, redirectUri, scope } = Config.get(options);
-        const requestParams = {
-            ...options.query,
-            client_id: clientId,
-            redirect_uri: redirectUri,
-            response_type: options.responseType,
-            scope,
-            state: options.state,
-            ...(options.prompt ? { prompt: options.prompt } : {}),
-        };
-        if (options.verifier) {
-            const challenge = await PKCE.createChallenge(options.verifier);
-            requestParams.code_challenge = challenge;
-            requestParams.code_challenge_method = 'S256';
-        }
-        const runMiddleware = middlewareWrapper({
-            url: new URL(this.getUrl('authorize', requestParams, options)),
-            init: {},
-        }, { type: ActionTypes.Authorize });
-        const { url } = runMiddleware(middleware);
-        return url.toString();
-    }
-    /**
-     * Calls the authorize URL with an iframe. If successful,
-     * it returns the callback URL with authentication code,
-     * optionally using PKCE.
-     * Method renamed in v3.
-     * Original Name: getAuthorizeUrl
-     * New Name: getAuthCodeByIframe
-     */
-    static async getAuthCodeByIframe(options) {
-        const url = await this.createAuthorizeUrl({ ...options, prompt: 'none' });
-        const { serverConfig } = Config.get(options);
-        return new Promise((resolve, reject) => {
-            const iframe = document.createElement('iframe');
-            // Define these here to avoid linter warnings
-            const noop = () => {
-                return;
-            };
-            let onLoad = noop;
-            let cleanUp = noop;
-            let timeout = 0;
-            cleanUp = () => {
-                clearTimeout(timeout);
-                iframe.removeEventListener('load', onLoad);
-                iframe.remove();
-            };
-            onLoad = () => {
-                if (iframe.contentWindow) {
-                    const newHref = iframe.contentWindow.location.href;
-                    if (this.containsAuthCode(newHref)) {
-                        cleanUp();
-                        resolve(newHref);
-                    }
-                    else if (this.containsAuthError(newHref)) {
-                        cleanUp();
-                        resolve(newHref);
-                    }
-                }
-            };
-            timeout = setTimeout(() => {
-                cleanUp();
-                reject(new Error(allowedErrors.AuthorizationTimeout));
-            }, serverConfig.timeout);
-            iframe.style.display = 'none';
-            iframe.addEventListener('load', onLoad);
-            document.body.appendChild(iframe);
-            iframe.src = url;
-        });
-    }
-    /**
-     * Exchanges an authorization code for OAuth tokens.
-     */
-    static async getOAuth2Tokens(options) {
-        const { clientId, redirectUri } = Config.get(options);
-        const requestParams = {
-            client_id: clientId,
-            code: options.authorizationCode,
-            grant_type: 'authorization_code',
-            redirect_uri: redirectUri,
-        };
-        if (options.verifier) {
-            requestParams.code_verifier = options.verifier;
-        }
-        const body = stringify(requestParams);
-        const init = {
-            body,
-            headers: new Headers({
-                'Content-Length': body.length.toString(),
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }),
-            method: 'POST',
-        };
-        const response = await this.request('accessToken', undefined, false, init, options);
-        const responseBody = await this.getBody(response);
-        if (response.status !== 200) {
-            const message = typeof responseBody === 'string'
-                ? `Expected 200, received ${response.status}`
-                : this.parseError(responseBody);
-            throw new Error(message);
-        }
-        const responseObject = responseBody;
-        if (!responseObject.access_token) {
-            throw new Error('Access token not found in response');
-        }
-        let tokenExpiry = undefined;
-        if (responseObject.expires_in) {
-            tokenExpiry = Date.now() + responseObject.expires_in * 1000;
-        }
-        return {
-            accessToken: responseObject.access_token,
-            idToken: responseObject.id_token,
-            refreshToken: responseObject.refresh_token,
-            tokenExpiry: tokenExpiry,
-        };
-    }
-    /**
-     * Gets OIDC user information.
-     */
-    static async getUserInfo(options) {
-        const response = await this.request('userInfo', undefined, true, undefined, options);
-        if (response.status !== 200) {
-            throw new Error(`Failed to get user info; received ${response.status}`);
-        }
-        const json = await response.json();
-        return json;
-    }
-    /**
-     * Invokes the OIDC end session endpoint.
-     */
-    static async endSession(options) {
-        const tokens = await TokenStorage.get();
-        const idToken = tokens && tokens.idToken;
-        const query = {};
-        if (idToken) {
-            query.id_token_hint = idToken;
-        }
-        const response = await this.request('endSession', query, true, undefined, options);
-        if (!isOkOr4xx(response)) {
-            throw new Error(`Failed to end session; received ${response.status}`);
-        }
-        return response;
-    }
-    /**
-     * Immediately revokes the stored access token.
-     */
-    static async revokeToken(options) {
-        const { clientId } = Config.get(options);
-        const tokens = await TokenStorage.get();
-        const accessToken = tokens && tokens.accessToken;
-        const body = {
-            client_id: clientId,
-        };
-        // This is needed to support Token Vault; the SDK may not have the token locally
-        if (accessToken) {
-            body.token = accessToken;
-        }
-        const init = {
-            body: stringify(body),
-            credentials: 'include',
-            headers: new Headers({
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }),
-            method: 'POST',
-        };
-        const response = await this.request('revoke', undefined, false, init, options);
-        if (!isOkOr4xx(response)) {
-            throw new Error(`Failed to revoke token; received ${response.status}`);
-        }
-        return response;
-    }
-    static async request(endpoint, query, includeToken, init, options) {
-        const { middleware, serverConfig } = Config.get(options);
-        const url = this.getUrl(endpoint, query, options);
-        const getActionType = (endpoint) => {
-            switch (endpoint) {
-                case 'accessToken':
-                    return ActionTypes.ExchangeToken;
-                case 'endSession':
-                    return ActionTypes.EndSession;
-                case 'revoke':
-                    return ActionTypes.RevokeToken;
-                default:
-                    return ActionTypes.UserInfo;
-            }
-        };
-        init = init || {};
-        if (includeToken) {
-            const tokens = await TokenStorage.get();
-            const accessToken = tokens && tokens.accessToken;
-            init.credentials = 'include';
-            init.headers = (init.headers || new Headers());
-            init.headers.set('Authorization', `Bearer ${accessToken}`);
-        }
-        const runMiddleware = middlewareWrapper({ url: new URL(url), init }, { type: getActionType(endpoint) });
-        const req = runMiddleware(middleware);
-        return await withTimeout(fetch(req.url.toString(), req.init), serverConfig.timeout);
-    }
-    static containsAuthCode(url) {
-        return !!url && /code=([^&]+)/.test(url);
-    }
-    static containsAuthError(url) {
-        return !!url && /error=([^&]+)/.test(url);
-    }
-    static async getBody(response) {
-        const contentType = response.headers.get('Content-Type');
-        if (contentType && contentType.indexOf('application/json') > -1) {
-            return await response.json();
-        }
-        return await response.text();
-    }
-    static parseError(json) {
-        if (json) {
-            if (json.error && json.error_description) {
-                return `${json.error}: ${json.error_description}`;
-            }
-            if (json.code && json.message) {
-                return `${json.code}: ${json.message}`;
-            }
-        }
-        return undefined;
-    }
-    static getUrl(endpoint, query, options) {
-        const { realmPath, serverConfig } = Config.get(options);
-        const path = getEndpointPath(endpoint, realmPath, serverConfig.paths);
-        let url = resolve(serverConfig.baseUrl, path);
-        if (query) {
-            url += `?${stringify(query)}`;
-        }
-        return url;
-    }
+
+function i$1(e, n) {
+  return e && n ? n - e < Date.now() : !1;
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides access to the session management API.
- */
-class SessionManager {
-    /**
-     * Ends the current session.
-     */
-    static async logout(options) {
-        const { middleware, realmPath, serverConfig } = Config.get(options);
-        const init = {
-            credentials: 'include',
-            headers: new Headers({
-                'Accept-API-Version': 'protocol=1.0,resource=2.0',
-                'X-Requested-With': REQUESTED_WITH,
-            }),
-            method: 'POST',
-        };
-        const path = `${getEndpointPath('sessions', realmPath, serverConfig.paths)}?_action=logout`;
-        const url = resolve(serverConfig.baseUrl, path);
-        const runMiddleware = middlewareWrapper({ url: new URL(url), init }, { type: ActionTypes.Logout });
-        const req = runMiddleware(middleware);
-        const response = await withTimeout(fetch(req.url.toString(), req.init), serverConfig.timeout);
-        if (!isOkOr4xx(response)) {
-            throw new Error(`Failed to log out; received ${response.status}`);
-        }
-        return response;
-    }
-}
+var r = /* @__PURE__ */ ((o) => (o.Code = "code", o.Token = "token", o))(r || {});
 
-/*
- * @forgerock/javascript-sdk
- *
- * helpers.ts
- *
- * Copyright (c) 2022 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * @module
- * @ignore
- * These are private utility functions for Token Manager
- */
-function tokensWillExpireWithinThreshold(oauthThreshold, tokenExpiry) {
-    if (oauthThreshold && tokenExpiry) {
-        return tokenExpiry - oauthThreshold < Date.now();
-    }
-    return false;
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020-2021 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-class TokenManager {
-    /**
+let T$2 = class T {
+  /**
      * Token Manager class that provides high-level abstraction for Authorization Code flow,
      * PKCE value generation, token exchange and token storage.
      *
@@ -4009,1171 +2926,708 @@ class TokenManager {
      });
      ```
      */
-    static async getTokens(options) {
-        const { clientId, oauthThreshold } = Config.get(options);
-        const storageKey = `${PREFIX}-${clientId}`;
-        /**
-         * First, let's see if tokens exist locally
-         */
-        const tokens = await TokenStorage.get();
-        /**
-         * If tokens are stored, no option for `forceRenew` or `query` object with `code`, and do not expire within the configured threshold,
-         * immediately return the stored tokens
-         */
-        if (tokens &&
-            !options?.forceRenew &&
-            !options?.query?.code &&
-            !tokensWillExpireWithinThreshold(oauthThreshold, tokens.tokenExpiry)) {
-            return tokens;
-        }
-        /**
-         * If we are still here because of forceRenew or we have an authorization code, or the tokens expire within the configured threshold,
-         * revoke and delete existing tokens to prepare for the new ones
-         */
-        if (tokens) {
-            try {
-                await OAuth2Client.revokeToken(options);
-                await TokenManager.deleteTokens();
-            }
-            catch (error) {
-                FRLogger.warn('Existing tokens could not be revoked or deleted', error);
-            }
-        }
-        /**
-         * If authorization code and state are passed in, call token exchange
-         * and return acquired tokens
-         */
-        if (options?.query?.code && options?.query?.state) {
-            const storedString = sessionStorage.getItem(storageKey);
-            sessionStorage.removeItem(storageKey);
-            const storedValues = JSON.parse(storedString);
-            return await this.tokenExchange(options, storedValues);
-        }
-        /**
-         * If we are here, then we are just beginning the auth code flow,
-         * so let's generate authorize PKCE values and URL
-         */
-        const verifier = PKCE.createVerifier();
-        const state = PKCE.createState();
-        // so to not change the type of the above function
-        // we assign it here if its undefined or null.
-        const config = Object.assign({}, options);
-        delete config.forceRenew;
-        delete config.login;
-        const authorizeUrlOptions = {
-            ...config,
-            responseType: ResponseType.Code,
-            state,
-            verifier,
-        };
-        /**
-         * Attempt to call the authorize URL to retrieve authorization code
-         */
-        try {
-            // Check expected browser support
-            // To support legacy browsers, iframe works best with short timeout
-            const parsedUrl = new URL(await OAuth2Client.getAuthCodeByIframe(authorizeUrlOptions));
-            // Throw if we have an error param or have no authorization code
-            if (parsedUrl.searchParams.get('error')) {
-                throw Error(`${parsedUrl.searchParams.get('error_description')}`);
-            }
-            else if (!parsedUrl.searchParams.get('code')) {
-                throw Error(allowedErrors.AuthenticationConsentRequired);
-            }
-            const parsedQuery = parseQuery(parsedUrl.toString());
-            if (!options) {
-                options = {};
-            }
-            options.query = parsedQuery;
-        }
-        catch (err) {
-            // If authorize request fails, handle according to `login` type
-            if (!(err instanceof Error) || options?.login !== 'redirect') {
-                // Throw for any error if login is NOT of type "redirect"
-                throw err;
-            }
-            // Check if error is not one of our allowed errors
-            if (allowedErrors.AuthenticationConsentRequired !== err.message &&
-                allowedErrors.AuthorizationTimeout !== err.message &&
-                allowedErrors.FailedToFetch !== err.message &&
-                allowedErrors.NetworkError !== err.message &&
-                allowedErrors.InteractionNotAllowed !== err.message &&
-                // Safari has a very long error message, so we check for a substring
-                !err.message.includes(allowedErrors.CORSError)) {
-                // Throw if the error is NOT an explicitly allowed error along with redirect of true
-                // as that is a normal response and just requires a redirect
-                throw err;
-            }
-            // Since `login` is configured for "redirect", store authorize values and redirect
-            sessionStorage.setItem(storageKey, JSON.stringify(authorizeUrlOptions));
-            const authorizeUrl = await OAuth2Client.createAuthorizeUrl(authorizeUrlOptions);
-            return location.assign(authorizeUrl);
-        }
-        /**
-         * Exchange authorization code for tokens
-         */
-        return await this.tokenExchange(options, { state, verifier });
+  static async getTokens(e) {
+    var g, d, w;
+    const { clientId: u, oauthThreshold: f } = c$3.get(e), i = `${c$3.get().prefix}-authflow-${u}`, o = await d$1.get();
+    if (o && !(e != null && e.forceRenew) && !((g = e == null ? void 0 : e.query) != null && g.code) && !i$1(f, o.tokenExpiry))
+      return o;
+    if (o)
+      try {
+        await b$1.revokeToken(e), await T.deleteTokens();
+      } catch (r) {
+        t.warn("Existing tokens could not be revoked or deleted", r);
+      }
+    if ((d = e == null ? void 0 : e.query) != null && d.code && ((w = e == null ? void 0 : e.query) != null && w.state)) {
+      const r = sessionStorage.getItem(i);
+      sessionStorage.removeItem(i);
+      const h = JSON.parse(r);
+      return await this.tokenExchange(e, h);
     }
-    static async deleteTokens() {
-        await TokenStorage.remove();
-    }
-    static async tokenExchange(options, stored) {
-        /**
-         * Ensure incoming state and stored state are equal and authorization code exists
-         */
-        if (options.query?.state !== stored.state) {
-            throw new Error('State mismatch');
-        }
-        if (!options.query?.code || Array.isArray(options.query?.code)) {
-            throw new Error('Failed to acquire authorization code');
-        }
-        /**
-         * Generate token exchange options
-         */
-        const authorizationCode = options.query?.code;
-        const verifier = stored.verifier;
-        const getTokensOptions = { ...options, authorizationCode, verifier };
-        const tokens = await OAuth2Client.getOAuth2Tokens(getTokensOptions);
-        if (!tokens || !tokens.accessToken) {
-            throw new Error('Unable to exchange authorization for tokens');
-        }
-        try {
-            await TokenStorage.set(tokens);
-        }
-        catch (error) {
-            FRLogger.error('Failed to store tokens', error);
-        }
-        return tokens;
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * High-level API for logging a user in/out and getting profile information.
- */
-class FRUser {
-    /**
-     * Logs the user in with the specified step handler, acquires OAuth tokens, and retrieves
-     * user profile.  **Currently not implemented.**
-     *
-     * @typeparam T The type of user object expected
-     * @param handler The function to invoke when handling authentication steps
-     * @param options Configuration overrides
-     */
-    static async login(handler, options) {
-        FRLogger.info(handler, options); // Avoid lint errors
-        throw new Error('FRUser.login() not implemented');
-    }
-    /**
-     * Ends the user's session and revokes OAuth tokens.
-     *
-     * @param options Configuration overrides
-     */
-    static async logout(options) {
-        // Just log any exceptions that are thrown, but don't abandon the flow
-        try {
-            // Both invalidates the session on the server AND removes browser cookie
-            await SessionManager.logout(options);
-        }
-        catch (error) {
-            FRLogger.warn('Session logout was not successful');
-        }
-        try {
-            // Invalidates session on the server tied to the ID Token
-            // Needed for Express environment as session logout is unavailable
-            await OAuth2Client.endSession(options);
-        }
-        catch (error) {
-            FRLogger.warn('OAuth endSession was not successful');
-        }
-        try {
-            await OAuth2Client.revokeToken(options);
-        }
-        catch (error) {
-            FRLogger.warn('OAuth revokeToken was not successful');
-        }
-        await TokenManager.deleteTokens();
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * enums.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-var WebAuthnOutcome;
-(function (WebAuthnOutcome) {
-    WebAuthnOutcome["Error"] = "ERROR";
-    WebAuthnOutcome["Unsupported"] = "unsupported";
-})(WebAuthnOutcome || (WebAuthnOutcome = {}));
-var WebAuthnOutcomeType;
-(function (WebAuthnOutcomeType) {
-    WebAuthnOutcomeType["AbortError"] = "AbortError";
-    WebAuthnOutcomeType["DataError"] = "DataError";
-    WebAuthnOutcomeType["ConstraintError"] = "ConstraintError";
-    WebAuthnOutcomeType["EncodingError"] = "EncodingError";
-    WebAuthnOutcomeType["InvalidError"] = "InvalidError";
-    WebAuthnOutcomeType["NetworkError"] = "NetworkError";
-    WebAuthnOutcomeType["NotAllowedError"] = "NotAllowedError";
-    WebAuthnOutcomeType["NotSupportedError"] = "NotSupportedError";
-    WebAuthnOutcomeType["SecurityError"] = "SecurityError";
-    WebAuthnOutcomeType["TimeoutError"] = "TimeoutError";
-    WebAuthnOutcomeType["UnknownError"] = "UnknownError";
-})(WebAuthnOutcomeType || (WebAuthnOutcomeType = {}));
-var WebAuthnStepType;
-(function (WebAuthnStepType) {
-    WebAuthnStepType[WebAuthnStepType["None"] = 0] = "None";
-    WebAuthnStepType[WebAuthnStepType["Authentication"] = 1] = "Authentication";
-    WebAuthnStepType[WebAuthnStepType["Registration"] = 2] = "Registration";
-})(WebAuthnStepType || (WebAuthnStepType = {}));
-
-/*
- * @forgerock/javascript-sdk
- *
- * helpers.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-function ensureArray(arr) {
-    return arr || [];
-}
-function arrayBufferToString(arrayBuffer) {
-    // https://goo.gl/yabPex - To future-proof, we'll pass along whatever the browser
-    // gives us and let AM disregard randomly-injected properties
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const txtDecoder = new TextDecoder();
-    const json = txtDecoder.decode(uint8Array);
-    return json;
-}
-function getIndexOne(arr) {
-    return arr ? arr[1] : '';
-}
-// TODO: Remove this once AM is providing fully-serialized JSON
-function parseCredentials(value) {
+    const a = c$1.createVerifier(), n = c$1.createState(), s = Object.assign({}, e);
+    delete s.forceRenew, delete s.login;
+    const c = {
+      ...s,
+      responseType: r.Code,
+      state: n,
+      verifier: a
+    };
     try {
-        const creds = value
-            .split('}')
-            .filter((x) => !!x && x !== ']')
-            .map((x) => {
-            // eslint-disable-next-line @typescript-eslint/no-use-before-define
-            const idArray = parseNumberArray(x);
-            return {
-                id: new Int8Array(idArray).buffer,
-                type: 'public-key',
-            };
-        });
-        return creds;
+      const r = new URL(await b$1.getAuthCodeByIframe(c));
+      if (r.searchParams.get("error"))
+        throw Error(`${r.searchParams.get("error_description")}`);
+      if (!r.searchParams.get("code"))
+        throw Error(A$1.AuthenticationConsentRequired);
+      const h = p$3(r.toString());
+      e || (e = {}), e.query = h;
+    } catch (r) {
+      if (!(r instanceof Error) || (e == null ? void 0 : e.login) !== "redirect" || A$1.AuthenticationConsentRequired !== r.message && A$1.AuthorizationTimeout !== r.message && A$1.FailedToFetch !== r.message && A$1.NetworkError !== r.message && A$1.InteractionNotAllowed !== r.message && // Check for Ping Identity Login Required error
+      // Long message, so just check substring
+      !r.message.includes(A$1.LoginRequired) && // Safari has a very long error message, so we check for a substring
+      !r.message.includes(A$1.CORSError))
+        throw r;
+      sessionStorage.setItem(i, JSON.stringify(c));
+      const h = await b$1.createAuthorizeUrl(c);
+      return location.assign(h);
     }
-    catch (error) {
-        const e = new Error('Transforming credential object to string failed');
-        e.name = WebAuthnOutcomeType.EncodingError;
-        throw e;
+    return await this.tokenExchange(e, { state: n, verifier: a });
+  }
+  static async deleteTokens() {
+    await d$1.remove();
+  }
+  static async tokenExchange(e, u) {
+    var n, s, c, g;
+    if (((n = e.query) == null ? void 0 : n.state) !== u.state)
+      throw new Error("State mismatch");
+    if (!((s = e.query) != null && s.code) || Array.isArray((c = e.query) == null ? void 0 : c.code))
+      throw new Error("Failed to acquire authorization code");
+    const f = (g = e.query) == null ? void 0 : g.code, i = u.verifier, o = { ...e, authorizationCode: f, verifier: i }, a = await b$1.getOAuth2Tokens(o);
+    if (!a || !a.accessToken)
+      throw new Error("Unable to exchange authorization for tokens");
+    try {
+      await d$1.set(a);
+    } catch (d) {
+      t.error("Failed to store tokens", d);
     }
-}
-function parseNumberArray(value) {
-    const matches = /new Int8Array\((.+)\)/.exec(value);
-    if (matches === null || matches.length < 2) {
-        return [];
+    return a;
+  }
+};
+
+class k {
+  /**
+   * Logs the user in with the specified step handler, acquires OAuth tokens, and retrieves
+   * user profile.  **Currently not implemented.**
+   *
+   * @typeparam T The type of user object expected
+   * @param handler The function to invoke when handling authentication steps
+   * @param options Configuration overrides
+   */
+  static async login(e, o) {
+    throw t.info(e, o), new Error("FRUser.login() not implemented");
+  }
+  /**
+   * Ends the user's session and revokes OAuth tokens.
+   *
+   * @param options Configuration overrides
+   */
+  static async logout(e) {
+    const o = { ...e };
+    delete o.redirect;
+    try {
+      await M$1.logout(o);
+    } catch {
+      t.warn("Session logout was not successful");
     }
-    return JSON.parse(matches[1]);
-}
-function parsePubKeyArray(value) {
-    if (Array.isArray(value)) {
-        return value;
+    try {
+      await b$1.revokeToken(o);
+    } catch {
+      t.warn("OAuth revokeToken was not successful");
     }
-    if (typeof value !== 'string') {
-        return undefined;
+    const n = await d$1.get(), { idToken: a = "" } = n || {};
+    await T$2.deleteTokens();
+    try {
+      await b$1.endSession({ ...e, idToken: a });
+    } catch {
+      t.warn("OAuth endSession was not successful");
     }
-    if (value && value[0] === '[') {
-        return JSON.parse(value);
-    }
-    value = value.replace(/(\w+):/g, '"$1":');
-    return JSON.parse(`[${value}]`);
-}
-/**
- * AM is currently serializing RP as one of the following formats, depending on
- * whether RP ID has been configured:
- *   "relyingPartyId":""
- *   "relyingPartyId":"rpId: \"foo\","
- * This regex handles both formats, but should be removed once AM is fixed.
- */
-function parseRelyingPartyId(relyingPartyId) {
-    if (relyingPartyId.includes('rpId')) {
-        return relyingPartyId.replace(/rpId: "(.+)",/, '$1');
-    }
-    else {
-        return relyingPartyId.replace(/id: "(.+)",/, '$1');
-    }
+  }
 }
 
-/* eslint-disable no-useless-escape */
-function parseWebAuthnRegisterText(text) {
-    const txtEncoder = new TextEncoder();
-    // TODO: Incrementally move to `*` instead of `{0,}`
-    // e.g. `attestation: "none"`
-    const attestation = getIndexOne(text.match(/attestation"{0,}:\s{0,}"(\w+)"/));
-    // e.g. `timeout: 60000`
-    const timeout = Number(getIndexOne(text.match(/timeout"{0,}:\s{0,}(\d+)/)));
-    // e.g. from 7.0: `"userVerification":"preferred"`
-    // e.g. from 6.5: `userVerification: "preferred"`
-    const userVerification = getIndexOne(text.match(/userVerification"{0,}:\s{0,}"(\w+)"/));
-    // e.g. `"requireResidentKey":true`
-    const requireResidentKey = getIndexOne(text.match(/requireResidentKey"{0,}:\s{0,}(\w+)/));
-    // e.g. `"authenticatorAttachment":"cross-platform"`
-    const authenticatorAttachment = getIndexOne(text.match(/authenticatorAttachment"{0,}:\s{0,}"([\w-]+)/));
-    // e.g. `rp: {\n id: \"https://user.example.com:3002\",\n name: \"ForgeRock\"\n }`
-    const rp = getIndexOne(text.match(/rp"{0,}:\s{0,}{([^}]+)}/)).trim();
-    // e.g. `id: \"example.com\"
-    const rpId = getIndexOne(rp.match(/id"{0,}:\s{0,}"([^"]*)"/));
-    // e.g. `name: \"ForgeRock\"`
-    const rpName = getIndexOne(rp.match(/name"{0,}:\s{0,}"([^"]*)"/));
-    // e.g. `user: {\n id: Uint8Array.from(\"NTdhN...RiNjI5\",
-    // function (c) { return c.charCodeAt(0) }),\n
-    // name: \"57a5b4e4-...-a4f2e5d4b629\",\n
-    // displayName: \"57a5b4e4-...-a4f2e5d4b629\"\n }`
-    const user = getIndexOne(text.match(/user"{0,}:\s{0,}{([^]{0,})},/)).trim();
-    // e.g `id: Uint8Array.from(\"NTdhN...RiNjI5\",`
-    const userId = getIndexOne(user.match(/id"{0,}:\s{0,}Uint8Array.from\("([^"]+)"/));
-    // e.g. `name: \"57a5b4e4-...-a4f2e5d4b629\",`
-    const userName = getIndexOne(user.match(/name"{0,}:\s{0,}"([\d\w._-]+)"/));
-    // e.g. `displayName: \"57a5b4e4-...-a4f2e5d4b629\"`
-    const userDisplayName = getIndexOne(user.match(/displayName"{0,}:\s{0,}"([\d\w\s.@_-]+)"/));
-    // e.g. `pubKeyCredParams: [
-    // { \"type\": \"public-key\", \"alg\": -257 }, { \"type\": \"public-key\", \"alg\": -7 }
-    // ]`
-    const pubKeyCredParamsString = getIndexOne(
+var o = /* @__PURE__ */ ((r) => (r.Error = "ERROR", r.Unsupported = "unsupported", r))(o || {}), E$1 = /* @__PURE__ */ ((r) => (r.AbortError = "AbortError", r.DataError = "DataError", r.ConstraintError = "ConstraintError", r.EncodingError = "EncodingError", r.InvalidError = "InvalidError", r.NetworkError = "NetworkError", r.NotAllowedError = "NotAllowedError", r.NotSupportedError = "NotSupportedError", r.SecurityError = "SecurityError", r.TimeoutError = "TimeoutError", r.UnknownError = "UnknownError", r))(E$1 || {}), i = /* @__PURE__ */ ((r) => (r[r.None = 0] = "None", r[r.Authentication = 1] = "Authentication", r[r.Registration = 2] = "Registration", r))(i || {});
+
+function s(r) {
+  return r || [];
+}
+function u(r) {
+  const n = new Uint8Array(r);
+  return new TextDecoder().decode(n);
+}
+function f(r) {
+  return r ? r[1] : "";
+}
+function a$1(r) {
+  try {
+    return r.split("}").filter((e) => !!e && e !== "]").map((e) => {
+      const t = c(e);
+      return {
+        id: new Int8Array(t).buffer,
+        type: "public-key"
+      };
+    });
+  } catch {
+    const e = new Error("Transforming credential object to string failed");
+    throw e.name = E$1.EncodingError, e;
+  }
+}
+function c(r) {
+  const n = /new Int8Array\((.+)\)/.exec(r);
+  return n === null || n.length < 2 ? [] : JSON.parse(n[1]);
+}
+function p(r) {
+  if (Array.isArray(r))
+    return r;
+  if (typeof r == "string")
+    return r && r[0] === "[" ? JSON.parse(r) : (r = r.replace(/(\w+):/g, '"$1":'), JSON.parse(`[${r}]`));
+}
+function d(r) {
+  return r.includes("rpId") ? r.replace(/rpId: "(.+)",/, "$1") : r.replace(/id: "(.+)",/, "$1");
+}
+
+function T$1(t) {
+  const s$1 = new TextEncoder(), r = f(t.match(/attestation"{0,}:\s{0,}"(\w+)"/)), c = Number(f(t.match(/timeout"{0,}:\s{0,}(\d+)/))), l = f(
+    t.match(/userVerification"{0,}:\s{0,}"(\w+)"/)
+  ), i = f(
+    t.match(/requireResidentKey"{0,}:\s{0,}(\w+)/)
+  ), o = f(
+    t.match(/authenticatorAttachment"{0,}:\s{0,}"([\w-]+)/)
+  ), m = f(t.match(/rp"{0,}:\s{0,}{([^}]+)}/)).trim(), a = f(m.match(/id"{0,}:\s{0,}"([^"]*)"/)), w = f(m.match(/name"{0,}:\s{0,}"([^"]*)"/)), n = f(t.match(/user"{0,}:\s{0,}{([^]{0,})},/)).trim(), u = f(n.match(/id"{0,}:\s{0,}Uint8Array.from\("([^"]+)"/)), d = f(n.match(/name"{0,}:\s{0,}"([\d\w._-]+)"/)), h = f(n.match(/displayName"{0,}:\s{0,}"([\d\w\s.@_-]+)"/)), p$1 = f(
     // Capture the `pubKeyCredParams` without also matching `excludeCredentials` as well.
     // `excludeCredentials` values are very similar to this property, so we need to make sure
     // our last value doesn't end with "buffer", so we are only capturing objects that
     // end in a digit and possibly a space.
-    text.match(/pubKeyCredParams"*:\s*\[([^]+\d\s*})\s*]/)).trim();
-    // e.g. `{ \"type\": \"public-key\", \"alg\": -257 }, { \"type\": \"public-key\", \"alg\": -7 }`
-    const pubKeyCredParams = parsePubKeyArray(pubKeyCredParamsString);
-    if (!pubKeyCredParams) {
-        const e = new Error('Missing pubKeyCredParams property from registration options');
-        e.name = WebAuthnOutcomeType.DataError;
-        throw e;
+    t.match(/pubKeyCredParams"*:\s*\[([^]+\d\s*})\s*]/)
+  ).trim(), A = p(p$1);
+  if (!A) {
+    const b = new Error("Missing pubKeyCredParams property from registration options");
+    throw b.name = E$1.DataError, b;
+  }
+  const g = f(
+    t.match(/excludeCredentials"{0,}:\s{0,}\[([^]+)\s{0,}]/)
+  ).trim(), f$1 = a$1(g), C = s(
+    t.match(/challenge"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/)
+  ), N = JSON.parse(C[2]), I = new Int8Array(N).buffer;
+  return {
+    attestation: r,
+    authenticatorSelection: {
+      userVerification: l,
+      // Only include authenticatorAttachment prop if the value is truthy
+      ...o && { authenticatorAttachment: o },
+      // Only include requireResidentKey prop if the value is of string "true"
+      ...i === "true" && {
+        requireResidentKey: !!i
+      }
+    },
+    challenge: I,
+    ...f$1.length && { excludeCredentials: f$1 },
+    pubKeyCredParams: A,
+    rp: {
+      name: w,
+      // only add key-value pair if truthy value is provided
+      ...a && { id: a }
+    },
+    timeout: c,
+    user: {
+      displayName: h,
+      id: s$1.encode(u),
+      name: d
     }
-    // e.g. `excludeCredentials: [{
-    // \"type\": \"public-key\", \"id\": new Int8Array([-18, 69, -99, 82, 38, -66]).buffer },
-    // { \"type\": \"public-key\", \"id\": new Int8Array([64, 17, -15, 56, -32, 91]).buffer }],\n`
-    const excludeCredentialsString = getIndexOne(text.match(/excludeCredentials"{0,}:\s{0,}\[([^]+)\s{0,}]/)).trim();
-    // e.g. `{ \"type\": \"public-key\", \"id\": new Int8Array([-18, 69, -99, 82, 38, -66]).buffer },
-    // { \"type\": \"public-key\", \"id\": new Int8Array([64, 17, -15, 56, -32, 91]).buffer }`
-    const excludeCredentials = parseCredentials(excludeCredentialsString);
-    // e.g. `challenge: new Int8Array([87, -95, 18, ... -3,  49, 12, 81]).buffer,`
-    const challengeArr = ensureArray(text.match(/challenge"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/));
-    // e.g. `[87, -95, 18, ... -3,  49, 12, 81]`
-    const challengeJSON = JSON.parse(challengeArr[2]);
-    // e.g. [87, -95, 18, ... -3,  49, 12, 81]
-    const challenge = new Int8Array(challengeJSON).buffer;
-    return {
-        attestation,
-        authenticatorSelection: {
-            userVerification,
-            // Only include authenticatorAttachment prop if the value is truthy
-            ...(authenticatorAttachment && { authenticatorAttachment }),
-            // Only include requireResidentKey prop if the value is of string "true"
-            ...(requireResidentKey === 'true' && {
-                requireResidentKey: !!requireResidentKey,
-            }),
-        },
-        challenge,
-        ...(excludeCredentials.length && { excludeCredentials }),
-        pubKeyCredParams,
-        rp: {
-            name: rpName,
-            // only add key-value pair if truthy value is provided
-            ...(rpId && { id: rpId }),
-        },
-        timeout,
-        user: {
-            displayName: userDisplayName,
-            id: txtEncoder.encode(userId),
-            name: userName,
-        },
-    };
+  };
 }
-function parseWebAuthnAuthenticateText(text) {
-    let allowCredentials;
-    let allowCredentialsText;
-    if (text.includes('acceptableCredentials')) {
-        // e.g. `var acceptableCredentials = [
-        //  { "type": "public-key", "id": new Int8Array([1, 97, 2, 123, ... -17]).buffer }
-        // ];`
-        allowCredentialsText = getIndexOne(text.match(/acceptableCredentials"*\s*=\s*\[([^]+)\s*]/)).trim();
-    }
-    else {
-        // e.g. `allowCredentials: [
-        // { \"type\": \"public-key\",
-        // \"id\": new Int8Array([-107, 93, 68, -67, ... -19, 7, 4]).buffer }
-        // ]`
-        allowCredentialsText = getIndexOne(text.match(/allowCredentials"{0,}:\s{0,}\[([^]+)\s{0,}]/)).trim();
-    }
-    // e.g. `"userVerification":"preferred"`
-    const userVerification = getIndexOne(text.match(/userVerification"{0,}:\s{0,}"(\w+)"/));
-    if (allowCredentialsText) {
-        // Splitting objects in array in case the user has multiple keys
-        const allowCredentialArr = allowCredentialsText.split('},') || [allowCredentialsText];
-        // Iterating over array of substrings
-        allowCredentials = allowCredentialArr.map((str) => {
-            // e.g. `{ \"type\": \"public-key\",
-            const type = getIndexOne(str.match(/type"{0,}:\s{0,}"([\w-]+)"/));
-            // e.g. \"id\": new Int8Array([-107, 93, 68, -67, ... -19, 7, 4]).buffer
-            const idArr = ensureArray(str.match(/id"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/));
-            // e.g. `[-107, 93, 68, -67, ... -19, 7, 4]`
-            const idJSON = JSON.parse(idArr[2]);
-            // e.g. [-107, 93, 68, -67, ... -19, 7, 4]
-            const id = new Int8Array(idJSON).buffer;
-            return {
-                type,
-                id,
-            };
-        });
-    }
-    // e.g. `timeout: 60000`
-    const timeout = Number(getIndexOne(text.match(/timeout"{0,}:\s{0,}(\d+)/)));
-    // e.g. `challenge: new Int8Array([87, -95, 18, ... -3,  49, 12, 81]).buffer,`
-    const challengeArr = ensureArray(text.match(/challenge"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/));
-    // e.g. `[87, -95, 18, ... -3,  49, 12, 81]`
-    const challengeJSON = JSON.parse(challengeArr[2]);
-    // e.g. [87, -95, 18, ... -3,  49, 12, 81]
-    const challenge = new Int8Array(challengeJSON).buffer;
-    // e.g. `rpId: \"example.com\"`
-    const rpId = getIndexOne(text.match(/rpId"{0,}:\s{0,}\\{0,}"([^"\\]*)/));
+function E(t) {
+  let s$1, r;
+  t.includes("acceptableCredentials") ? r = f(
+    t.match(/acceptableCredentials"*\s*=\s*\[([^]+)\s*]/)
+  ).trim() : r = f(
+    t.match(/allowCredentials"{0,}:\s{0,}\[([^]+)\s{0,}]/)
+  ).trim();
+  const c = f(
+    t.match(/userVerification"{0,}:\s{0,}"(\w+)"/)
+  );
+  r && (s$1 = (r.split("},") || [r]).map((n) => {
+    const u = f(n.match(/type"{0,}:\s{0,}"([\w-]+)"/)), d = s(n.match(/id"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/)), h = JSON.parse(d[2]), p = new Int8Array(h).buffer;
     return {
-        challenge,
-        timeout,
-        // only add key-value pairs if the truthy values are provided
-        ...(allowCredentials && { allowCredentials }),
-        ...(userVerification && { userVerification }),
-        ...(rpId && { rpId }),
+      type: u,
+      id: p
     };
+  }));
+  const l = Number(f(t.match(/timeout"{0,}:\s{0,}(\d+)/))), i = s(
+    t.match(/challenge"{0,}:\s{0,}new\s{0,}(Uint|Int)8Array\(([^\)]+)/)
+  ), o = JSON.parse(i[2]), m = new Int8Array(o).buffer, a = f(t.match(/rpId"{0,}:\s{0,}\\{0,}"([^"\\]*)/));
+  return {
+    challenge: m,
+    timeout: l,
+    // only add key-value pairs if the truthy values are provided
+    ...s$1 && { allowCredentials: s$1 },
+    ...c && { userVerification: c },
+    ...a && { rpId: a }
+  };
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Utility for integrating a web browser's WebAuthn API.
- *
- * Example:
- *
- * ```js
- * // Determine if a step is a WebAuthn step
- * const stepType = FRWebAuthn.getWebAuthnStepType(step);
- * if (stepType === WebAuthnStepType.Registration) {
- *   // Register a new device
- *   await FRWebAuthn.register(step);
- * } else if (stepType === WebAuthnStepType.Authentication) {
- *   // Authenticate with a registered device
- *   await FRWebAuthn.authenticate(step);
- * }
- * ```
- */
-class FRWebAuthn {
-    /**
-     * Determines if the given step is a WebAuthn step.
-     *
-     * @param step The step to evaluate
-     * @return A WebAuthnStepType value
-     */
-    static getWebAuthnStepType(step) {
-        const outcomeCallback = this.getOutcomeCallback(step);
-        const metadataCallback = this.getMetadataCallback(step);
-        const textOutputCallback = this.getTextOutputCallback(step);
-        if (outcomeCallback && metadataCallback) {
-            const metadata = metadataCallback.getOutputValue('data');
-            if (metadata?.pubKeyCredParams) {
-                return WebAuthnStepType.Registration;
-            }
-            return WebAuthnStepType.Authentication;
-        }
-        else if (outcomeCallback && textOutputCallback) {
-            const message = textOutputCallback.getMessage();
-            if (message.includes('pubKeyCredParams')) {
-                return WebAuthnStepType.Registration;
-            }
-            return WebAuthnStepType.Authentication;
-        }
-        else {
-            return WebAuthnStepType.None;
-        }
+class T {
+  /**
+   * Determines if the given step is a WebAuthn step.
+   *
+   * @param step The step to evaluate
+   * @return A WebAuthnStepType value
+   */
+  static getWebAuthnStepType(e) {
+    const a = this.getOutcomeCallback(e), t = this.getMetadataCallback(e), i$1 = this.getTextOutputCallback(e);
+    if (a && t) {
+      const n = t.getOutputValue("data");
+      return n != null && n.pubKeyCredParams ? i.Registration : i.Authentication;
+    } else
+      return a && i$1 ? i$1.getMessage().includes("pubKeyCredParams") ? i.Registration : i.Authentication : i.None;
+  }
+  /**
+   * Populates the step with the necessary authentication outcome.
+   *
+   * @param step The step that contains WebAuthn authentication data
+   * @return The populated step
+   */
+  static async authenticate(e) {
+    const { hiddenCallback: a, metadataCallback: t, textOutputCallback: i } = this.getCallbacks(e);
+    if (a && (t || i)) {
+      let n;
+      try {
+        let r;
+        if (t) {
+          const c = t.getOutputValue("data");
+          r = this.createAuthenticationPublicKey(c);
+        } else
+          i && (r = E(i.getMessage()));
+        const o = await this.getAuthenticationCredential(r);
+        n = this.getAuthenticationOutcome(o);
+      } catch (r) {
+        throw r instanceof Error ? r.name === E$1.NotSupportedError ? (a.setInputValue(o.Unsupported), r) : (a.setInputValue(`${o.Error}::${r.name}:${r.message}`), r) : r;
+      }
+      return a.setInputValue(n), e;
+    } else {
+      const n = new Error("Incorrect callbacks for WebAuthn authentication");
+      throw n.name = E$1.DataError, a == null || a.setInputValue(`${o.Error}::${n.name}:${n.message}`), n;
     }
-    /**
-     * Populates the step with the necessary authentication outcome.
-     *
-     * @param step The step that contains WebAuthn authentication data
-     * @return The populated step
-     */
-    static async authenticate(step) {
-        const { hiddenCallback, metadataCallback, textOutputCallback } = this.getCallbacks(step);
-        if (hiddenCallback && (metadataCallback || textOutputCallback)) {
-            let outcome;
-            try {
-                let publicKey;
-                if (metadataCallback) {
-                    const meta = metadataCallback.getOutputValue('data');
-                    publicKey = this.createAuthenticationPublicKey(meta);
-                }
-                else if (textOutputCallback) {
-                    publicKey = parseWebAuthnAuthenticateText(textOutputCallback.getMessage());
-                }
-                // TypeScript doesn't like `publicKey` being assigned in conditionals above
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                const credential = await this.getAuthenticationCredential(publicKey);
-                outcome = this.getAuthenticationOutcome(credential);
-            }
-            catch (error) {
-                if (!(error instanceof Error))
-                    throw error;
-                // NotSupportedError is a special case
-                if (error.name === WebAuthnOutcomeType.NotSupportedError) {
-                    hiddenCallback.setInputValue(WebAuthnOutcome.Unsupported);
-                    throw error;
-                }
-                hiddenCallback.setInputValue(`${WebAuthnOutcome.Error}::${error.name}:${error.message}`);
-                throw error;
-            }
-            hiddenCallback.setInputValue(outcome);
-            return step;
-        }
-        else {
-            const e = new Error('Incorrect callbacks for WebAuthn authentication');
-            e.name = WebAuthnOutcomeType.DataError;
-            hiddenCallback?.setInputValue(`${WebAuthnOutcome.Error}::${e.name}:${e.message}`);
-            throw e;
-        }
+  }
+  /**
+   * Populates the step with the necessary registration outcome.
+   *
+   * @param step The step that contains WebAuthn registration data
+   * @return The populated step
+   */
+  // Can make this generic const in Typescript 5.0 > and the name itself will
+  // be inferred from the type so `typeof deviceName` will not just return string
+  // but the actual name of the deviceName passed in as a generic.
+  static async register(e, a) {
+    const { hiddenCallback: t, metadataCallback: i, textOutputCallback: n } = this.getCallbacks(e);
+    if (t && (i || n)) {
+      let r;
+      try {
+        let o;
+        if (i) {
+          const c = i.getOutputValue("data");
+          o = this.createRegistrationPublicKey(c);
+          const l = await this.getRegistrationCredential(
+            o
+          );
+          r = this.getRegistrationOutcome(l);
+        } else if (n) {
+          o = T$1(n.getMessage());
+          const c = await this.getRegistrationCredential(
+            o
+          );
+          r = this.getRegistrationOutcome(c);
+        } else
+          throw new Error("No Credential found from Public Key");
+      } catch (o$1) {
+        throw o$1 instanceof Error ? o$1.name === E$1.NotSupportedError ? (t.setInputValue(o.Unsupported), o$1) : (t.setInputValue(`${o.Error}::${o$1.name}:${o$1.message}`), o$1) : o$1;
+      }
+      return t.setInputValue(
+        a && a.length > 0 ? `${r}::${a}` : r
+      ), e;
+    } else {
+      const r = new Error("Incorrect callbacks for WebAuthn registration");
+      throw r.name = E$1.DataError, t == null || t.setInputValue(`${o.Error}::${r.name}:${r.message}`), r;
     }
-    /**
-     * Populates the step with the necessary registration outcome.
-     *
-     * @param step The step that contains WebAuthn registration data
-     * @return The populated step
-     */
-    // Can make this generic const in Typescript 5.0 > and the name itself will
-    // be inferred from the type so `typeof deviceName` will not just return string
-    // but the actual name of the deviceName passed in as a generic.
-    static async register(step, deviceName) {
-        const { hiddenCallback, metadataCallback, textOutputCallback } = this.getCallbacks(step);
-        if (hiddenCallback && (metadataCallback || textOutputCallback)) {
-            let outcome;
-            try {
-                let publicKey;
-                if (metadataCallback) {
-                    const meta = metadataCallback.getOutputValue('data');
-                    publicKey = this.createRegistrationPublicKey(meta);
-                    const credential = await this.getRegistrationCredential(publicKey);
-                    outcome = this.getRegistrationOutcome(credential);
-                }
-                else if (textOutputCallback) {
-                    publicKey = parseWebAuthnRegisterText(textOutputCallback.getMessage());
-                    const credential = await this.getRegistrationCredential(publicKey);
-                    outcome = this.getRegistrationOutcome(credential);
-                }
-                else {
-                    throw new Error('No Credential found from Public Key');
-                }
-            }
-            catch (error) {
-                if (!(error instanceof Error))
-                    throw error;
-                // NotSupportedError is a special case
-                if (error.name === WebAuthnOutcomeType.NotSupportedError) {
-                    hiddenCallback.setInputValue(WebAuthnOutcome.Unsupported);
-                    throw error;
-                }
-                hiddenCallback.setInputValue(`${WebAuthnOutcome.Error}::${error.name}:${error.message}`);
-                throw error;
-            }
-            hiddenCallback.setInputValue(deviceName && deviceName.length > 0 ? `${outcome}::${deviceName}` : outcome);
-            return step;
-        }
-        else {
-            const e = new Error('Incorrect callbacks for WebAuthn registration');
-            e.name = WebAuthnOutcomeType.DataError;
-            hiddenCallback?.setInputValue(`${WebAuthnOutcome.Error}::${e.name}:${e.message}`);
-            throw e;
-        }
-    }
-    /**
-     * Returns an object containing the two WebAuthn callbacks.
-     *
-     * @param step The step that contains WebAuthn callbacks
-     * @return The WebAuthn callbacks
-     */
-    static getCallbacks(step) {
-        const hiddenCallback = this.getOutcomeCallback(step);
-        const metadataCallback = this.getMetadataCallback(step);
-        const textOutputCallback = this.getTextOutputCallback(step);
-        const returnObj = {
-            hiddenCallback,
-        };
-        if (metadataCallback) {
-            returnObj.metadataCallback = metadataCallback;
-        }
-        else if (textOutputCallback) {
-            returnObj.textOutputCallback = textOutputCallback;
-        }
-        return returnObj;
-    }
-    /**
-     * Returns the WebAuthn metadata callback containing data to pass to the browser
-     * Web Authentication API.
-     *
-     * @param step The step that contains WebAuthn callbacks
-     * @return The metadata callback
-     */
-    static getMetadataCallback(step) {
-        return step.getCallbacksOfType(CallbackType.MetadataCallback).find((x) => {
-            const cb = x.getOutputByName('data', undefined);
-            // eslint-disable-next-line no-prototype-builtins
-            return cb && cb.hasOwnProperty('relyingPartyId');
-        });
-    }
-    /**
-     * Returns the WebAuthn hidden value callback where the outcome should be populated.
-     *
-     * @param step The step that contains WebAuthn callbacks
-     * @return The hidden value callback
-     */
-    static getOutcomeCallback(step) {
-        return step
-            .getCallbacksOfType(CallbackType.HiddenValueCallback)
-            .find((x) => x.getOutputByName('id', '') === 'webAuthnOutcome');
-    }
-    /**
-     * Returns the WebAuthn metadata callback containing data to pass to the browser
-     * Web Authentication API.
-     *
-     * @param step The step that contains WebAuthn callbacks
-     * @return The metadata callback
-     */
-    static getTextOutputCallback(step) {
-        return step
-            .getCallbacksOfType(CallbackType.TextOutputCallback)
-            .find((x) => {
-            const cb = x.getOutputByName('message', undefined);
-            return cb && cb.includes('webAuthnOutcome');
-        });
-    }
-    /**
-     * Retrieves the credential from the browser Web Authentication API.
-     *
-     * @param options The public key options associated with the request
-     * @return The credential
-     */
-    static async getAuthenticationCredential(options) {
-        // Feature check before we attempt registering a device
-        if (!window.PublicKeyCredential) {
-            const e = new Error('PublicKeyCredential not supported by this browser');
-            e.name = WebAuthnOutcomeType.NotSupportedError;
-            throw e;
-        }
-        const credential = await navigator.credentials.get({ publicKey: options });
-        return credential;
-    }
-    /**
-     * Converts an authentication credential into the outcome expected by OpenAM.
-     *
-     * @param credential The credential to convert
-     * @return The outcome string
-     */
-    static getAuthenticationOutcome(credential) {
-        if (credential === null) {
-            const e = new Error('No credential generated from authentication');
-            e.name = WebAuthnOutcomeType.UnknownError;
-            throw e;
-        }
-        try {
-            const clientDataJSON = arrayBufferToString(credential.response.clientDataJSON);
-            const assertionResponse = credential.response;
-            const authenticatorData = new Int8Array(assertionResponse.authenticatorData).toString();
-            const signature = new Int8Array(assertionResponse.signature).toString();
-            // Current native typing for PublicKeyCredential does not include `userHandle`
-            // eslint-disable-next-line
-            // @ts-ignore
-            const userHandle = arrayBufferToString(credential.response.userHandle);
-            let stringOutput = `${clientDataJSON}::${authenticatorData}::${signature}::${credential.id}`;
-            // Check if Username is stored on device
-            if (userHandle) {
-                stringOutput = `${stringOutput}::${userHandle}`;
-                return stringOutput;
-            }
-            return stringOutput;
-        }
-        catch (error) {
-            const e = new Error('Transforming credential object to string failed');
-            e.name = WebAuthnOutcomeType.EncodingError;
-            throw e;
-        }
-    }
-    /**
-     * Retrieves the credential from the browser Web Authentication API.
-     *
-     * @param options The public key options associated with the request
-     * @return The credential
-     */
-    static async getRegistrationCredential(options) {
-        // Feature check before we attempt registering a device
-        if (!window.PublicKeyCredential) {
-            const e = new Error('PublicKeyCredential not supported by this browser');
-            e.name = WebAuthnOutcomeType.NotSupportedError;
-            throw e;
-        }
-        const credential = await navigator.credentials.create({
-            publicKey: options,
-        });
-        return credential;
-    }
-    /**
-     * Converts a registration credential into the outcome expected by OpenAM.
-     *
-     * @param credential The credential to convert
-     * @return The outcome string
-     */
-    static getRegistrationOutcome(credential) {
-        if (credential === null) {
-            const e = new Error('No credential generated from registration');
-            e.name = WebAuthnOutcomeType.UnknownError;
-            throw e;
-        }
-        try {
-            const clientDataJSON = arrayBufferToString(credential.response.clientDataJSON);
-            const attestationResponse = credential.response;
-            const attestationObject = new Int8Array(attestationResponse.attestationObject).toString();
-            return `${clientDataJSON}::${attestationObject}::${credential.id}`;
-        }
-        catch (error) {
-            const e = new Error('Transforming credential object to string failed');
-            e.name = WebAuthnOutcomeType.EncodingError;
-            throw e;
-        }
-    }
-    /**
-     * Converts authentication tree metadata into options required by the browser
-     * Web Authentication API.
-     *
-     * @param metadata The metadata provided in the authentication tree MetadataCallback
-     * @return The Web Authentication API request options
-     */
-    static createAuthenticationPublicKey(metadata) {
-        const { acceptableCredentials, allowCredentials, challenge, relyingPartyId, timeout, userVerification, } = metadata;
-        const rpId = parseRelyingPartyId(relyingPartyId);
-        const allowCredentialsValue = parseCredentials(allowCredentials || acceptableCredentials || '');
-        return {
-            challenge: Uint8Array.from(atob(challenge), (c) => c.charCodeAt(0)).buffer,
-            timeout,
-            // only add key-value pair if proper value is provided
-            ...(allowCredentialsValue && { allowCredentials: allowCredentialsValue }),
-            ...(userVerification && { userVerification }),
-            ...(rpId && { rpId }),
-        };
-    }
-    /**
-     * Converts authentication tree metadata into options required by the browser
-     * Web Authentication API.
-     *
-     * @param metadata The metadata provided in the authentication tree MetadataCallback
-     * @return The Web Authentication API request options
-     */
-    static createRegistrationPublicKey(metadata) {
-        const { pubKeyCredParams: pubKeyCredParamsString } = metadata;
-        const pubKeyCredParams = parsePubKeyArray(pubKeyCredParamsString);
-        if (!pubKeyCredParams) {
-            const e = new Error('Missing pubKeyCredParams property from registration options');
-            e.name = WebAuthnOutcomeType.DataError;
-            throw e;
-        }
-        const excludeCredentials = parseCredentials(metadata.excludeCredentials);
-        const { attestationPreference, authenticatorSelection, challenge, relyingPartyId, relyingPartyName, timeout, userId, userName, displayName, } = metadata;
-        const rpId = parseRelyingPartyId(relyingPartyId);
-        const rp = {
-            name: relyingPartyName,
-            ...(rpId && { id: rpId }),
-        };
-        return {
-            attestation: attestationPreference,
-            authenticatorSelection: JSON.parse(authenticatorSelection),
-            challenge: Uint8Array.from(atob(challenge), (c) => c.charCodeAt(0)).buffer,
-            ...(excludeCredentials.length && { excludeCredentials }),
-            pubKeyCredParams,
-            rp,
-            timeout,
-            user: {
-                displayName: displayName || userName,
-                id: Int8Array.from(userId.split('').map((c) => c.charCodeAt(0))),
-                name: userName,
-            },
-        };
-    }
-}
-
-/*
- * @forgerock/javascript-sdk
- *
- * helpers.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-function addAuthzInfoToHeaders(init, advices, tokens) {
-    const headers = new Headers(init.headers);
-    if (advices.AuthenticateToServiceConditionAdvice) {
-        headers.set('X-Tree', advices.AuthenticateToServiceConditionAdvice[0]);
-    }
-    else if (advices.TransactionConditionAdvice) {
-        headers.set('X-TxID', advices.TransactionConditionAdvice[0]);
-    }
-    if (tokens && tokens.idToken) {
-        headers.set('X-IdToken', tokens.idToken);
-    }
-    return headers;
-}
-function addAuthzInfoToURL(url, advices, tokens) {
-    const updatedURL = new URL(url);
-    // Only modify URL for Transactional Authorization
-    if (advices.TransactionConditionAdvice) {
-        const txId = advices.TransactionConditionAdvice[0];
-        // Add Txn ID to *original* request options as URL param
-        updatedURL.searchParams.append('_txid', txId);
-    }
-    // If tokens are used, send idToken (OIDC)
-    if (tokens && tokens.idToken) {
-        updatedURL.searchParams.append('_idtoken', tokens.idToken);
-    }
-    // FYI: in certain circumstances, the URL may be returned unchanged
-    return updatedURL.toString();
-}
-function buildAuthzOptions(authzObj, baseURL, timeout, realmPath, customPaths) {
-    const treeAuthAdvices = authzObj.advices && authzObj.advices.AuthenticateToServiceConditionAdvice;
-    const txnAuthAdvices = authzObj.advices && authzObj.advices.TransactionConditionAdvice;
-    let attributeValue = '';
-    let attributeName = '';
-    if (treeAuthAdvices) {
-        attributeValue = treeAuthAdvices.reduce((prev, curr) => {
-            const prevWithSpace = prev ? ` ${prev}` : prev;
-            prev = `${curr}${prevWithSpace}`;
-            return prev;
-        }, '');
-        attributeName = 'AuthenticateToServiceConditionAdvice';
-    }
-    else if (txnAuthAdvices) {
-        attributeValue = txnAuthAdvices.reduce((prev, curr) => {
-            const prevWithSpace = prev ? ` ${prev}` : prev;
-            prev = `${curr}${prevWithSpace}`;
-            return prev;
-        }, '');
-        attributeName = 'TransactionConditionAdvice';
-    }
-    const openTags = `<Advices><AttributeValuePair>`;
-    const nameTag = `<Attribute name="${attributeName}"/>`;
-    const valueTag = `<Value>${attributeValue}</Value>`;
-    const endTags = `</AttributeValuePair></Advices>`;
-    const fullXML = `${openTags}${nameTag}${valueTag}${endTags}`;
-    const path = getEndpointPath('authenticate', realmPath, customPaths);
-    const queryParams = {
-        authIndexType: 'composite_advice',
-        authIndexValue: fullXML,
+  }
+  /**
+   * Returns an object containing the two WebAuthn callbacks.
+   *
+   * @param step The step that contains WebAuthn callbacks
+   * @return The WebAuthn callbacks
+   */
+  static getCallbacks(e) {
+    const a = this.getOutcomeCallback(e), t = this.getMetadataCallback(e), i = this.getTextOutputCallback(e), n = {
+      hiddenCallback: a
     };
-    const options = {
-        init: {
-            method: 'POST',
-            credentials: 'include',
-            headers: new Headers({
-                'Accept-API-Version': 'resource=2.0, protocol=1.0',
-            }),
-        },
-        timeout,
-        url: resolve(baseURL, `${path}?${stringify(queryParams)}`),
-    };
-    return options;
-}
-function examineForIGAuthz(res) {
-    const type = res.headers.get('Content-Type') || '';
-    return type.includes('html') && res.url.includes('composite_advice');
-}
-function examineForIGAuthzHeader(headers) {
-    const authnHeader = headers.get('WWW-Authenticate') || '';
-    return authnHeader.includes('advices');
-}
-async function examineForRESTAuthz(res) {
-    const clone = res.clone();
-    const json = await clone.json();
-    return !!json.advices;
-}
-function getXMLValueFromURL(urlString) {
-    const url = new URL(urlString);
-    const value = url.searchParams.get('authIndexValue') || '';
-    const parser = new DOMParser();
-    const decodedValue = decodeURIComponent(value);
-    const doc = parser.parseFromString(decodedValue, 'application/xml');
-    const el = doc.querySelector('Value');
-    return el ? el.innerHTML : '';
-}
-function getAdvicesFromHeader(header) {
-    const headerArr = header.split(',') || [];
-    const advicesSubstr = headerArr.find((substr) => substr.includes('advices')) || '';
-    let advicesValueParsed;
+    return t ? n.metadataCallback = t : i && (n.textOutputCallback = i), n;
+  }
+  /**
+   * Returns the WebAuthn metadata callback containing data to pass to the browser
+   * Web Authentication API.
+   *
+   * @param step The step that contains WebAuthn callbacks
+   * @return The metadata callback
+   */
+  static getMetadataCallback(e) {
+    return e.getCallbacksOfType(l.MetadataCallback).find((a) => {
+      const t = a.getOutputByName("data", void 0);
+      return t && t.hasOwnProperty("relyingPartyId");
+    });
+  }
+  /**
+   * Returns the WebAuthn hidden value callback where the outcome should be populated.
+   *
+   * @param step The step that contains WebAuthn callbacks
+   * @return The hidden value callback
+   */
+  static getOutcomeCallback(e) {
+    return e.getCallbacksOfType(l.HiddenValueCallback).find((a) => a.getOutputByName("id", "") === "webAuthnOutcome");
+  }
+  /**
+   * Returns the WebAuthn metadata callback containing data to pass to the browser
+   * Web Authentication API.
+   *
+   * @param step The step that contains WebAuthn callbacks
+   * @return The metadata callback
+   */
+  static getTextOutputCallback(e) {
+    return e.getCallbacksOfType(l.TextOutputCallback).find((a) => {
+      const t = a.getOutputByName("message", void 0);
+      return t && t.includes("webAuthnOutcome");
+    });
+  }
+  /**
+   * Retrieves the credential from the browser Web Authentication API.
+   *
+   * @param options The public key options associated with the request
+   * @return The credential
+   */
+  static async getAuthenticationCredential(e) {
+    if (!window.PublicKeyCredential) {
+      const t = new Error("PublicKeyCredential not supported by this browser");
+      throw t.name = E$1.NotSupportedError, t;
+    }
+    return await navigator.credentials.get({ publicKey: e });
+  }
+  /**
+   * Converts an authentication credential into the outcome expected by OpenAM.
+   *
+   * @param credential The credential to convert
+   * @return The outcome string
+   */
+  static getAuthenticationOutcome(e) {
+    if (e === null) {
+      const a = new Error("No credential generated from authentication");
+      throw a.name = E$1.UnknownError, a;
+    }
     try {
-        const advicesValueArray = advicesSubstr.match(/"(\S+)"/);
-        const advicesValue = advicesValueArray ? advicesValueArray[1] : '';
-        const advicesValueDecoded = atob(advicesValue);
-        advicesValueParsed = JSON.parse(advicesValueDecoded);
-        return advicesValueParsed;
+      const a = u(e.response.clientDataJSON), t = e.response, i = new Int8Array(
+        t.authenticatorData
+      ).toString(), n = new Int8Array(t.signature).toString(), r = u(e.response.userHandle);
+      let o = `${a}::${i}::${n}::${e.id}`;
+      return r && (o = `${o}::${r}`), o;
+    } catch {
+      const t = new Error("Transforming credential object to string failed");
+      throw t.name = E$1.EncodingError, t;
     }
-    catch (err) {
-        FRLogger.error('Could not parse advices value from WWW-Authenticate header');
+  }
+  /**
+   * Retrieves the credential from the browser Web Authentication API.
+   *
+   * @param options The public key options associated with the request
+   * @return The credential
+   */
+  static async getRegistrationCredential(e) {
+    if (!window.PublicKeyCredential) {
+      const t = new Error("PublicKeyCredential not supported by this browser");
+      throw t.name = E$1.NotSupportedError, t;
     }
-    return {};
-}
-function hasAuthzAdvice(json) {
-    if (json.advices && json.advices.AuthenticateToServiceConditionAdvice) {
-        return (Array.isArray(json.advices.AuthenticateToServiceConditionAdvice) &&
-            json.advices.AuthenticateToServiceConditionAdvice.length > 0);
+    return await navigator.credentials.create({
+      publicKey: e
+    });
+  }
+  /**
+   * Converts a registration credential into the outcome expected by OpenAM.
+   *
+   * @param credential The credential to convert
+   * @return The outcome string
+   */
+  static getRegistrationOutcome(e) {
+    if (e === null) {
+      const a = new Error("No credential generated from registration");
+      throw a.name = E$1.UnknownError, a;
     }
-    else if (json.advices && json.advices.TransactionConditionAdvice) {
-        return (Array.isArray(json.advices.TransactionConditionAdvice) &&
-            json.advices.TransactionConditionAdvice.length > 0);
+    try {
+      const a = u(e.response.clientDataJSON), t = e.response, i = new Int8Array(
+        t.attestationObject
+      ).toString();
+      return `${a}::${i}::${e.id}`;
+    } catch {
+      const t = new Error("Transforming credential object to string failed");
+      throw t.name = E$1.EncodingError, t;
     }
-    else {
-        return false;
-    }
-}
-async function isAuthzStep(res) {
-    // TODO: add comment
-    const clone = res.clone();
-    const json = await clone.json();
-    return !!json.callbacks;
-}
-function newTokenRequired(res, requiresNewToken) {
-    if (typeof requiresNewToken === 'function') {
-        return requiresNewToken(res);
-    }
-    return res.status === 401;
-}
-function normalizeIGRedirectResponseToAdviceJSON(res) {
-    const advices = {};
-    if (res.url.includes('AuthenticateToServiceConditionAdvice')) {
-        advices.AuthenticateToServiceConditionAdvice = [getXMLValueFromURL(res.url)];
-    }
-    else {
-        advices.TransactionConditionAdvice = [getXMLValueFromURL(res.url)];
-    }
+  }
+  /**
+   * Converts authentication tree metadata into options required by the browser
+   * Web Authentication API.
+   *
+   * @param metadata The metadata provided in the authentication tree MetadataCallback
+   * @return The Web Authentication API request options
+   */
+  static createAuthenticationPublicKey(e) {
+    const {
+      acceptableCredentials: a,
+      allowCredentials: t,
+      challenge: i,
+      relyingPartyId: n,
+      timeout: r,
+      userVerification: o
+    } = e, c = d(n), l = a$1(t || a || "");
     return {
-        resource: '',
-        actions: {},
-        attributes: {},
-        advices,
-        ttl: 0,
+      challenge: Uint8Array.from(atob(i), (p) => p.charCodeAt(0)).buffer,
+      timeout: r,
+      // only add key-value pair if proper value is provided
+      ...l && { allowCredentials: l },
+      ...o && { userVerification: o },
+      ...c && { rpId: c }
     };
-}
-function normalizeIGJSONResponseToAdviceJSON(res) {
-    const authHeader = res.headers.get('WWW-Authenticate') || '';
-    const advicesObject = getAdvicesFromHeader(authHeader);
+  }
+  /**
+   * Converts authentication tree metadata into options required by the browser
+   * Web Authentication API.
+   *
+   * @param metadata The metadata provided in the authentication tree MetadataCallback
+   * @return The Web Authentication API request options
+   */
+  static createRegistrationPublicKey(e) {
+    const { pubKeyCredParams: a } = e, t = p(a);
+    if (!t) {
+      const u = new Error("Missing pubKeyCredParams property from registration options");
+      throw u.name = E$1.DataError, u;
+    }
+    const i = a$1(e.excludeCredentials), {
+      attestationPreference: n,
+      authenticatorSelection: r,
+      challenge: o,
+      relyingPartyId: c,
+      relyingPartyName: l,
+      timeout: p$1,
+      userId: w,
+      userName: m,
+      displayName: O
+    } = e, y = d(c), k = {
+      name: l,
+      ...y && { id: y }
+    };
     return {
-        resource: '',
-        actions: {},
-        attributes: {},
-        advices: advicesObject,
-        ttl: 0,
+      attestation: n,
+      authenticatorSelection: JSON.parse(r),
+      challenge: Uint8Array.from(atob(o), (u) => u.charCodeAt(0)).buffer,
+      ...i.length && { excludeCredentials: i },
+      pubKeyCredParams: t,
+      rp: k,
+      timeout: p$1,
+      user: {
+        displayName: O || m,
+        id: Int8Array.from(w.split("").map((u) => u.charCodeAt(0))),
+        name: m
+      }
     };
-}
-async function normalizeRESTJSON(res) {
-    return await res.json();
+  }
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * HTTP client that includes bearer token injection and refresh.
- * This module also supports authorization for policy protected endpoints.
- *
- * Example:
- *
- * ```js
- * return forgerock.HttpClient.request({
- *   url: `https://example.com/protected/resource`,
- *   init: {
- *     method: 'GET',
- *     credentials: 'include',
- *   },
- *   authorization: {
- *     handleStep: async (step) => {
- *       step.getCallbackOfType('PasswordCallback').setPassword(pw);
- *       return Promise.resolve(step);
- *     },
- *   },
- * });
- * ```
- */
-class HttpClient {
-    /**
-     * Makes a request using the specified options.
-     *
-     * @param options The options to use when making the request
-     */
-    static async request(options) {
-        let res = await this._request(options, false);
-        let authorizationJSON;
-        let hasIG = false;
-        if (newTokenRequired(res, options.requiresNewToken)) {
-            res = await this._request(options, true);
-        }
-        if (options.authorization && options.authorization.handleStep) {
-            if (res.status === 401 && examineForIGAuthzHeader(res.headers)) {
-                hasIG = true;
-                authorizationJSON = normalizeIGJSONResponseToAdviceJSON(res);
-            }
-            else if (res.redirected && examineForIGAuthz(res)) {
-                hasIG = true;
-                authorizationJSON = normalizeIGRedirectResponseToAdviceJSON(res);
-            }
-            else if (await examineForRESTAuthz(res)) {
-                authorizationJSON = await normalizeRESTJSON(res);
-            }
-            if (authorizationJSON && authorizationJSON.advices) {
-                const { middleware, realmPath, serverConfig } = Config.get(options.authorization.config);
-                const authzOptions = buildAuthzOptions(authorizationJSON, serverConfig.baseUrl, options.timeout, realmPath, serverConfig.paths);
-                const url = new URL(authzOptions.url);
-                const type = url.searchParams.get('authIndexType');
-                const tree = url.searchParams.get('authIndexValue');
-                const runMiddleware = middlewareWrapper({
-                    url: new URL(authzOptions.url),
-                    init: authzOptions.init,
-                }, {
-                    type: ActionTypes.StartAuthenticate,
-                    payload: { type, tree },
-                });
-                const { url: authUrl, init: authInit } = runMiddleware(middleware);
-                authzOptions.url = authUrl.toString();
-                authzOptions.init = authInit;
-                const initialStep = await this._request(authzOptions, false);
-                if (!(await isAuthzStep(initialStep))) {
-                    throw new Error('Error: Initial response from auth server not a "step".');
-                }
-                if (!hasAuthzAdvice(authorizationJSON)) {
-                    throw new Error(`Error: Transactional or Service Advice is empty.`);
-                }
-                // Walk through auth tree
-                await this.stepIterator(initialStep, options.authorization.handleStep);
-                // See if OAuth tokens are being used
-                const tokens = await TokenStorage.get();
-                if (hasIG) {
-                    // Update URL with IDs and tokens for IG
-                    options.url = addAuthzInfoToURL(options.url, authorizationJSON.advices, tokens);
-                }
-                else {
-                    // Update headers with IDs and tokens for REST API
-                    options.init.headers = addAuthzInfoToHeaders(options.init, authorizationJSON.advices, tokens);
-                }
-                // Retry original resource request
-                res = await this._request(options, false);
-            }
-            else {
-                throw new Error(`Error: Unable to process advice`);
-            }
-        }
-        return res;
-    }
-    static async setAuthHeaders(headers, forceRenew) {
-        let tokens = await TokenStorage.get();
-        /**
-         * Condition to see if Auth is session based or OAuth token based
-         */
-        if (tokens && tokens.accessToken) {
-            // Access tokens are an OAuth artifact
-            tokens = await TokenManager.getTokens({ forceRenew });
-            // TODO: Temp fix; refactor this in next txn auth story
-            if (tokens && tokens.accessToken) {
-                headers.set('Authorization', `Bearer ${tokens.accessToken}`);
-            }
-        }
-        return headers;
-    }
-    static async stepIterator(res, handleStep) {
-        const jsonRes = await res.json();
-        const initialStep = new FRStep(jsonRes);
-        // eslint-disable-next-line no-async-promise-executor
-        return new Promise(async (resolve, reject) => {
-            async function handleNext(step) {
-                const input = await handleStep(step);
-                const output = await FRAuth.next(input, { tree: '', type: '' });
-                if (output.type === StepType.LoginSuccess) {
-                    resolve();
-                }
-                else if (output.type === StepType.LoginFailure) {
-                    reject('Authentication tree failure.');
-                }
-                else {
-                    handleNext(output);
-                }
-            }
-            handleNext(initialStep);
-        });
-    }
-    static async _request(options, forceRenew) {
-        const { url, init, timeout } = options;
-        let headers = new Headers(init.headers || {});
-        if (options.authorization) {
-            headers.set('x-authenticate-response', 'header');
-        }
-        if (!options.bypassAuthentication) {
-            headers = await this.setAuthHeaders(headers, forceRenew);
-        }
-        init.headers = headers;
-        return withTimeout(fetch(url, init), timeout);
-    }
+function P(e, t, n) {
+  const i = new Headers(e.headers);
+  return t.AuthenticateToServiceConditionAdvice ? i.set("X-Tree", t.AuthenticateToServiceConditionAdvice[0]) : t.TransactionConditionAdvice && i.set("X-TxID", t.TransactionConditionAdvice[0]), n && n.idToken && i.set("X-IdToken", n.idToken), i;
+}
+function W(e, t, n) {
+  const i = new URL(e);
+  if (t.TransactionConditionAdvice) {
+    const c = t.TransactionConditionAdvice[0];
+    i.searchParams.append("_txid", c);
+  }
+  return n && n.idToken && i.searchParams.append("_idtoken", n.idToken), i.toString();
+}
+function b(e, t, n, i, c) {
+  const r = e.advices && e.advices.AuthenticateToServiceConditionAdvice, a = e.advices && e.advices.TransactionConditionAdvice;
+  let d = "", s = "";
+  r ? (d = r.reduce((o, u) => {
+    const l = o && ` ${o}`;
+    return o = `${u}${l}`, o;
+  }, ""), s = "AuthenticateToServiceConditionAdvice") : a && (d = a.reduce((o, u) => {
+    const l = o && ` ${o}`;
+    return o = `${u}${l}`, o;
+  }, ""), s = "TransactionConditionAdvice");
+  const v = "<Advices><AttributeValuePair>", h = `<Attribute name="${s}"/>`, T = `<Value>${d}</Value>`, f = `${v}${h}${T}</AttributeValuePair></Advices>`, p = h$1("authenticate", i, c), m = {
+    authIndexType: "composite_advice",
+    authIndexValue: f
+  };
+  return {
+    init: {
+      method: "POST",
+      credentials: "include",
+      headers: new Headers({
+        "Accept-API-Version": "resource=2.0, protocol=1.0"
+      })
+    },
+    timeout: n,
+    url: f$3(t, `${p}?${$$1(m)}`)
+  };
+}
+function H(e) {
+  return (e.headers.get("Content-Type") || "").includes("html") && e.url.includes("composite_advice");
+}
+function L(e) {
+  return (e.get("WWW-Authenticate") || "").includes("advices");
+}
+async function w(e) {
+  return !!(await e.clone().json()).advices;
+}
+function A(e) {
+  const n = new URL(e).searchParams.get("authIndexValue") || "", i = new DOMParser(), c = decodeURIComponent(n), a = i.parseFromString(c, "application/xml").querySelector("Value");
+  return a ? a.innerHTML : "";
+}
+function V(e) {
+  const n = (e.split(",") || []).find((c) => c.includes("advices")) || "";
+  let i;
+  try {
+    const c = n.match(/"(\S+)"/), r = c ? c[1] : "", a = atob(r);
+    return i = JSON.parse(a), i;
+  } catch {
+    t.error("Could not parse advices value from WWW-Authenticate header");
+  }
+  return {};
+}
+function z$1(e) {
+  return e.advices && e.advices.AuthenticateToServiceConditionAdvice ? Array.isArray(e.advices.AuthenticateToServiceConditionAdvice) && e.advices.AuthenticateToServiceConditionAdvice.length > 0 : e.advices && e.advices.TransactionConditionAdvice ? Array.isArray(e.advices.TransactionConditionAdvice) && e.advices.TransactionConditionAdvice.length > 0 : !1;
+}
+async function F(e) {
+  return !!(await e.clone().json()).callbacks;
+}
+function O(e, t) {
+  return typeof t == "function" ? t(e) : e.status === 401;
+}
+function U(e) {
+  const t = {};
+  return e.url.includes("AuthenticateToServiceConditionAdvice") ? t.AuthenticateToServiceConditionAdvice = [A(e.url)] : t.TransactionConditionAdvice = [A(e.url)], {
+    resource: "",
+    actions: {},
+    attributes: {},
+    advices: t,
+    ttl: 0
+  };
+}
+function J(e) {
+  const t = e.headers.get("WWW-Authenticate") || "", n = V(t);
+  return {
+    resource: "",
+    actions: {},
+    attributes: {},
+    advices: n,
+    ttl: 0
+  };
+}
+async function N(e) {
+  return await e.json();
 }
 
-/*
- * @forgerock/javascript-sdk
- *
- * index.ts
- *
- * Copyright (c) 2020 ForgeRock. All rights reserved.
- * This software may be modified and distributed under the terms
- * of the MIT license. See the LICENSE file for details.
- */
-/**
- * Provides access to the current user's profile.
- */
-class UserManager {
-    /**
-     * Gets the current user's profile.
-     */
-    static getCurrentUser(options) {
-        return OAuth2Client.getUserInfo(options);
+class D {
+  /**
+   * Makes a request using the specified options.
+   *
+   * @param options The options to use when making the request
+   */
+  static async request(e) {
+    let r = await this._request(e, !1), t, a = !1;
+    if (O(r, e.requiresNewToken) && (r = await this._request(e, !0)), e.authorization && e.authorization.handleStep)
+      if (r.status === 401 && L(r.headers) ? (a = !0, t = J(r)) : r.redirected && H(r) ? (a = !0, t = U(r)) : await w(r) && (t = await N(r)), t && t.advices) {
+        const { middleware: n, realmPath: i, serverConfig: o } = c$3.get(e.authorization.config), s = b(
+          t,
+          o.baseUrl,
+          e.timeout,
+          i,
+          o.paths
+        ), c = new URL(s.url), u = c.searchParams.get("authIndexType"), m = c.searchParams.get("authIndexValue"), w = f$4(
+          {
+            url: new URL(s.url),
+            init: s.init
+          },
+          {
+            type: e$2.StartAuthenticate,
+            payload: { type: u, tree: m }
+          }
+        ), { url: p, init: A } = w(n);
+        s.url = p.toString(), s.init = A;
+        const h = await this._request(s, !1);
+        if (!await F(h))
+          throw new Error('Error: Initial response from auth server not a "step".');
+        if (!z$1(t))
+          throw new Error("Error: Transactional or Service Advice is empty.");
+        await this.stepIterator(h, e.authorization.handleStep);
+        const l = await d$1.get();
+        a ? e.url = W(e.url, t.advices, l) : e.init.headers = P(
+          e.init,
+          t.advices,
+          l
+        ), r = await this._request(e, !1);
+      } else
+        throw new Error("Error: Unable to process advice");
+    return r;
+  }
+  static async setAuthHeaders(e, r) {
+    let t = await d$1.get();
+    return t && t.accessToken && (t = await T$2.getTokens({ forceRenew: r }), t && t.accessToken && e.set("Authorization", `Bearer ${t.accessToken}`)), e;
+  }
+  static async stepIterator(e, r) {
+    const t = await e.json(), a = new i$4(t);
+    return new Promise(async (n, i) => {
+      async function o(s) {
+        const c = await r(s), u = await f$1.next(c, { tree: "", type: "" });
+        u.type === r$a.LoginSuccess ? n() : u.type === r$a.LoginFailure ? i("Authentication tree failure.") : o(u);
+      }
+      o(a);
+    });
+  }
+  static async _request(e, r) {
+    const { url: t, init: a, timeout: n } = e;
+    let i = new Headers(a.headers || {});
+    return e.authorization && i.set("x-authenticate-response", "header"), e.bypassAuthentication || (i = await this.setAuthHeaders(i, r)), a.headers = i, T$3(fetch(t, a), n);
+  }
+}
+
+class a {
+  /**
+   * Gets the current user's profile.
+   */
+  static getCurrentUser(e) {
+    return b$1.getUserInfo(e);
+  }
+}
+
+class e {
+  /**
+   * @method getData - Method to get the device data
+   * @returns {Promise<string>} - Returns the device data
+   */
+  static async getData() {
+    return await window._pingOneSignals.getData();
+  }
+  /**
+   * @method start - Method to initialize and start the PingOne Signals SDK
+   * @param {InitParams} options - The init parameters
+   * @returns {Promise<void>} - Returns a promise
+   */
+  static async start(a) {
+    try {
+      await Promise.resolve().then(function () { return index3; });
+    } catch (i) {
+      console.error("error loading ping signals", i);
     }
+    await window._pingOneSignals.init(a), a.behavioralDataCollection === !0 && window._pingOneSignals.resumeBehavioralData();
+  }
+  /**
+   * @method pauseBehavioralData - Method to pause the behavioral data collection
+   * @returns {void}
+   * @description Pause the behavioral data collection only; device profile data will still be collected
+   */
+  static pauseBehavioralData() {
+    window._pingOneSignals.pauseBehavioralData();
+  }
+  /**
+   * @method resumeBehavioralData - Method to resume the behavioral data collection
+   * @returns {void}
+   * @description Resume the behavioral data collection
+   */
+  static resumeBehavioralData() {
+    window._pingOneSignals.resumeBehavioralData();
+  }
 }
 
 /**
@@ -9231,11 +7685,20 @@ const configSchema = z
             name: z.string(),
             value: z.unknown(),
         })),
-        type: z.nativeEnum(CallbackType),
+        type: z.nativeEnum(l),
     }))
-        .returns(z.instanceof(FRCallback))
+        .returns(z.instanceof(r$8))
         .optional(),
     clientId: z.string().optional(),
+    logLevel: z
+        .union([
+        z.literal('none'),
+        z.literal('error'),
+        z.literal('warn'),
+        z.literal('info'),
+        z.literal('debug'),
+    ])
+        .optional(),
     middleware: z.array(z.function()).optional(),
     realmPath: z.string(),
     redirectUri: z.string().optional(),
@@ -9304,7 +7767,7 @@ configSchema.partial();
  */
 function configure (config) {
     configSchema.parse(config);
-    Config.set(config);
+    c$3.set(config);
 }
 
 const journeyConfigItemSchema = z
@@ -11123,6 +9586,7 @@ var continueWith = "Continue with ";
 var copyAndPasteUrlBelow = "Or, copy and paste the URL below into your authentictor app.";
 var copyUrl = "Copy URL";
 var customSecurityQuestion = "Custom security question";
+var deviceName = "Device name";
 var doesNotMeetMinimumCharacterLength = "At least {min} character(s)";
 var dontGetLockedOut = "Don't get locked out of your account!";
 var dontHaveAnAccount = "No account? <a href='?journey=Registration'>Register here!</a>";
@@ -11147,11 +9611,13 @@ var minimumNumberOfLowercase = "At least {num} lowercase letter(s)";
 var minimumNumberOfUppercase = "At least {num} uppercase letter(s)";
 var minimumNumberOfSymbols = "At least {num} symbol(s)";
 var nameCallback = "Username";
+var nameYourDevice = "Name your device";
 var next = "Next";
 var nextButton = "Next";
 var notToExceedMaximumCharacterLength = "No more than {max} characters";
 var noLessThanMinimumCharacterLength = "At least {min} character(s)";
 var onMobileOpenInAuthenticator = "On mobile? Open link in Authenticator.";
+var optionallyNameDevice = "Optionally name your device";
 var passwordCallback = "Password";
 var passwordCannotContainCommonPasswords = "Password cannot contain common passwords";
 var passwordCannotContainCommonPasswordsOrBeReversible = "Password cannot contain common passwords or reversible text";
@@ -11170,7 +9636,7 @@ var registerButton = "Register";
 var registerHeader = "Register";
 var registerSuccess = "Registration successful!";
 var requiredField = "Value is required";
-var registerYourDevice = "Register your device";
+var registerYourDevice = "Register {name}";
 var scanQrCodeWithAuthenticator = "Scan the QR code image below with the ForgeRock Authenticator app to register your device with your login.";
 var securityAnswer = "Security answer";
 var securityQuestions = "Security question(s)";
@@ -11180,6 +9646,8 @@ var shouldContainAnUppercase = "Should contain an uppercase letter";
 var shouldContainALowercase = "Should contain a lowercase letter";
 var shouldContainASymbol = "Should contain a symbol";
 var showPassword = "Show password";
+var signalsEvaluation = "Evaluating device information.";
+var skipButton = "Skip";
 var sn = "Last name";
 var submit = "Submit";
 var submitButton = "Submit";
@@ -11195,6 +9663,7 @@ var unknownLoginError = "Unknown login failure has occurred.";
 var unknownNetworkError = "Unknown network request failure has occurred.";
 var url = "URL:";
 var useDeviceForIdentityVerification = "Use your device for identity verification.";
+var useOneOfTheseCodes = "Use one of these codes to authenticate if you lose your device, which has been named: <em>{name}</em>";
 var userName = "Username";
 var usernameRequirements = "Username requirements:";
 var useTheAuthenticatorAppOnYourPhone = "Find the verification code using the authenticator app on your phone.";
@@ -11202,6 +9671,7 @@ var validatedCreatePasswordCallback = "Password";
 var validatedCreateUsernameCallback = "Username";
 var valueRequirements = "Value requirements:";
 var verifyYourIdentity = "Verify your identity";
+var yourDevice = "Your device";
 var yourMultiFactorAuthIsEnabled = "Your new device or MFA is enabled";
 var yourRecoveryCodesToAccessAccountForLostDevice = "If you lose your device, or don’t have it with you, a recovery code is the only way to sign in to your account with 2-step verification enabled. It’s strongly recommended that you print and store these codes in a safe place. <b>Each code can only be used once</b>.";
 var fallback = {
@@ -11221,6 +9691,7 @@ var fallback = {
 	copyAndPasteUrlBelow: copyAndPasteUrlBelow,
 	copyUrl: copyUrl,
 	customSecurityQuestion: customSecurityQuestion,
+	deviceName: deviceName,
 	doesNotMeetMinimumCharacterLength: doesNotMeetMinimumCharacterLength,
 	dontGetLockedOut: dontGetLockedOut,
 	dontHaveAnAccount: dontHaveAnAccount,
@@ -11245,11 +9716,13 @@ var fallback = {
 	minimumNumberOfUppercase: minimumNumberOfUppercase,
 	minimumNumberOfSymbols: minimumNumberOfSymbols,
 	nameCallback: nameCallback,
+	nameYourDevice: nameYourDevice,
 	next: next,
 	nextButton: nextButton,
 	notToExceedMaximumCharacterLength: notToExceedMaximumCharacterLength,
 	noLessThanMinimumCharacterLength: noLessThanMinimumCharacterLength,
 	onMobileOpenInAuthenticator: onMobileOpenInAuthenticator,
+	optionallyNameDevice: optionallyNameDevice,
 	passwordCallback: passwordCallback,
 	passwordCannotContainCommonPasswords: passwordCannotContainCommonPasswords,
 	passwordCannotContainCommonPasswordsOrBeReversible: passwordCannotContainCommonPasswordsOrBeReversible,
@@ -11278,6 +9751,8 @@ var fallback = {
 	shouldContainALowercase: shouldContainALowercase,
 	shouldContainASymbol: shouldContainASymbol,
 	showPassword: showPassword,
+	signalsEvaluation: signalsEvaluation,
+	skipButton: skipButton,
 	sn: sn,
 	submit: submit,
 	submitButton: submitButton,
@@ -11293,6 +9768,7 @@ var fallback = {
 	unknownNetworkError: unknownNetworkError,
 	url: url,
 	useDeviceForIdentityVerification: useDeviceForIdentityVerification,
+	useOneOfTheseCodes: useOneOfTheseCodes,
 	userName: userName,
 	usernameRequirements: usernameRequirements,
 	useTheAuthenticatorAppOnYourPhone: useTheAuthenticatorAppOnYourPhone,
@@ -11300,6 +9776,7 @@ var fallback = {
 	validatedCreateUsernameCallback: validatedCreateUsernameCallback,
 	valueRequirements: valueRequirements,
 	verifyYourIdentity: verifyYourIdentity,
+	yourDevice: yourDevice,
 	yourMultiFactorAuthIsEnabled: yourMultiFactorAuthIsEnabled,
 	yourRecoveryCodesToAccessAccountForLostDevice: yourRecoveryCodesToAccessAccountForLostDevice
 };
@@ -11325,6 +9802,7 @@ const stringsSchema = z
     customSecurityQuestion: z.string(),
     dontGetLockedOut: z.string(),
     doesNotMeetMinimumCharacterLength: z.string(),
+    deviceName: z.string(),
     ensurePasswordIsMoreThan: z.string(),
     ensurePasswordHasOne: z.string(),
     enterVerificationCode: z.string(),
@@ -11346,11 +9824,14 @@ const stringsSchema = z
     minimumNumberOfUppercase: z.string(),
     minimumNumberOfSymbols: z.string(),
     nameCallback: z.string(),
+    nameYourDevice: z.string(),
     next: z.string(),
     nextButton: z.string(),
     notToExceedMaximumCharacterLength: z.string(),
     noLessThanMinimumCharacterLength: z.string(),
+    useOneOfTheseCodes: z.string(),
     onMobileOpenInAuthenticator: z.string(),
+    optionallyNameDevice: z.string(),
     passwordCallback: z.string(),
     passwordCannotContainCommonPasswords: z.string(),
     passwordCannotContainCommonPasswordsOrBeReversible: z.string(),
@@ -11379,6 +9860,8 @@ const stringsSchema = z
     shouldContainALowercase: z.string(),
     shouldContainASymbol: z.string(),
     showPassword: z.string(),
+    signalsEvaluation: z.string(),
+    skipButton: z.string(),
     sn: z.string(),
     submit: z.string(),
     submitButton: z.string(),
@@ -11401,6 +9884,7 @@ const stringsSchema = z
     validatedCreateUsernameCallback: z.string(),
     valueRequirements: z.string(),
     verifyYourIdentity: z.string(),
+    yourDevice: z.string(),
     yourMultiFactorAuthIsEnabled: z.string(),
     yourRecoveryCodesToAccessAccountForLostDevice: z.string(),
 })
@@ -11623,7 +10107,7 @@ function initCheckValidation() {
  * @returns {boolean}
  */
 function shouldRedirectFromStep(step) {
-    return step.getCallbacksOfType(CallbackType.RedirectCallback).length > 0;
+    return step.getCallbacksOfType(l.RedirectCallback).length > 0;
 }
 /**
  * @function shouldPopulateWithPreviousCallbacks -
@@ -11637,7 +10121,7 @@ function shouldPopulateWithPreviousCallbacks(nextStep, previousCallbacks, restar
     if (!Array.isArray(previousCallbacks)) {
         return false;
     }
-    if (restartedStep.type !== StepType.Step) {
+    if (restartedStep.type !== r$a.Step) {
         return false;
     }
     if (stepNumber !== 1) {
@@ -11659,25 +10143,27 @@ function shouldPopulateWithPreviousCallbacks(nextStep, previousCallbacks, restar
 }
 
 const selfSubmittingCallbacks = [
-    CallbackType.ConfirmationCallback,
-    CallbackType.DeviceProfileCallback,
-    CallbackType.PollingWaitCallback,
-    CallbackType.SelectIdPCallback,
+    l.ConfirmationCallback,
+    l.DeviceProfileCallback,
+    l.PollingWaitCallback,
+    l.SelectIdPCallback,
+    l.PingOneProtectInitializeCallback,
+    l.PingOneProtectEvaluationCallback,
 ];
 const userInputCallbacks = [
-    CallbackType.BooleanAttributeInputCallback,
-    CallbackType.ChoiceCallback,
-    CallbackType.ConfirmationCallback,
-    CallbackType.KbaCreateCallback,
-    CallbackType.NameCallback,
-    CallbackType.NumberAttributeInputCallback,
-    CallbackType.PasswordCallback,
-    CallbackType.ReCaptchaCallback,
-    CallbackType.SelectIdPCallback,
-    CallbackType.StringAttributeInputCallback,
-    CallbackType.TermsAndConditionsCallback,
-    CallbackType.ValidatedCreatePasswordCallback,
-    CallbackType.ValidatedCreateUsernameCallback,
+    l.BooleanAttributeInputCallback,
+    l.ChoiceCallback,
+    l.ConfirmationCallback,
+    l.KbaCreateCallback,
+    l.NameCallback,
+    l.NumberAttributeInputCallback,
+    l.PasswordCallback,
+    l.ReCaptchaCallback,
+    l.SelectIdPCallback,
+    l.StringAttributeInputCallback,
+    l.TermsAndConditionsCallback,
+    l.ValidatedCreatePasswordCallback,
+    l.ValidatedCreateUsernameCallback,
 ];
 /**
  * @function forceUserInputOptionalityCallbacks - Determines if a callback should be forced to be optional
@@ -11696,7 +10182,7 @@ const forceUserInputOptionalityCallbacks = {
  * @returns {boolean}
  */
 function isCbReadyByDefault(callback) {
-    if (callback.getType() === CallbackType.ConfirmationCallback) {
+    if (callback.getType() === l.ConfirmationCallback) {
         const cb = callback;
         if (cb.getOptions().length === 1) {
             return true;
@@ -11741,10 +10227,10 @@ function isStepSelfSubmittable(callbacks, userInputOptional) {
  * @returns {boolean}
  */
 function requiresUserInput(callback) {
-    if (callback.getType() === CallbackType.SelectIdPCallback) {
+    if (callback.getType() === l.SelectIdPCallback) {
         return false;
     }
-    if (callback.getType() === CallbackType.ConfirmationCallback) {
+    if (callback.getType() === l.ConfirmationCallback) {
         const cb = callback;
         if (cb.getOptions().length === 1) {
             return false;
@@ -11943,7 +10429,7 @@ function initialize$4(initOptions) {
     const stack = initializeStack();
     let stepNumber = 0;
     async function next(prevStep, nextOptions, resumeUrl) {
-        if (!Config.get().serverConfig?.baseUrl) {
+        if (!c$3.get().serverConfig?.baseUrl) {
             logErrorAndThrow('missingBaseUrl');
         }
         /**
@@ -11959,7 +10445,7 @@ function initialize$4(initOptions) {
          * form failure due to 400 response from ForgeRock.
          */
         let previousCallbacks;
-        if (prevStep && prevStep.type === StepType.Step) {
+        if (prevStep && prevStep.type === r$a.Step) {
             previousCallbacks = prevStep?.callbacks;
         }
         const previousPayload = prevStep?.payload;
@@ -11981,7 +10467,7 @@ function initialize$4(initOptions) {
                 /**
                  * Attempt to resume journey
                  */
-                nextStep = await FRAuth.resume(resumeUrl, options);
+                nextStep = await f$1.resume(resumeUrl, options);
             }
             else if (prevStep) {
                 // If continuing on a tree remove it from the options
@@ -11989,10 +10475,10 @@ function initialize$4(initOptions) {
                 /**
                  * Initial attempt to retrieve next step
                  */
-                nextStep = await FRAuth.next(prevStep, options);
+                nextStep = await f$1.next(prevStep, options);
             }
             else {
-                nextStep = await FRAuth.start(options);
+                nextStep = await f$1.start(options);
             }
         }
         catch (err) {
@@ -12000,11 +10486,11 @@ function initialize$4(initOptions) {
             /**
              * Setup an object to display failure message
              */
-            nextStep = new FRLoginFailure({
+            nextStep = new i$9({
                 message: interpolate('unknownNetworkError'),
             });
         }
-        if (nextStep.type === StepType.Step) {
+        if (nextStep.type === r$a.Step) {
             const stageAttribute = nextStep.getStage();
             let stageJson = null;
             let stageName = null;
@@ -12038,7 +10524,7 @@ function initialize$4(initOptions) {
                 recaptchaAction: nextOptions?.recaptchaAction,
             });
         }
-        else if (nextStep.type === StepType.LoginSuccess) {
+        else if (nextStep.type === r$a.LoginSuccess) {
             /**
              * SUCCESSFUL COMPLETION BLOCK
              */
@@ -12055,7 +10541,7 @@ function initialize$4(initOptions) {
                 recaptchaAction: nextOptions?.recaptchaAction,
             });
         }
-        else if (nextStep.type === StepType.LoginFailure) {
+        else if (nextStep.type === r$a.LoginFailure) {
             /**
              * FAILURE COMPLETION BLOCK
              *
@@ -12068,14 +10554,14 @@ function initialize$4(initOptions) {
                  * Restart tree to get fresh step
                  */
                 const restartOptions = await stack.latest();
-                restartedStep = await FRAuth.next(undefined, restartOptions);
+                restartedStep = await f$1.next(undefined, restartOptions);
             }
             catch (err) {
                 console.error(`Restart failed step request | ${err}`);
                 /**
                  * Setup an object to display failure message
                  */
-                restartedStep = new FRLoginFailure({
+                restartedStep = new i$9({
                     message: interpolate('unknownNetworkError'),
                 });
             }
@@ -12112,7 +10598,7 @@ function initialize$4(initOptions) {
                  * Only if the authId expires do we resubmit with same callback values
                  */
                 if (details?.errorCode === authIdTimeoutErrorCode) {
-                    restartedStep = await FRAuth.next(restartedStep, options);
+                    restartedStep = await f$1.next(restartedStep, options);
                 }
             }
             /**
@@ -12121,7 +10607,7 @@ function initialize$4(initOptions) {
              * After the above attempts to salvage the form submission, let's return
              * the final result to the user.
              */
-            if (restartedStep.type === StepType.Step) {
+            if (restartedStep.type === r$a.Step) {
                 const stageAttribute = restartedStep.getStage();
                 let stageJson = null;
                 let stageName = null;
@@ -12158,7 +10644,7 @@ function initialize$4(initOptions) {
                     recaptchaAction: null,
                 });
             }
-            else if (restartedStep.type === StepType.LoginSuccess) {
+            else if (restartedStep.type === r$a.LoginSuccess) {
                 journeyStore.set({
                     completed: true,
                     error: null,
@@ -12204,7 +10690,7 @@ function initialize$4(initOptions) {
         await next(undefined, resumeOptions, url);
     }
     async function start(startOptions) {
-        const configTree = Config.get().tree;
+        const configTree = c$3.get().tree;
         // If no tree is passed in, but there's a configured default tree, use that
         if (!startOptions?.tree && configTree) {
             if (startOptions) {
@@ -12325,7 +10811,7 @@ function initialize$2(initOptions) {
             response: null,
         });
         try {
-            tokens = await TokenManager.getTokens(options);
+            tokens = await T$2.getTokens(options);
         }
         catch (err) {
             if (err instanceof Error) {
@@ -12402,7 +10888,7 @@ function initialize$1(initOptions) {
             response: null,
         });
         try {
-            const user = await UserManager.getCurrentUser(options);
+            const user = await a.getCurrentUser(options);
             userStore.set({
                 completed: true,
                 error: null,
@@ -12454,7 +10940,9 @@ const styleSchema = z
     .object({
     checksAndRadios: z.union([z.literal('animated'), z.literal('standard')]).optional(),
     labels: z.union([z.literal('floating').optional(), z.literal('stacked')]).optional(),
-    showPassword: z.union([z.literal('none'), z.literal('button'), z.literal('checkbox')]).optional(),
+    showPassword: z
+        .union([z.literal('none'), z.literal('button'), z.literal('checkbox')])
+        .optional(),
     logo: logoSchema.optional(),
     sections: z
         .object({
@@ -12495,7 +10983,8 @@ function initialize(customStyle) {
             return customStyle[str];
         };
         const newStyleConfig = Object.keys(customStyle).reduce((acc, key) => {
-            if (accessStrictType(key) === undefined || accessStrictType(key) === null) {
+            if (accessStrictType(key) === undefined ||
+                accessStrictType(key) === null) {
                 return acc;
             }
             return { ...acc, [key]: accessStrictType(key) };
@@ -12733,17 +11222,17 @@ function widgetApiFactory(componentApi) {
             if (!journeyStore || !oauthStore || !userStore) {
                 logErrorAndThrow('missingStores');
             }
-            const { clientId } = Config.get();
+            const { clientId } = c$3.get();
             let obj;
             /**
              * If configuration has a clientId, then use FRUser to logout to ensure
              * token revoking and removal; else, just end the session.
              */
             if (clientId) {
-                obj = FRUser;
+                obj = k;
             }
             else {
-                obj = SessionManager;
+                obj = M$1;
             }
             try {
                 await obj.logout();
@@ -12790,12 +11279,18 @@ function widgetApiFactory(componentApi) {
         configuration,
         getStores,
         journey,
-        request: HttpClient.request.bind(HttpClient),
+        protect: {
+            start: e.start.bind(e),
+            getData: e.getData.bind(e),
+            pauseBehavioralData: e.pauseBehavioralData.bind(e),
+            resumeBehavioralData: e.resumeBehavioralData.bind(e),
+        },
+        request: D.request.bind(D),
         user,
     };
 }
 
-/* src/lib/components/_utilities/locale-strings.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/_utilities/locale-strings.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$d(ctx) {
 	let current;
@@ -12850,7 +11345,7 @@ function create_else_block$d(ctx) {
 }
 
 // (11:0) {#if html}
-function create_if_block$w(ctx) {
+function create_if_block$x(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[5].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[4], null);
@@ -12947,12 +11442,12 @@ function fallback_block$2(ctx) {
 	};
 }
 
-function create_fragment$18(ctx) {
+function create_fragment$1a(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$w, create_else_block$d];
+	const if_block_creators = [create_if_block$x, create_else_block$d];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -13016,7 +11511,7 @@ function create_fragment$18(ctx) {
 	};
 }
 
-function instance$1a($$self, $$props, $$invalidate) {
+function instance$1c($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { html = false } = $$props;
 	let { key } = $$props;
@@ -13044,13 +11539,13 @@ function instance$1a($$self, $$props, $$invalidate) {
 class Locale_strings extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$1a, create_fragment$18, safe_not_equal, { html: 0, key: 2, values: 3 });
+		init(this, options, instance$1c, create_fragment$1a, safe_not_equal, { html: 0, key: 2, values: 3 });
 	}
 }
 
-/* src/lib/components/icons/x-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/x-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$17(ctx) {
+function create_fragment$19(ctx) {
 	let svg;
 	let path;
 	let title;
@@ -13126,7 +11621,7 @@ function create_fragment$17(ctx) {
 	};
 }
 
-function instance$19($$self, $$props, $$invalidate) {
+function instance$1b($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -13143,11 +11638,11 @@ function instance$19($$self, $$props, $$invalidate) {
 class X_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$19, create_fragment$17, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$1b, create_fragment$19, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/compositions/dialog/dialog.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/dialog/dialog.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$c(ctx) {
 	let div;
@@ -13248,7 +11743,7 @@ function create_else_block$c(ctx) {
 }
 
 // (39:2) {#if withHeader}
-function create_if_block$v(ctx) {
+function create_if_block$w(ctx) {
 	let div1;
 	let div0;
 	let div0_style_value;
@@ -13262,7 +11757,7 @@ function create_if_block$v(ctx) {
 	xicon = new X_icon({
 			props: {
 				classes: "tw_inline-block tw_fill-current tw_text-secondary-dark dark:tw_text-secondary-light",
-				$$slots: { default: [create_default_slot$v] },
+				$$slots: { default: [create_default_slot$w] },
 				$$scope: { ctx }
 			}
 		});
@@ -13395,7 +11890,7 @@ function create_if_block_1$h(ctx) {
 }
 
 // (55:8) <XIcon           classes="tw_inline-block tw_fill-current tw_text-secondary-dark dark:tw_text-secondary-light"           >
-function create_default_slot$v(ctx) {
+function create_default_slot$w(ctx) {
 	let t;
 	let current;
 	t = new Locale_strings({ props: { key: "closeModal" } });
@@ -13424,7 +11919,7 @@ function create_default_slot$v(ctx) {
 	};
 }
 
-function create_fragment$16(ctx) {
+function create_fragment$18(ctx) {
 	let dialog;
 	let current_block_type_index;
 	let if_block;
@@ -13432,7 +11927,7 @@ function create_fragment$16(ctx) {
 	let div;
 	let dialog_class_value;
 	let current;
-	const if_block_creators = [create_if_block$v, create_else_block$c];
+	const if_block_creators = [create_if_block$w, create_else_block$c];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -13544,7 +12039,7 @@ function create_fragment$16(ctx) {
 	};
 }
 
-function instance$18($$self, $$props, $$invalidate) {
+function instance$1a($$self, $$props, $$invalidate) {
 	let $styleStore;
 	component_subscribe($$self, styleStore, $$value => $$invalidate(5, $styleStore = $$value));
 	let { $$slots: slots = {}, $$scope } = $$props;
@@ -13618,7 +12113,7 @@ class Dialog extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$18, create_fragment$16, safe_not_equal, {
+		init(this, options, instance$1a, create_fragment$18, safe_not_equal, {
 			dialogEl: 0,
 			dialogId: 1,
 			forceOpen: 2,
@@ -13632,9 +12127,9 @@ class Dialog extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/alert-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/alert-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$15(ctx) {
+function create_fragment$17(ctx) {
 	let svg;
 	let path;
 	let title;
@@ -13710,7 +12205,7 @@ function create_fragment$15(ctx) {
 	};
 }
 
-function instance$17($$self, $$props, $$invalidate) {
+function instance$19($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -13727,13 +12222,13 @@ function instance$17($$self, $$props, $$invalidate) {
 class Alert_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$17, create_fragment$15, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$19, create_fragment$17, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/icons/info-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/info-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$14(ctx) {
+function create_fragment$16(ctx) {
 	let svg;
 	let path;
 	let title;
@@ -13809,7 +12304,7 @@ function create_fragment$14(ctx) {
 	};
 }
 
-function instance$16($$self, $$props, $$invalidate) {
+function instance$18($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -13826,13 +12321,13 @@ function instance$16($$self, $$props, $$invalidate) {
 class Info_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$16, create_fragment$14, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$18, create_fragment$16, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/icons/warning-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/warning-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$13(ctx) {
+function create_fragment$15(ctx) {
 	let svg;
 	let path;
 	let title;
@@ -13908,7 +12403,7 @@ function create_fragment$13(ctx) {
 	};
 }
 
-function instance$15($$self, $$props, $$invalidate) {
+function instance$17($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -13925,11 +12420,11 @@ function instance$15($$self, $$props, $$invalidate) {
 class Warning_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$15, create_fragment$13, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$17, create_fragment$15, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/primitives/alert/alert.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/alert/alert.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$b(ctx) {
 	let infoicon;
@@ -13989,7 +12484,7 @@ function create_if_block_1$g(ctx) {
 }
 
 // (42:4) {#if type === 'error'}
-function create_if_block$u(ctx) {
+function create_if_block$v(ctx) {
 	let alerticon;
 	let current;
 	alerticon = new Alert_icon({});
@@ -14017,7 +12512,7 @@ function create_if_block$u(ctx) {
 	};
 }
 
-function create_fragment$12(ctx) {
+function create_fragment$14(ctx) {
 	let div;
 	let p;
 	let current_block_type_index;
@@ -14027,7 +12522,7 @@ function create_fragment$12(ctx) {
 	let div_class_value;
 	let div_role_value;
 	let current;
-	const if_block_creators = [create_if_block$u, create_if_block_1$g, create_else_block$b];
+	const if_block_creators = [create_if_block$v, create_if_block_1$g, create_else_block$b];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -14159,7 +12654,7 @@ function generateClassString$3(...args) {
 	);
 }
 
-function instance$14($$self, $$props, $$invalidate) {
+function instance$16($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { id } = $$props;
 	let { needsFocus = false } = $$props;
@@ -14196,25 +12691,30 @@ function instance$14($$self, $$props, $$invalidate) {
 class Alert extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$14, create_fragment$12, safe_not_equal, { id: 0, needsFocus: 3, type: 1 });
+		init(this, options, instance$16, create_fragment$14, safe_not_equal, { id: 0, needsFocus: 3, type: 1 });
 	}
 }
 
-/* src/lib/components/primitives/spinner/spinner.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/spinner/spinner.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$11(ctx) {
+function create_fragment$13(ctx) {
 	let div;
 	let span;
-	let t;
+	let t0;
 	let div_class_value;
+	let t1;
 	let current;
-	t = new Locale_strings({ props: { key: "loading" } });
+	t0 = new Locale_strings({ props: { key: "loading" } });
+	const default_slot_template = /*#slots*/ ctx[3].default;
+	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[2], null);
 
 	return {
 		c() {
 			div = element("div");
 			span = element("span");
-			create_component(t.$$.fragment);
+			create_component(t0.$$.fragment);
+			t1 = space();
+			if (default_slot) default_slot.c();
 			attr(span, "class", "tw_sr-only");
 			attr(div, "class", div_class_value = `tw_spinner tw_animate-spin tw_border-4 tw_inline-block tw_rounded-full ${/*colorClass*/ ctx[0]} ${/*layoutClasses*/ ctx[1]}`);
 			attr(div, "role", "status");
@@ -14222,52 +12722,79 @@ function create_fragment$11(ctx) {
 		m(target, anchor) {
 			insert(target, div, anchor);
 			append(div, span);
-			mount_component(t, span, null);
+			mount_component(t0, span, null);
+			insert(target, t1, anchor);
+
+			if (default_slot) {
+				default_slot.m(target, anchor);
+			}
+
 			current = true;
 		},
 		p(ctx, [dirty]) {
 			if (!current || dirty & /*colorClass, layoutClasses*/ 3 && div_class_value !== (div_class_value = `tw_spinner tw_animate-spin tw_border-4 tw_inline-block tw_rounded-full ${/*colorClass*/ ctx[0]} ${/*layoutClasses*/ ctx[1]}`)) {
 				attr(div, "class", div_class_value);
 			}
+
+			if (default_slot) {
+				if (default_slot.p && (!current || dirty & /*$$scope*/ 4)) {
+					update_slot_base(
+						default_slot,
+						default_slot_template,
+						ctx,
+						/*$$scope*/ ctx[2],
+						!current
+						? get_all_dirty_from_scope(/*$$scope*/ ctx[2])
+						: get_slot_changes(default_slot_template, /*$$scope*/ ctx[2], dirty, null),
+						null
+					);
+				}
+			}
 		},
 		i(local) {
 			if (current) return;
-			transition_in(t.$$.fragment, local);
+			transition_in(t0.$$.fragment, local);
+			transition_in(default_slot, local);
 			current = true;
 		},
 		o(local) {
-			transition_out(t.$$.fragment, local);
+			transition_out(t0.$$.fragment, local);
+			transition_out(default_slot, local);
 			current = false;
 		},
 		d(detaching) {
 			if (detaching) detach(div);
-			destroy_component(t);
+			destroy_component(t0);
+			if (detaching) detach(t1);
+			if (default_slot) default_slot.d(detaching);
 		}
 	};
 }
 
-function instance$13($$self, $$props, $$invalidate) {
+function instance$15($$self, $$props, $$invalidate) {
+	let { $$slots: slots = {}, $$scope } = $$props;
 	let { colorClass } = $$props;
 	let { layoutClasses } = $$props;
 
 	$$self.$$set = $$props => {
 		if ('colorClass' in $$props) $$invalidate(0, colorClass = $$props.colorClass);
 		if ('layoutClasses' in $$props) $$invalidate(1, layoutClasses = $$props.layoutClasses);
+		if ('$$scope' in $$props) $$invalidate(2, $$scope = $$props.$$scope);
 	};
 
-	return [colorClass, layoutClasses];
+	return [colorClass, layoutClasses, $$scope, slots];
 }
 
 class Spinner extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$13, create_fragment$11, safe_not_equal, { colorClass: 0, layoutClasses: 1 });
+		init(this, options, instance$15, create_fragment$13, safe_not_equal, { colorClass: 0, layoutClasses: 1 });
 	}
 }
 
-/* src/lib/components/primitives/button/button.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/button/button.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$t(ctx) {
+function create_if_block$u(ctx) {
 	let spinner;
 	let current;
 
@@ -14318,14 +12845,14 @@ function fallback_block$1(ctx) {
 	};
 }
 
-function create_fragment$10(ctx) {
+function create_fragment$12(ctx) {
 	let button;
 	let t;
 	let button_class_value;
 	let current;
 	let mounted;
 	let dispose;
-	let if_block = /*busy*/ ctx[0] && create_if_block$t();
+	let if_block = /*busy*/ ctx[0] && create_if_block$u();
 	const default_slot_template = /*#slots*/ ctx[7].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[6], null);
 	const default_slot_or_fallback = default_slot || fallback_block$1();
@@ -14367,7 +12894,7 @@ function create_fragment$10(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block$t();
+					if_block = create_if_block$u();
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(button, t);
@@ -14448,7 +12975,7 @@ function generateClassString$2(...args) {
 	);
 }
 
-function instance$12($$self, $$props, $$invalidate) {
+function instance$14($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { busy = false } = $$props;
 	let { classes = '' } = $$props;
@@ -14478,7 +13005,7 @@ class Button extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$12, create_fragment$10, safe_not_equal, {
+		init(this, options, instance$14, create_fragment$12, safe_not_equal, {
 			busy: 0,
 			classes: 1,
 			onClick: 2,
@@ -14489,9 +13016,9 @@ class Button extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/form/form.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/form/form.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$$(ctx) {
+function create_fragment$11(ctx) {
 	let form;
 	let form_class_value;
 	let current;
@@ -14578,7 +13105,7 @@ function create_fragment$$(ctx) {
 	};
 }
 
-function instance$11($$self, $$props, $$invalidate) {
+function instance$13($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { ariaDescribedBy } = $$props;
 	let { formEl = null } = $$props;
@@ -14705,7 +13232,7 @@ class Form extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$11, create_fragment$$, safe_not_equal, {
+		init(this, options, instance$13, create_fragment$11, safe_not_equal, {
 			ariaDescribedBy: 1,
 			formEl: 0,
 			id: 2,
@@ -14715,7 +13242,7 @@ class Form extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/_utilities/server-strings.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/_utilities/server-strings.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$a(ctx) {
 	let current;
@@ -14770,7 +13297,7 @@ function create_else_block$a(ctx) {
 }
 
 // (10:0) {#if html}
-function create_if_block$s(ctx) {
+function create_if_block$t(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[4].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[3], null);
@@ -14867,12 +13394,12 @@ function fallback_block(ctx) {
 	};
 }
 
-function create_fragment$_(ctx) {
+function create_fragment$10(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$s, create_else_block$a];
+	const if_block_creators = [create_if_block$t, create_else_block$a];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -14936,7 +13463,7 @@ function create_fragment$_(ctx) {
 	};
 }
 
-function instance$10($$self, $$props, $$invalidate) {
+function instance$12($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { html = false } = $$props;
 	let { string } = $$props;
@@ -14962,13 +13489,13 @@ function instance$10($$self, $$props, $$invalidate) {
 class Server_strings extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$10, create_fragment$_, safe_not_equal, { html: 0, string: 2 });
+		init(this, options, instance$12, create_fragment$10, safe_not_equal, { html: 0, string: 2 });
 	}
 }
 
-/* src/lib/components/icons/shield-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/shield-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$Z(ctx) {
+function create_fragment$$(ctx) {
 	let svg;
 	let path;
 	let title;
@@ -15044,7 +13571,7 @@ function create_fragment$Z(ctx) {
 	};
 }
 
-function instance$$($$self, $$props, $$invalidate) {
+function instance$11($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -15061,13 +13588,13 @@ function instance$$($$self, $$props, $$invalidate) {
 class Shield_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$$, create_fragment$Z, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$11, create_fragment$$, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/journey/stages/_utilities/back-to.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/_utilities/back-to.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$r(ctx) {
+function create_if_block$s(ctx) {
 	let p;
 	let button;
 	let t_value = interpolate(/*string*/ ctx[1]) + "";
@@ -15103,9 +13630,9 @@ function create_if_block$r(ctx) {
 	};
 }
 
-function create_fragment$Y(ctx) {
+function create_fragment$_(ctx) {
 	let if_block_anchor;
-	let if_block = /*$stack*/ ctx[2].length > 1 && create_if_block$r(ctx);
+	let if_block = /*$stack*/ ctx[2].length > 1 && create_if_block$s(ctx);
 
 	return {
 		c() {
@@ -15121,7 +13648,7 @@ function create_fragment$Y(ctx) {
 				if (if_block) {
 					if_block.p(ctx, dirty);
 				} else {
-					if_block = create_if_block$r(ctx);
+					if_block = create_if_block$s(ctx);
 					if_block.c();
 					if_block.m(if_block_anchor.parentNode, if_block_anchor);
 				}
@@ -15139,7 +13666,7 @@ function create_fragment$Y(ctx) {
 	};
 }
 
-function instance$_($$self, $$props, $$invalidate) {
+function instance$10($$self, $$props, $$invalidate) {
 	let $stack;
 	let $configuredJourneysStore;
 	component_subscribe($$self, configuredJourneysStore, $$value => $$invalidate(5, $configuredJourneysStore = $$value));
@@ -15180,7 +13707,7 @@ function instance$_($$self, $$props, $$invalidate) {
 class Back_to extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$_, create_fragment$Y, safe_not_equal, { journey: 0 });
+		init(this, options, instance$10, create_fragment$_, safe_not_equal, { journey: 0 });
 	}
 }
 
@@ -15642,9 +14169,9 @@ function getAttributeValidationFailureText(callback) {
     }, '');
 }
 
-/* src/lib/components/primitives/message/input-message.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/message/input-message.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$q(ctx) {
+function create_if_block$r(ctx) {
 	let p;
 	let p_class_value;
 	let p_id_value;
@@ -15675,9 +14202,9 @@ function create_if_block$q(ctx) {
 	};
 }
 
-function create_fragment$X(ctx) {
+function create_fragment$Z(ctx) {
 	let if_block_anchor;
-	let if_block = /*dirtyMessage*/ ctx[1] && create_if_block$q(ctx);
+	let if_block = /*dirtyMessage*/ ctx[1] && create_if_block$r(ctx);
 
 	return {
 		c() {
@@ -15693,7 +14220,7 @@ function create_fragment$X(ctx) {
 				if (if_block) {
 					if_block.p(ctx, dirty);
 				} else {
-					if_block = create_if_block$q(ctx);
+					if_block = create_if_block$r(ctx);
 					if_block.c();
 					if_block.m(if_block_anchor.parentNode, if_block_anchor);
 				}
@@ -15725,7 +14252,7 @@ function generateClassString$1(...args) {
 	);
 }
 
-function instance$Z($$self, $$props, $$invalidate) {
+function instance$$($$self, $$props, $$invalidate) {
 	let { classes = '' } = $$props;
 	let { dirtyMessage } = $$props;
 	let { key = undefined } = $$props;
@@ -15756,7 +14283,7 @@ class Input_message extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$Z, create_fragment$X, safe_not_equal, {
+		init(this, options, instance$$, create_fragment$Z, safe_not_equal, {
 			classes: 0,
 			dirtyMessage: 1,
 			key: 2,
@@ -15766,9 +14293,9 @@ class Input_message extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/label/label.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/label/label.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$W(ctx) {
+function create_fragment$Y(ctx) {
 	let label;
 	let label_class_value;
 	let current;
@@ -15831,7 +14358,7 @@ function create_fragment$W(ctx) {
 	};
 }
 
-function instance$Y($$self, $$props, $$invalidate) {
+function instance$_($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { key } = $$props;
 	let { classes = '' } = $$props;
@@ -15848,13 +14375,13 @@ function instance$Y($$self, $$props, $$invalidate) {
 class Label extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$Y, create_fragment$W, safe_not_equal, { key: 0, classes: 1 });
+		init(this, options, instance$_, create_fragment$Y, safe_not_equal, { key: 0, classes: 1 });
 	}
 }
 
-/* src/lib/components/compositions/checkbox/animated.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/checkbox/animated.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$u(ctx) {
+function create_default_slot$v(ctx) {
 	let span;
 	let t;
 	let current;
@@ -15911,7 +14438,7 @@ function create_default_slot$u(ctx) {
 	};
 }
 
-function create_fragment$V(ctx) {
+function create_fragment$X(ctx) {
 	let div1;
 	let input;
 	let input_data_message_value;
@@ -15928,7 +14455,7 @@ function create_fragment$V(ctx) {
 			props: {
 				key: /*key*/ ctx[3],
 				classes: "tw_grid tw_grid-cols-[2.5em_1fr] tw_relative",
-				$$slots: { default: [create_default_slot$u] },
+				$$slots: { default: [create_default_slot$v] },
 				$$scope: { ctx }
 			}
 		});
@@ -16035,7 +14562,7 @@ function create_fragment$V(ctx) {
 	};
 }
 
-function instance$X($$self, $$props, $$invalidate) {
+function instance$Z($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { checkValidity = null } = $$props;
 	let { message = '' } = $$props;
@@ -16104,7 +14631,7 @@ let Animated$1 = class Animated extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$X, create_fragment$V, safe_not_equal, {
+		init(this, options, instance$Z, create_fragment$X, safe_not_equal, {
 			checkValidity: 8,
 			message: 1,
 			isFirstInvalidInput: 9,
@@ -16118,9 +14645,9 @@ let Animated$1 = class Animated extends SvelteComponent {
 	}
 };
 
-/* src/lib/components/primitives/checkbox/checkbox.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/checkbox/checkbox.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$t(ctx) {
+function create_default_slot$u(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[7].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[9], null);
@@ -16167,7 +14694,7 @@ function create_default_slot$t(ctx) {
 	};
 }
 
-function create_fragment$U(ctx) {
+function create_fragment$W(ctx) {
 	let input;
 	let input_aria_describedby_value;
 	let t;
@@ -16179,7 +14706,7 @@ function create_fragment$U(ctx) {
 	label = new Label({
 			props: {
 				key: /*key*/ ctx[2],
-				$$slots: { default: [create_default_slot$t] },
+				$$slots: { default: [create_default_slot$u] },
 				$$scope: { ctx }
 			}
 		});
@@ -16264,7 +14791,7 @@ function create_fragment$U(ctx) {
 	};
 }
 
-function instance$W($$self, $$props, $$invalidate) {
+function instance$Y($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { isFirstInvalidInput } = $$props;
 	let { isRequired = false } = $$props;
@@ -16315,7 +14842,7 @@ class Checkbox extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$W, create_fragment$U, safe_not_equal, {
+		init(this, options, instance$Y, create_fragment$W, safe_not_equal, {
 			isFirstInvalidInput: 6,
 			isRequired: 0,
 			isInvalid: 1,
@@ -16326,9 +14853,9 @@ class Checkbox extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/compositions/checkbox/standard.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/checkbox/standard.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$s(ctx) {
+function create_default_slot$t(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[10].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[11], null);
@@ -16375,7 +14902,7 @@ function create_default_slot$s(ctx) {
 	};
 }
 
-function create_fragment$T(ctx) {
+function create_fragment$V(ctx) {
 	let div;
 	let checkbox;
 	let t;
@@ -16391,7 +14918,7 @@ function create_fragment$T(ctx) {
 				key: /*key*/ ctx[4],
 				onChange: /*onChangeWrapper*/ ctx[7],
 				value: /*value*/ ctx[6],
-				$$slots: { default: [create_default_slot$s] },
+				$$slots: { default: [create_default_slot$t] },
 				$$scope: { ctx }
 			}
 		});
@@ -16462,7 +14989,7 @@ function create_fragment$T(ctx) {
 	};
 }
 
-function instance$V($$self, $$props, $$invalidate) {
+function instance$X($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { checkValidity = null } = $$props;
 	let { message = '' } = $$props;
@@ -16515,7 +15042,7 @@ let Standard$1 = class Standard extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$V, create_fragment$T, safe_not_equal, {
+		init(this, options, instance$X, create_fragment$V, safe_not_equal, {
 			checkValidity: 8,
 			message: 1,
 			isFirstInvalidInput: 2,
@@ -16529,9 +15056,9 @@ let Standard$1 = class Standard extends SvelteComponent {
 	}
 };
 
-/* src/lib/journey/callbacks/boolean/boolean.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/boolean/boolean.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$r(ctx) {
+function create_default_slot$s(ctx) {
 	let t_value = interpolate(textToKey(/*outputName*/ ctx[3]), null, /*prompt*/ ctx[5]) + "";
 	let t;
 
@@ -16564,7 +15091,7 @@ function create_key_block$5(ctx) {
 				message: /*validationFailure*/ ctx[6],
 				onChange: /*setValue*/ ctx[8],
 				value: /*previousValue*/ ctx[4],
-				$$slots: { default: [create_default_slot$r] },
+				$$slots: { default: [create_default_slot$s] },
 				$$scope: { ctx }
 			}
 		});
@@ -16606,7 +15133,7 @@ function create_key_block$5(ctx) {
 	};
 }
 
-function create_fragment$S(ctx) {
+function create_fragment$U(ctx) {
 	let previous_key = /*callback*/ ctx[0];
 	let key_block_anchor;
 	let current;
@@ -16651,7 +15178,7 @@ function create_fragment$S(ctx) {
 	};
 }
 
-function instance$U($$self, $$props, $$invalidate) {
+function instance$W($$self, $$props, $$invalidate) {
 	const stepMetadata = null;
 	const selfSubmitFunction = null;
 	let { callback } = $$props;
@@ -16718,7 +15245,7 @@ let Boolean$1 = class Boolean extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$U, create_fragment$S, safe_not_equal, {
+		init(this, options, instance$W, create_fragment$U, safe_not_equal, {
 			stepMetadata: 9,
 			selfSubmitFunction: 10,
 			callback: 0,
@@ -16736,7 +15263,7 @@ let Boolean$1 = class Boolean extends SvelteComponent {
 	}
 };
 
-/* src/lib/components/compositions/radio/animated.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/radio/animated.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$c(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -16745,7 +15272,7 @@ function get_each_context$c(ctx, list, i) {
 }
 
 // (40:8) <Label           key={`${key}-${option.value}`}           classes="tw_input-spacing tw_grid tw_grid-cols-[2.5em_1fr] tw_relative"         >
-function create_default_slot$q(ctx) {
+function create_default_slot$r(ctx) {
 	let span;
 	let t0;
 	let t1_value = /*option*/ ctx[13].text + "";
@@ -16792,7 +15319,7 @@ function create_each_block$c(ctx) {
 			props: {
 				key: `${/*key*/ ctx[5]}-${/*option*/ ctx[13].value}`,
 				classes: "tw_input-spacing tw_grid tw_grid-cols-[2.5em_1fr] tw_relative",
-				$$slots: { default: [create_default_slot$q] },
+				$$slots: { default: [create_default_slot$r] },
 				$$scope: { ctx }
 			}
 		});
@@ -16881,7 +15408,7 @@ function create_each_block$c(ctx) {
 	};
 }
 
-function create_fragment$R(ctx) {
+function create_fragment$T(ctx) {
 	let fieldset;
 	let legend;
 	let t0;
@@ -16937,9 +15464,7 @@ function create_fragment$R(ctx) {
 			append(fieldset, div);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(div, null);
-				}
+				each_blocks[i].m(div, null);
 			}
 
 			append(div, t2);
@@ -17012,7 +15537,7 @@ function create_fragment$R(ctx) {
 	};
 }
 
-function instance$T($$self, $$props, $$invalidate) {
+function instance$V($$self, $$props, $$invalidate) {
 	let { defaultOption = null } = $$props;
 	let { message = '' } = $$props;
 	let { groupLabel = '' } = $$props;
@@ -17074,7 +15599,7 @@ class Animated extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$T, create_fragment$R, safe_not_equal, {
+		init(this, options, instance$V, create_fragment$T, safe_not_equal, {
 			defaultOption: 0,
 			message: 1,
 			groupLabel: 2,
@@ -17090,9 +15615,9 @@ class Animated extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/radio/radio.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/radio/radio.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$p(ctx) {
+function create_default_slot$q(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[8].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[10], null);
@@ -17139,7 +15664,7 @@ function create_default_slot$p(ctx) {
 	};
 }
 
-function create_fragment$Q(ctx) {
+function create_fragment$S(ctx) {
 	let input;
 	let input_aria_describedby_value;
 	let t;
@@ -17151,7 +15676,7 @@ function create_fragment$Q(ctx) {
 	label = new Label({
 			props: {
 				key: /*key*/ ctx[2],
-				$$slots: { default: [create_default_slot$p] },
+				$$slots: { default: [create_default_slot$q] },
 				$$scope: { ctx }
 			}
 		});
@@ -17241,7 +15766,7 @@ function create_fragment$Q(ctx) {
 	};
 }
 
-function instance$S($$self, $$props, $$invalidate) {
+function instance$U($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { checked = false } = $$props;
 	let { isFirstInvalidInput } = $$props;
@@ -17295,7 +15820,7 @@ class Radio extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$S, create_fragment$Q, safe_not_equal, {
+		init(this, options, instance$U, create_fragment$S, safe_not_equal, {
 			checked: 0,
 			isFirstInvalidInput: 7,
 			isRequired: 1,
@@ -17307,7 +15832,7 @@ class Radio extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/compositions/radio/standard.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/radio/standard.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$b(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -17316,7 +15841,7 @@ function get_each_context$b(ctx, list, i) {
 }
 
 // (21:6) <Radio         checked={defaultOption === option.value}         {isFirstInvalidInput}         {isRequired}         key={`${key}-${option.value}`}         {name}         {onChange}         value={option.value}       >
-function create_default_slot$o(ctx) {
+function create_default_slot$p(ctx) {
 	let t_value = /*option*/ ctx[11].text + "";
 	let t;
 
@@ -17352,7 +15877,7 @@ function create_each_block$b(ctx) {
 				name: /*name*/ ctx[7],
 				onChange: /*onChange*/ ctx[8],
 				value: /*option*/ ctx[11].value,
-				$$slots: { default: [create_default_slot$o] },
+				$$slots: { default: [create_default_slot$p] },
 				$$scope: { ctx }
 			}
 		});
@@ -17402,7 +15927,7 @@ function create_each_block$b(ctx) {
 	};
 }
 
-function create_fragment$P(ctx) {
+function create_fragment$R(ctx) {
 	let fieldset;
 	let legend;
 	let t0;
@@ -17455,9 +15980,7 @@ function create_fragment$P(ctx) {
 			append(fieldset, t1);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(fieldset, null);
-				}
+				each_blocks[i].m(fieldset, null);
 			}
 
 			append(fieldset, t2);
@@ -17530,7 +16053,7 @@ function create_fragment$P(ctx) {
 	};
 }
 
-function instance$R($$self, $$props, $$invalidate) {
+function instance$T($$self, $$props, $$invalidate) {
 	let { defaultOption = null } = $$props;
 	let { message = '' } = $$props;
 	let { groupLabel = '' } = $$props;
@@ -17576,7 +16099,7 @@ class Standard extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$R, create_fragment$P, safe_not_equal, {
+		init(this, options, instance$T, create_fragment$R, safe_not_equal, {
 			defaultOption: 0,
 			message: 1,
 			groupLabel: 2,
@@ -17592,7 +16115,7 @@ class Standard extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/select/select.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/select/select.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$a(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -17710,7 +16233,7 @@ function create_each_block$a(ctx) {
 }
 
 // (61:0) {#if labelOrder === 'last'}
-function create_if_block$p(ctx) {
+function create_if_block$q(ctx) {
 	let label_1;
 	let current;
 
@@ -17720,7 +16243,7 @@ function create_if_block$p(ctx) {
 				classes: `${/*shouldDisplayOption*/ ctx[10]
 				? /*labelClasses*/ ctx[6]
 				: 'tw_sr-only'}`,
-				$$slots: { default: [create_default_slot$n] },
+				$$slots: { default: [create_default_slot$o] },
 				$$scope: { ctx }
 			}
 		});
@@ -17763,7 +16286,7 @@ function create_if_block$p(ctx) {
 }
 
 // (62:2) <Label {key} classes={`${shouldDisplayOption ? labelClasses : 'tw_sr-only'}`}>
-function create_default_slot$n(ctx) {
+function create_default_slot$o(ctx) {
 	let t;
 
 	return {
@@ -17782,7 +16305,7 @@ function create_default_slot$n(ctx) {
 	};
 }
 
-function create_fragment$O(ctx) {
+function create_fragment$Q(ctx) {
 	let t0;
 	let select;
 	let select_aria_describedby_value;
@@ -17800,7 +16323,7 @@ function create_fragment$O(ctx) {
 		each_blocks[i] = create_each_block$a(get_each_context$a(ctx, each_value, i));
 	}
 
-	let if_block1 = /*labelOrder*/ ctx[7] === 'last' && create_if_block$p(ctx);
+	let if_block1 = /*labelOrder*/ ctx[7] === 'last' && create_if_block$q(ctx);
 
 	return {
 		c() {
@@ -17831,9 +16354,7 @@ function create_fragment$O(ctx) {
 			insert(target, select, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(select, null);
-				}
+				each_blocks[i].m(select, null);
 			}
 
 			/*select_binding*/ ctx[14](select);
@@ -17924,7 +16445,7 @@ function create_fragment$O(ctx) {
 						transition_in(if_block1, 1);
 					}
 				} else {
-					if_block1 = create_if_block$p(ctx);
+					if_block1 = create_if_block$q(ctx);
 					if_block1.c();
 					transition_in(if_block1, 1);
 					if_block1.m(if_block1_anchor.parentNode, if_block1_anchor);
@@ -17965,7 +16486,7 @@ function create_fragment$O(ctx) {
 	};
 }
 
-function instance$Q($$self, $$props, $$invalidate) {
+function instance$S($$self, $$props, $$invalidate) {
 	let { selectClasses = '' } = $$props;
 	let { defaultOption = null } = $$props;
 	let { isFirstInvalidInput } = $$props;
@@ -18052,7 +16573,7 @@ class Select extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$Q, create_fragment$O, safe_not_equal, {
+		init(this, options, instance$S, create_fragment$Q, safe_not_equal, {
 			selectClasses: 0,
 			defaultOption: 1,
 			isFirstInvalidInput: 12,
@@ -18068,9 +16589,9 @@ class Select extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/compositions/select-floating/floating-label.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/select-floating/floating-label.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$N(ctx) {
+function create_fragment$P(ctx) {
 	let div;
 	let select;
 	let t;
@@ -18153,7 +16674,7 @@ function create_fragment$N(ctx) {
 	};
 }
 
-function instance$P($$self, $$props, $$invalidate) {
+function instance$R($$self, $$props, $$invalidate) {
 	let { checkValidity = null } = $$props;
 	let { defaultOption = null } = $$props;
 	let { message = '' } = $$props;
@@ -18208,7 +16729,7 @@ let Floating_label$1 = class Floating_label extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$P, create_fragment$N, safe_not_equal, {
+		init(this, options, instance$R, create_fragment$P, safe_not_equal, {
 			checkValidity: 10,
 			defaultOption: 1,
 			message: 2,
@@ -18224,9 +16745,9 @@ let Floating_label$1 = class Floating_label extends SvelteComponent {
 	}
 };
 
-/* src/lib/components/compositions/select-stacked/stacked-label.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/select-stacked/stacked-label.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$M(ctx) {
+function create_fragment$O(ctx) {
 	let div;
 	let select;
 	let t;
@@ -18308,7 +16829,7 @@ function create_fragment$M(ctx) {
 	};
 }
 
-function instance$O($$self, $$props, $$invalidate) {
+function instance$Q($$self, $$props, $$invalidate) {
 	let { checkValidity = null } = $$props;
 	let { defaultOption = null } = $$props;
 	let { message = '' } = $$props;
@@ -18363,7 +16884,7 @@ let Stacked_label$1 = class Stacked_label extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$O, create_fragment$M, safe_not_equal, {
+		init(this, options, instance$Q, create_fragment$O, safe_not_equal, {
 			checkValidity: 10,
 			defaultOption: 1,
 			message: 2,
@@ -18379,7 +16900,7 @@ let Stacked_label$1 = class Stacked_label extends SvelteComponent {
 	}
 };
 
-/* src/lib/journey/callbacks/choice/choice.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/choice/choice.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$9(ctx) {
 	let select;
@@ -18430,7 +16951,7 @@ function create_else_block$9(ctx) {
 }
 
 // (52:0) {#if callbackMetadata?.platform?.displayType === 'radio'}
-function create_if_block$o(ctx) {
+function create_if_block$p(ctx) {
 	let radio;
 	let current;
 
@@ -18480,12 +17001,12 @@ function create_if_block$o(ctx) {
 	};
 }
 
-function create_fragment$L(ctx) {
+function create_fragment$N(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$o, create_else_block$9];
+	const if_block_creators = [create_if_block$p, create_else_block$9];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -18549,7 +17070,7 @@ function create_fragment$L(ctx) {
 	};
 }
 
-function instance$N($$self, $$props, $$invalidate) {
+function instance$P($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -18637,7 +17158,7 @@ class Choice extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$N, create_fragment$L, safe_not_equal, {
+		init(this, options, instance$P, create_fragment$N, safe_not_equal, {
 			selfSubmitFunction: 9,
 			stepMetadata: 10,
 			callback: 11,
@@ -18655,9 +17176,9 @@ class Choice extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/grid/grid.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/grid/grid.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$K(ctx) {
+function create_fragment$M(ctx) {
 	let div;
 	let div_class_value;
 	let current;
@@ -18733,7 +17254,7 @@ function generateClassString(...args) {
 	);
 }
 
-function instance$M($$self, $$props, $$invalidate) {
+function instance$O($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { num = 2 } = $$props;
 
@@ -18748,11 +17269,11 @@ function instance$M($$self, $$props, $$invalidate) {
 class Grid extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$M, create_fragment$K, safe_not_equal, { num: 0 });
+		init(this, options, instance$O, create_fragment$M, safe_not_equal, { num: 0 });
 	}
 }
 
-/* src/lib/journey/callbacks/confirmation/confirmation.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/confirmation/confirmation.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$9(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -18761,7 +17282,7 @@ function get_each_context$9(ctx, list, i) {
 }
 
 // (101:0) {:else}
-function create_else_block_1(ctx) {
+function create_else_block_1$1(ctx) {
 	let grid;
 	let current;
 
@@ -18807,7 +17328,7 @@ function create_else_block_1(ctx) {
 }
 
 // (80:0) {#if !stepMetadata?.derived.isStepSelfSubmittable()}
-function create_if_block$n(ctx) {
+function create_if_block$o(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
@@ -18877,7 +17398,7 @@ function create_if_block$n(ctx) {
 }
 
 // (104:6) <Button         style={options.length > 1 && defaultChoice === Number(opt.value) ? 'primary' : buttonStyle}         type="button"         width="auto"         onClick={() => setBtnValue(Number(opt.value))}       >
-function create_default_slot_2$8(ctx) {
+function create_default_slot_2$9(ctx) {
 	let t0_value = /*opt*/ ctx[15].text + "";
 	let t0;
 	let t1;
@@ -18918,7 +17439,7 @@ function create_each_block$9(ctx) {
 				type: "button",
 				width: "auto",
 				onClick: func,
-				$$slots: { default: [create_default_slot_2$8] },
+				$$slots: { default: [create_default_slot_2$9] },
 				$$scope: { ctx }
 			}
 		});
@@ -18987,9 +17508,7 @@ function create_default_slot_1$g(ctx) {
 		},
 		m(target, anchor) {
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, each_1_anchor, anchor);
@@ -19060,7 +17579,7 @@ function create_else_block$8(ctx) {
 				key: /*inputName*/ ctx[6],
 				onChange: /*setCheckboxValue*/ ctx[10],
 				value: false,
-				$$slots: { default: [create_default_slot$m] },
+				$$slots: { default: [create_default_slot$n] },
 				$$scope: { ctx }
 			}
 		});
@@ -19147,7 +17666,7 @@ function create_if_block_1$e(ctx) {
 }
 
 // (91:4) <Checkbox       isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}       isInvalid={false}       key={inputName}       onChange={setCheckboxValue}       value={false}     >
-function create_default_slot$m(ctx) {
+function create_default_slot$n(ctx) {
 	let t_value = /*options*/ ctx[3][0].text + "";
 	let t;
 
@@ -19167,13 +17686,13 @@ function create_default_slot$m(ctx) {
 	};
 }
 
-function create_fragment$J(ctx) {
+function create_fragment$L(ctx) {
 	let show_if;
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$n, create_else_block_1];
+	const if_block_creators = [create_if_block$o, create_else_block_1$1];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -19239,7 +17758,7 @@ function create_fragment$J(ctx) {
 	};
 }
 
-function instance$L($$self, $$props, $$invalidate) {
+function instance$N($$self, $$props, $$invalidate) {
 	const style = {};
 	let { callback } = $$props;
 	let { callbackMetadata } = $$props;
@@ -19358,7 +17877,7 @@ class Confirmation extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$L, create_fragment$J, safe_not_equal, {
+		init(this, options, instance$N, create_fragment$L, safe_not_equal, {
 			style: 11,
 			callback: 12,
 			callbackMetadata: 0,
@@ -19372,9 +17891,9 @@ class Confirmation extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/hidden-value/hidden-value.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/hidden-value/hidden-value.svelte generated by Svelte v3.55.1 */
 
-function instance$K($$self, $$props, $$invalidate) {
+function instance$M($$self, $$props, $$invalidate) {
 	const callback = null;
 	const callbackMetadata = null;
 	const selfSubmitFunction = null;
@@ -19387,7 +17906,7 @@ class Hidden_value extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$K, null, safe_not_equal, {
+		init(this, options, instance$M, null, safe_not_equal, {
 			callback: 0,
 			callbackMetadata: 1,
 			selfSubmitFunction: 2,
@@ -19417,7 +17936,7 @@ class Hidden_value extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/input/input.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/input/input.svelte generated by Svelte v3.55.1 */
 
 function create_if_block_7$1(ctx) {
 	let label_1;
@@ -19647,7 +18166,7 @@ function create_if_block_5$2(ctx) {
 }
 
 // (65:0) {#if type === 'number'}
-function create_if_block_4$5(ctx) {
+function create_if_block_4$6(ctx) {
 	let input;
 	let input_aria_describedby_value;
 	let input_class_value;
@@ -19727,7 +18246,7 @@ function create_if_block_4$5(ctx) {
 }
 
 // (81:0) {#if type === 'password'}
-function create_if_block_3$8(ctx) {
+function create_if_block_3$9(ctx) {
 	let input;
 	let input_aria_describedby_value;
 	let input_class_value;
@@ -19967,7 +18486,7 @@ function create_if_block_1$d(ctx) {
 }
 
 // (129:0) {#if labelOrder === 'last'}
-function create_if_block$m(ctx) {
+function create_if_block$n(ctx) {
 	let label_1;
 	let current;
 
@@ -19975,7 +18494,7 @@ function create_if_block$m(ctx) {
 			props: {
 				key: /*key*/ ctx[3],
 				classes: `${/*labelClasses*/ ctx[5]}`,
-				$$slots: { default: [create_default_slot$l] },
+				$$slots: { default: [create_default_slot$m] },
 				$$scope: { ctx }
 			}
 		});
@@ -20015,7 +18534,7 @@ function create_if_block$m(ctx) {
 }
 
 // (130:2) <Label {key} classes={`${labelClasses}`}>
-function create_default_slot$l(ctx) {
+function create_default_slot$m(ctx) {
 	let t;
 
 	return {
@@ -20034,7 +18553,7 @@ function create_default_slot$l(ctx) {
 	};
 }
 
-function create_fragment$I(ctx) {
+function create_fragment$K(ctx) {
 	let t0;
 	let t1;
 	let t2;
@@ -20047,11 +18566,11 @@ function create_fragment$I(ctx) {
 	let if_block0 = /*labelOrder*/ ctx[6] === 'first' && create_if_block_7$1(ctx);
 	let if_block1 = /*type*/ ctx[11] === 'date' && create_if_block_6$1(ctx);
 	let if_block2 = /*type*/ ctx[11] === 'email' && create_if_block_5$2(ctx);
-	let if_block3 = /*type*/ ctx[11] === 'number' && create_if_block_4$5(ctx);
-	let if_block4 = /*type*/ ctx[11] === 'password' && create_if_block_3$8(ctx);
+	let if_block3 = /*type*/ ctx[11] === 'number' && create_if_block_4$6(ctx);
+	let if_block4 = /*type*/ ctx[11] === 'password' && create_if_block_3$9(ctx);
 	let if_block5 = /*type*/ ctx[11] === 'phone' && create_if_block_2$a(ctx);
 	let if_block6 = /*type*/ ctx[11] === 'text' && create_if_block_1$d(ctx);
-	let if_block7 = /*labelOrder*/ ctx[6] === 'last' && create_if_block$m(ctx);
+	let if_block7 = /*labelOrder*/ ctx[6] === 'last' && create_if_block$n(ctx);
 
 	return {
 		c() {
@@ -20145,7 +18664,7 @@ function create_fragment$I(ctx) {
 				if (if_block3) {
 					if_block3.p(ctx, dirty);
 				} else {
-					if_block3 = create_if_block_4$5(ctx);
+					if_block3 = create_if_block_4$6(ctx);
 					if_block3.c();
 					if_block3.m(t3.parentNode, t3);
 				}
@@ -20158,7 +18677,7 @@ function create_fragment$I(ctx) {
 				if (if_block4) {
 					if_block4.p(ctx, dirty);
 				} else {
-					if_block4 = create_if_block_3$8(ctx);
+					if_block4 = create_if_block_3$9(ctx);
 					if_block4.c();
 					if_block4.m(t4.parentNode, t4);
 				}
@@ -20201,7 +18720,7 @@ function create_fragment$I(ctx) {
 						transition_in(if_block7, 1);
 					}
 				} else {
-					if_block7 = create_if_block$m(ctx);
+					if_block7 = create_if_block$n(ctx);
 					if_block7.c();
 					transition_in(if_block7, 1);
 					if_block7.m(if_block7_anchor.parentNode, if_block7_anchor);
@@ -20248,7 +18767,7 @@ function create_fragment$I(ctx) {
 	};
 }
 
-function instance$J($$self, $$props, $$invalidate) {
+function instance$L($$self, $$props, $$invalidate) {
 	let { forceValidityFailure = false } = $$props;
 	let { isFirstInvalidInput } = $$props;
 	let { inputClasses = '' } = $$props;
@@ -20392,7 +18911,7 @@ class Input extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$J, create_fragment$I, safe_not_equal, {
+		init(this, options, instance$L, create_fragment$K, safe_not_equal, {
 			forceValidityFailure: 1,
 			isFirstInvalidInput: 13,
 			inputClasses: 2,
@@ -20410,11 +18929,11 @@ class Input extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/compositions/input-floating/floating-label.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/input-floating/floating-label.svelte generated by Svelte v3.55.1 */
 const get_input_button_slot_changes$1 = dirty => ({});
 const get_input_button_slot_context$1 = ctx => ({});
 
-function create_fragment$H(ctx) {
+function create_fragment$J(ctx) {
 	let div1;
 	let input;
 	let updating_value;
@@ -20589,7 +19108,7 @@ function create_fragment$H(ctx) {
 	};
 }
 
-function instance$I($$self, $$props, $$invalidate) {
+function instance$K($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { checkValidity = null } = $$props;
 	let { forceValidityFailure = false } = $$props;
@@ -20660,7 +19179,7 @@ class Floating_label extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$I, create_fragment$H, safe_not_equal, {
+		init(this, options, instance$K, create_fragment$J, safe_not_equal, {
 			checkValidity: 12,
 			forceValidityFailure: 2,
 			message: 3,
@@ -20678,11 +19197,11 @@ class Floating_label extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/compositions/input-stacked/stacked-label.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/compositions/input-stacked/stacked-label.svelte generated by Svelte v3.55.1 */
 const get_input_button_slot_changes = dirty => ({});
 const get_input_button_slot_context = ctx => ({});
 
-function create_fragment$G(ctx) {
+function create_fragment$I(ctx) {
 	let div1;
 	let input;
 	let updating_value;
@@ -20861,7 +19380,7 @@ function create_fragment$G(ctx) {
 	};
 }
 
-function instance$H($$self, $$props, $$invalidate) {
+function instance$J($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { checkValidity = null } = $$props;
 	let { forceValidityFailure = false } = $$props;
@@ -20935,7 +19454,7 @@ class Stacked_label extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$H, create_fragment$G, safe_not_equal, {
+		init(this, options, instance$J, create_fragment$I, safe_not_equal, {
 			checkValidity: 13,
 			forceValidityFailure: 2,
 			isFirstInvalidInput: 3,
@@ -20954,9 +19473,9 @@ class Stacked_label extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/lock-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/lock-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$F(ctx) {
+function create_fragment$H(ctx) {
 	let svg;
 	let path0;
 	let path1;
@@ -21037,7 +19556,7 @@ function create_fragment$F(ctx) {
 	};
 }
 
-function instance$G($$self, $$props, $$invalidate) {
+function instance$I($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -21054,13 +19573,13 @@ function instance$G($$self, $$props, $$invalidate) {
 class Lock_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$G, create_fragment$F, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$I, create_fragment$H, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/journey/callbacks/kba/kba-create.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/kba/kba-create.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$l(ctx) {
+function create_if_block$m(ctx) {
 	let input;
 	let current;
 
@@ -21105,7 +19624,7 @@ function create_if_block$l(ctx) {
 	};
 }
 
-function create_fragment$E(ctx) {
+function create_fragment$G(ctx) {
 	let fieldset;
 	let legend;
 	let t0;
@@ -21141,7 +19660,7 @@ function create_fragment$E(ctx) {
 			}
 		});
 
-	let if_block = /*displayCustomQuestionInput*/ ctx[3] && create_if_block$l(ctx);
+	let if_block = /*displayCustomQuestionInput*/ ctx[3] && create_if_block$m(ctx);
 
 	function input_value_binding(value) {
 		/*input_value_binding*/ ctx[21](value);
@@ -21220,7 +19739,7 @@ function create_fragment$E(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block$l(ctx);
+					if_block = create_if_block$m(ctx);
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(fieldset, t6);
@@ -21278,7 +19797,7 @@ function create_fragment$E(ctx) {
 	};
 }
 
-function instance$F($$self, $$props, $$invalidate) {
+function instance$H($$self, $$props, $$invalidate) {
 	let $value;
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
@@ -21434,7 +19953,7 @@ class Kba_create extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$F, create_fragment$E, safe_not_equal, {
+		init(this, options, instance$H, create_fragment$G, safe_not_equal, {
 			selfSubmitFunction: 13,
 			stepMetadata: 14,
 			callback: 15,
@@ -21452,7 +19971,7 @@ class Kba_create extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/username/name.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/username/name.svelte generated by Svelte v3.55.1 */
 
 function create_key_block$4(ctx) {
 	let input;
@@ -21507,7 +20026,7 @@ function create_key_block$4(ctx) {
 	};
 }
 
-function create_fragment$D(ctx) {
+function create_fragment$F(ctx) {
 	let previous_key = /*callback*/ ctx[0];
 	let key_block_anchor;
 	let current;
@@ -21552,7 +20071,7 @@ function create_fragment$D(ctx) {
 	};
 }
 
-function instance$E($$self, $$props, $$invalidate) {
+function instance$G($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -21604,7 +20123,7 @@ class Name extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$E, create_fragment$D, safe_not_equal, {
+		init(this, options, instance$G, create_fragment$F, safe_not_equal, {
 			selfSubmitFunction: 8,
 			stepMetadata: 9,
 			callback: 0,
@@ -21622,7 +20141,7 @@ class Name extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/eye-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/eye-icon.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$7(ctx) {
 	let svg;
@@ -21706,7 +20225,7 @@ function create_else_block$7(ctx) {
 }
 
 // (6:0) {#if !visible}
-function create_if_block$k(ctx) {
+function create_if_block$l(ctx) {
 	let svg;
 	let path0;
 	let path1;
@@ -21787,12 +20306,12 @@ function create_if_block$k(ctx) {
 	};
 }
 
-function create_fragment$C(ctx) {
+function create_fragment$E(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$k, create_else_block$7];
+	const if_block_creators = [create_if_block$l, create_else_block$7];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -21856,7 +20375,7 @@ function create_fragment$C(ctx) {
 	};
 }
 
-function instance$D($$self, $$props, $$invalidate) {
+function instance$F($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
@@ -21875,13 +20394,13 @@ function instance$D($$self, $$props, $$invalidate) {
 class Eye_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$D, create_fragment$C, safe_not_equal, { classes: 0, size: 1, visible: 2 });
+		init(this, options, instance$F, create_fragment$E, safe_not_equal, { classes: 0, size: 1, visible: 2 });
 	}
 }
 
-/* src/lib/journey/callbacks/password/confirm-input.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/password/confirm-input.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot_2$7(ctx) {
+function create_default_slot_2$8(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[17].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[18], null);
@@ -22056,7 +20575,7 @@ function create_input_button_slot$1(ctx) {
 }
 
 // (80:0) {#if showPassword === "checkbox"}
-function create_if_block$j(ctx) {
+function create_if_block$k(ctx) {
 	let div;
 	let checkbox;
 	let current;
@@ -22068,7 +20587,7 @@ function create_if_block$j(ctx) {
 				key: /*key*/ ctx[3] + /*style*/ ctx[4].showPassword,
 				onChange: /*toggleVisibility*/ ctx[14],
 				value: false,
-				$$slots: { default: [create_default_slot$k] },
+				$$slots: { default: [create_default_slot$l] },
 				$$scope: { ctx }
 			}
 		});
@@ -22112,7 +20631,7 @@ function create_if_block$j(ctx) {
 }
 
 // (82:6) <Checkbox          {isFirstInvalidInput}         isInvalid={false}         key = {key + style.showPassword}         onChange={toggleVisibility}         value={false}       >
-function create_default_slot$k(ctx) {
+function create_default_slot$l(ctx) {
 	let t;
 
 	return {
@@ -22128,7 +20647,7 @@ function create_default_slot$k(ctx) {
 	};
 }
 
-function create_fragment$B(ctx) {
+function create_fragment$D(ctx) {
 	let input;
 	let t;
 	let if_block_anchor;
@@ -22154,13 +20673,13 @@ function create_fragment$B(ctx) {
 				: '',
 				$$slots: {
 					"input-button": [create_input_button_slot$1],
-					default: [create_default_slot_2$7]
+					default: [create_default_slot_2$8]
 				},
 				$$scope: { ctx }
 			}
 		});
 
-	let if_block = /*showPassword*/ ctx[12] === "checkbox" && create_if_block$j(ctx);
+	let if_block = /*showPassword*/ ctx[12] === "checkbox" && create_if_block$k(ctx);
 
 	return {
 		c() {
@@ -22222,7 +20741,7 @@ function create_fragment$B(ctx) {
 	};
 }
 
-function instance$C($$self, $$props, $$invalidate) {
+function instance$E($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { forceValidityFailure = false } = $$props;
 	let { passwordsDoNotMatch = false } = $$props;
@@ -22314,7 +20833,7 @@ class Confirm_input extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$C, create_fragment$B, safe_not_equal, {
+		init(this, options, instance$E, create_fragment$D, safe_not_equal, {
 			forceValidityFailure: 0,
 			passwordsDoNotMatch: 1,
 			isRequired: 2,
@@ -22328,9 +20847,9 @@ class Confirm_input extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/password/base.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/password/base.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot_2$6(ctx) {
+function create_default_slot_2$7(ctx) {
 	let current;
 	const default_slot_template = /*#slots*/ ctx[22].default;
 	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[23], null);
@@ -22377,7 +20896,7 @@ function create_default_slot_2$6(ctx) {
 	};
 }
 
-// (92:6) {#if showPassword === "button"}
+// (92:6) {#if showPassword === 'button'}
 function create_if_block_2$9(ctx) {
 	let button;
 	let eyeicon;
@@ -22473,7 +20992,7 @@ function create_default_slot_1$d(ctx) {
 function create_input_button_slot(ctx) {
 	let if_block_anchor;
 	let current;
-	let if_block = /*showPassword*/ ctx[16] === "button" && create_if_block_2$9(ctx);
+	let if_block = /*showPassword*/ ctx[16] === 'button' && create_if_block_2$9(ctx);
 
 	return {
 		c() {
@@ -22486,7 +21005,7 @@ function create_input_button_slot(ctx) {
 			current = true;
 		},
 		p(ctx, dirty) {
-			if (/*showPassword*/ ctx[16] === "button") if_block.p(ctx, dirty);
+			if (/*showPassword*/ ctx[16] === 'button') if_block.p(ctx, dirty);
 		},
 		i(local) {
 			if (current) return;
@@ -22504,7 +21023,7 @@ function create_input_button_slot(ctx) {
 	};
 }
 
-// (107:2) {#if showPassword === "checkbox"}
+// (107:2) {#if showPassword === 'checkbox'}
 function create_if_block_1$b(ctx) {
 	let div;
 	let checkbox;
@@ -22517,7 +21036,7 @@ function create_if_block_1$b(ctx) {
 				key: /*key*/ ctx[0] + /*style*/ ctx[5].showPassword,
 				onChange: /*toggleVisibility*/ ctx[19],
 				value: false,
-				$$slots: { default: [create_default_slot$j] },
+				$$slots: { default: [create_default_slot$k] },
 				$$scope: { ctx }
 			}
 		});
@@ -22560,8 +21079,8 @@ function create_if_block_1$b(ctx) {
 	};
 }
 
-// (109:6) <Checkbox isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}         isInvalid={false}         key = {key + style.showPassword}         onChange={toggleVisibility}         value={false}       >
-function create_default_slot$j(ctx) {
+// (109:6) <Checkbox         isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}         isInvalid={false}         key={key + style.showPassword}         onChange={toggleVisibility}         value={false}       >
+function create_default_slot$k(ctx) {
 	let t;
 
 	return {
@@ -22577,8 +21096,8 @@ function create_default_slot$j(ctx) {
 	};
 }
 
-// (119:2) {#if callbackMetadata?.platform?.confirmPassword}
-function create_if_block$i(ctx) {
+// (120:2) {#if callbackMetadata?.platform?.confirmPassword}
+function create_if_block$j(ctx) {
 	let confirminput;
 	let current;
 
@@ -22660,14 +21179,14 @@ function create_key_block$3(ctx) {
 				: '',
 				$$slots: {
 					"input-button": [create_input_button_slot],
-					default: [create_default_slot_2$6]
+					default: [create_default_slot_2$7]
 				},
 				$$scope: { ctx }
 			}
 		});
 
-	let if_block0 = /*showPassword*/ ctx[16] === "checkbox" && create_if_block_1$b(ctx);
-	let if_block1 = /*callbackMetadata*/ ctx[2]?.platform?.confirmPassword && create_if_block$i(ctx);
+	let if_block0 = /*showPassword*/ ctx[16] === 'checkbox' && create_if_block_1$b(ctx);
+	let if_block1 = /*callbackMetadata*/ ctx[2]?.platform?.confirmPassword && create_if_block$j(ctx);
 
 	return {
 		c() {
@@ -22716,7 +21235,7 @@ function create_key_block$3(ctx) {
 			}
 
 			input.$set(input_changes);
-			if (/*showPassword*/ ctx[16] === "checkbox") if_block0.p(ctx, dirty);
+			if (/*showPassword*/ ctx[16] === 'checkbox') if_block0.p(ctx, dirty);
 
 			if (/*callbackMetadata*/ ctx[2]?.platform?.confirmPassword) {
 				if (if_block1) {
@@ -22726,7 +21245,7 @@ function create_key_block$3(ctx) {
 						transition_in(if_block1, 1);
 					}
 				} else {
-					if_block1 = create_if_block$i(ctx);
+					if_block1 = create_if_block$j(ctx);
 					if_block1.c();
 					transition_in(if_block1, 1);
 					if_block1.m(if_block1_anchor.parentNode, if_block1_anchor);
@@ -22765,7 +21284,7 @@ function create_key_block$3(ctx) {
 	};
 }
 
-function create_fragment$A(ctx) {
+function create_fragment$C(ctx) {
 	let previous_key = /*callback*/ ctx[1];
 	let key_block_anchor;
 	let current;
@@ -22810,7 +21329,7 @@ function create_fragment$A(ctx) {
 	};
 }
 
-function instance$B($$self, $$props, $$invalidate) {
+function instance$D($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { callback } = $$props;
 	let { callbackMetadata } = $$props;
@@ -22937,7 +21456,7 @@ class Base extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$B, create_fragment$A, safe_not_equal, {
+		init(this, options, instance$D, create_fragment$C, safe_not_equal, {
 			callback: 1,
 			callbackMetadata: 2,
 			key: 0,
@@ -22950,9 +21469,9 @@ class Base extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/password/password.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/password/password.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$z(ctx) {
+function create_fragment$B(ctx) {
 	let base;
 	let current;
 
@@ -22996,7 +21515,7 @@ function create_fragment$z(ctx) {
 	};
 }
 
-function instance$A($$self, $$props, $$invalidate) {
+function instance$C($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -23026,7 +21545,7 @@ class Password extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$A, create_fragment$z, safe_not_equal, {
+		init(this, options, instance$C, create_fragment$B, safe_not_equal, {
 			selfSubmitFunction: 4,
 			stepMetadata: 5,
 			callback: 0,
@@ -23044,9 +21563,9 @@ class Password extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/text/text.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/text/text.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$y(ctx) {
+function create_fragment$A(ctx) {
 	let p;
 	let p_class_value;
 	let current;
@@ -23104,7 +21623,7 @@ function create_fragment$y(ctx) {
 	};
 }
 
-function instance$z($$self, $$props, $$invalidate) {
+function instance$B($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 
@@ -23119,11 +21638,11 @@ function instance$z($$self, $$props, $$invalidate) {
 class Text extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$z, create_fragment$y, safe_not_equal, { classes: 0 });
+		init(this, options, instance$B, create_fragment$A, safe_not_equal, { classes: 0 });
 	}
 }
 
-/* src/lib/journey/callbacks/polling-wait/polling-wait.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/polling-wait/polling-wait.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$6(ctx) {
 	let spinner;
@@ -23186,13 +21705,13 @@ function create_else_block$6(ctx) {
 }
 
 // (28:2) {#if options?.inline}
-function create_if_block$h(ctx) {
+function create_if_block$i(ctx) {
 	let text_1;
 	let current;
 
 	text_1 = new Text({
 			props: {
-				$$slots: { default: [create_default_slot$i] },
+				$$slots: { default: [create_default_slot$j] },
 				$$scope: { ctx }
 			}
 		});
@@ -23250,7 +21769,7 @@ function create_default_slot_1$c(ctx) {
 }
 
 // (29:4) <Text>
-function create_default_slot$i(ctx) {
+function create_default_slot$j(ctx) {
 	let spinner;
 	let t0;
 	let span;
@@ -23298,12 +21817,12 @@ function create_default_slot$i(ctx) {
 	};
 }
 
-function create_fragment$x(ctx) {
+function create_fragment$z(ctx) {
 	let div;
 	let current_block_type_index;
 	let if_block;
 	let current;
-	const if_block_creators = [create_if_block$h, create_else_block$6];
+	const if_block_creators = [create_if_block$i, create_else_block$6];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -23368,7 +21887,7 @@ function create_fragment$x(ctx) {
 	};
 }
 
-function instance$y($$self, $$props, $$invalidate) {
+function instance$A($$self, $$props, $$invalidate) {
 	const style = {};
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -23425,7 +21944,7 @@ class Polling_wait extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$y, create_fragment$x, safe_not_equal, {
+		init(this, options, instance$A, create_fragment$z, safe_not_equal, {
 			style: 4,
 			stepMetadata: 5,
 			callback: 2,
@@ -23444,9 +21963,9 @@ class Polling_wait extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/redirect/redirect.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/redirect/redirect.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$h(ctx) {
+function create_default_slot$i(ctx) {
 	let t;
 
 	return {
@@ -23465,7 +21984,7 @@ function create_default_slot$h(ctx) {
 	};
 }
 
-function create_fragment$w(ctx) {
+function create_fragment$y(ctx) {
 	let div;
 	let spinner;
 	let t;
@@ -23481,7 +22000,7 @@ function create_fragment$w(ctx) {
 
 	text_1 = new Text({
 			props: {
-				$$slots: { default: [create_default_slot$h] },
+				$$slots: { default: [create_default_slot$i] },
 				$$scope: { ctx }
 			}
 		});
@@ -23530,7 +22049,7 @@ function create_fragment$w(ctx) {
 	};
 }
 
-function instance$x($$self, $$props, $$invalidate) {
+function instance$z($$self, $$props, $$invalidate) {
 	const callbackMetadata = null;
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
@@ -23557,7 +22076,7 @@ class Redirect extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$x, create_fragment$w, safe_not_equal, {
+		init(this, options, instance$z, create_fragment$y, safe_not_equal, {
 			callbackMetadata: 1,
 			selfSubmitFunction: 2,
 			stepMetadata: 3,
@@ -23583,9 +22102,9 @@ class Redirect extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/apple-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/apple-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$v(ctx) {
+function create_fragment$x(ctx) {
 	let svg;
 	let path0;
 	let path1;
@@ -23630,7 +22149,7 @@ function create_fragment$v(ctx) {
 	};
 }
 
-function instance$w($$self, $$props, $$invalidate) {
+function instance$y($$self, $$props, $$invalidate) {
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
 
@@ -23645,13 +22164,13 @@ function instance$w($$self, $$props, $$invalidate) {
 class Apple_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$w, create_fragment$v, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$y, create_fragment$x, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/icons/facebook-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/facebook-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$u(ctx) {
+function create_fragment$w(ctx) {
 	let svg;
 	let path;
 
@@ -23692,7 +22211,7 @@ function create_fragment$u(ctx) {
 	};
 }
 
-function instance$v($$self, $$props, $$invalidate) {
+function instance$x($$self, $$props, $$invalidate) {
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
 
@@ -23707,13 +22226,13 @@ function instance$v($$self, $$props, $$invalidate) {
 class Facebook_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$v, create_fragment$u, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$x, create_fragment$w, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/components/icons/google-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/google-icon.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$t(ctx) {
+function create_fragment$v(ctx) {
 	let svg;
 	let g;
 	let path0;
@@ -23778,7 +22297,7 @@ function create_fragment$t(ctx) {
 	};
 }
 
-function instance$u($$self, $$props, $$invalidate) {
+function instance$w($$self, $$props, $$invalidate) {
 	let { classes = '' } = $$props;
 	let { size = '24px' } = $$props;
 
@@ -23793,11 +22312,11 @@ function instance$u($$self, $$props, $$invalidate) {
 class Google_icon extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$u, create_fragment$t, safe_not_equal, { classes: 0, size: 1 });
+		init(this, options, instance$w, create_fragment$v, safe_not_equal, { classes: 0, size: 1 });
 	}
 }
 
-/* src/lib/journey/callbacks/select-idp/select-idp.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/select-idp/select-idp.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$8(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -23806,7 +22325,7 @@ function get_each_context$8(ctx, list, i) {
 }
 
 // (66:56) 
-function create_if_block_3$7(ctx) {
+function create_if_block_3$8(ctx) {
 	let button;
 	let current;
 
@@ -23928,7 +22447,7 @@ function create_if_block_1$a(ctx) {
 				type: "button",
 				width: "auto",
 				onClick: func,
-				$$slots: { default: [create_default_slot_2$5] },
+				$$slots: { default: [create_default_slot_2$6] },
 				$$scope: { ctx }
 			}
 		});
@@ -24084,7 +22603,7 @@ function create_default_slot_3$3(ctx) {
 }
 
 // (45:6) <Button         classes="tw_button-apple dark:tw_button-apple_dark"         type="button"         width="auto"         onClick={() => setBtnValue(idp.value)}       >
-function create_default_slot_2$5(ctx) {
+function create_default_slot_2$6(ctx) {
 	let appleicon;
 	let t0;
 	let t1;
@@ -24150,7 +22669,7 @@ function create_default_slot_1$b(ctx) {
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block_1$a, create_if_block_2$8, create_if_block_3$7];
+	const if_block_creators = [create_if_block_1$a, create_if_block_2$8, create_if_block_3$8];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -24284,14 +22803,14 @@ function create_each_block$8(ctx) {
 }
 
 // (81:0) {#if stepMetadata && stepMetadata.derived.numOfCallbacks > 1}
-function create_if_block$g(ctx) {
+function create_if_block$h(ctx) {
 	let grid;
 	let current;
 
 	grid = new Grid({
 			props: {
 				num: 1,
-				$$slots: { default: [create_default_slot$g] },
+				$$slots: { default: [create_default_slot$h] },
 				$$scope: { ctx }
 			}
 		});
@@ -24320,7 +22839,7 @@ function create_if_block$g(ctx) {
 }
 
 // (82:2) <Grid num={1}>
-function create_default_slot$g(ctx) {
+function create_default_slot$h(ctx) {
 	let hr;
 
 	return {
@@ -24338,7 +22857,7 @@ function create_default_slot$g(ctx) {
 	};
 }
 
-function create_fragment$s(ctx) {
+function create_fragment$u(ctx) {
 	let t;
 	let if_block_anchor;
 	let current;
@@ -24353,7 +22872,7 @@ function create_fragment$s(ctx) {
 		each_blocks[i] = null;
 	});
 
-	let if_block = /*stepMetadata*/ ctx[0] && /*stepMetadata*/ ctx[0].derived.numOfCallbacks > 1 && create_if_block$g(ctx);
+	let if_block = /*stepMetadata*/ ctx[0] && /*stepMetadata*/ ctx[0].derived.numOfCallbacks > 1 && create_if_block$h(ctx);
 
 	return {
 		c() {
@@ -24367,9 +22886,7 @@ function create_fragment$s(ctx) {
 		},
 		m(target, anchor) {
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t, anchor);
@@ -24411,7 +22928,7 @@ function create_fragment$s(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block$g(ctx);
+					if_block = create_if_block$h(ctx);
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(if_block_anchor.parentNode, if_block_anchor);
@@ -24455,7 +22972,7 @@ function create_fragment$s(ctx) {
 	};
 }
 
-function instance$t($$self, $$props, $$invalidate) {
+function instance$v($$self, $$props, $$invalidate) {
 	const style = {};
 	let { callback } = $$props;
 	let { callbackMetadata } = $$props;
@@ -24525,7 +23042,7 @@ class Select_idp extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$t, create_fragment$s, safe_not_equal, {
+		init(this, options, instance$v, create_fragment$u, safe_not_equal, {
 			style: 4,
 			callback: 5,
 			callbackMetadata: 3,
@@ -24539,7 +23056,7 @@ class Select_idp extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/_utilities/policies.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/_utilities/policies.svelte generated by Svelte v3.55.1 */
 
 function get_each_context_1(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -24595,9 +23112,7 @@ function create_if_block_1$9(ctx) {
 			append(div, ul);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(ul, null);
-				}
+				each_blocks[i].m(ul, null);
 			}
 
 			current = true;
@@ -24652,7 +23167,7 @@ function create_if_block_1$9(ctx) {
 }
 
 // (24:0) {#if simplifiedFailures.length}
-function create_if_block$f(ctx) {
+function create_if_block$g(ctx) {
 	let div;
 	let p;
 	let t0;
@@ -24693,9 +23208,7 @@ function create_if_block$f(ctx) {
 			append(div, ul);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(ul, null);
-				}
+				each_blocks[i].m(ul, null);
 			}
 
 			current = true;
@@ -24799,12 +23312,12 @@ function create_each_block$7(ctx) {
 	};
 }
 
-function create_fragment$r(ctx) {
+function create_fragment$t(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$f, create_if_block_1$9];
+	const if_block_creators = [create_if_block$g, create_if_block_1$9];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -24885,7 +23398,7 @@ function create_fragment$r(ctx) {
 	};
 }
 
-function instance$s($$self, $$props, $$invalidate) {
+function instance$u($$self, $$props, $$invalidate) {
 	let { callback } = $$props;
 	let { key = undefined } = $$props;
 	let { label } = $$props;
@@ -24943,7 +23456,7 @@ class Policies extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$s, create_fragment$r, safe_not_equal, {
+		init(this, options, instance$u, create_fragment$t, safe_not_equal, {
 			callback: 5,
 			key: 0,
 			label: 6,
@@ -24953,9 +23466,9 @@ class Policies extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/string-attribute/string-attribute-input.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/string-attribute/string-attribute-input.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$f(ctx) {
+function create_default_slot$g(ctx) {
 	let policies_1;
 	let current;
 
@@ -25017,7 +23530,7 @@ function create_key_block$2(ctx) {
 				type: /*type*/ ctx[7],
 				showMessage: !!/*isInvalid*/ ctx[8],
 				value: /*previousValue*/ ctx[6],
-				$$slots: { default: [create_default_slot$f] },
+				$$slots: { default: [create_default_slot$g] },
 				$$scope: { ctx }
 			}
 		});
@@ -25067,7 +23580,7 @@ function create_key_block$2(ctx) {
 	};
 }
 
-function create_fragment$q(ctx) {
+function create_fragment$s(ctx) {
 	let previous_key = /*callback*/ ctx[0];
 	let key_block_anchor;
 	let current;
@@ -25112,7 +23625,7 @@ function create_fragment$q(ctx) {
 	};
 }
 
-function instance$r($$self, $$props, $$invalidate) {
+function instance$t($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -25188,7 +23701,7 @@ class String_attribute_input extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$r, create_fragment$q, safe_not_equal, {
+		init(this, options, instance$t, create_fragment$s, safe_not_equal, {
 			selfSubmitFunction: 11,
 			stepMetadata: 12,
 			callback: 0,
@@ -25206,9 +23719,9 @@ class String_attribute_input extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/primitives/link/link.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/primitives/link/link.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$p(ctx) {
+function create_fragment$r(ctx) {
 	let a;
 	let a_class_value;
 	let current;
@@ -25276,7 +23789,7 @@ function create_fragment$p(ctx) {
 	};
 }
 
-function instance$q($$self, $$props, $$invalidate) {
+function instance$s($$self, $$props, $$invalidate) {
 	let { $$slots: slots = {}, $$scope } = $$props;
 	let { classes = '' } = $$props;
 	let { href } = $$props;
@@ -25295,11 +23808,11 @@ function instance$q($$self, $$props, $$invalidate) {
 class Link extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$q, create_fragment$p, safe_not_equal, { classes: 0, href: 1, target: 2 });
+		init(this, options, instance$s, create_fragment$r, safe_not_equal, { classes: 0, href: 1, target: 2 });
 	}
 }
 
-/* src/lib/journey/callbacks/terms-and-conditions/terms-conditions.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/terms-and-conditions/terms-conditions.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$5(ctx) {
 	let p;
@@ -25323,7 +23836,7 @@ function create_else_block$5(ctx) {
 }
 
 // (27:0) {#if $linksStore?.termsAndConditions}
-function create_if_block$e(ctx) {
+function create_if_block$f(ctx) {
 	let link;
 	let t;
 	let checkbox;
@@ -25345,7 +23858,7 @@ function create_if_block$e(ctx) {
 				key: /*inputName*/ ctx[1],
 				onChange: /*setValue*/ ctx[4],
 				value: false,
-				$$slots: { default: [create_default_slot$e] },
+				$$slots: { default: [create_default_slot$f] },
 				$$scope: { ctx }
 			}
 		});
@@ -25420,7 +23933,7 @@ function create_default_slot_1$a(ctx) {
 }
 
 // (31:2) <Checkbox     isFirstInvalidInput={callbackMetadata?.derived.isFirstInvalidInput || false}     key={inputName}     onChange={setValue}     value={false}   >
-function create_default_slot$e(ctx) {
+function create_default_slot$f(ctx) {
 	let t;
 	let current;
 	t = new Locale_strings({ props: { key: "termsAndConditions" } });
@@ -25449,12 +23962,12 @@ function create_default_slot$e(ctx) {
 	};
 }
 
-function create_fragment$o(ctx) {
+function create_fragment$q(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$e, create_else_block$5];
+	const if_block_creators = [create_if_block$f, create_else_block$5];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -25518,7 +24031,7 @@ function create_fragment$o(ctx) {
 	};
 }
 
-function instance$p($$self, $$props, $$invalidate) {
+function instance$r($$self, $$props, $$invalidate) {
 	let $linksStore;
 	component_subscribe($$self, linksStore, $$value => $$invalidate(2, $linksStore = $$value));
 	const selfSubmitFunction = null;
@@ -25572,7 +24085,7 @@ class Terms_conditions extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$p, create_fragment$o, safe_not_equal, {
+		init(this, options, instance$r, create_fragment$q, safe_not_equal, {
 			selfSubmitFunction: 5,
 			stepMetadata: 6,
 			style: 7,
@@ -25590,7 +24103,7 @@ class Terms_conditions extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/text-output/text-output.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/text-output/text-output.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$4(ctx) {
 	let alert;
@@ -25640,7 +24153,7 @@ function create_else_block$4(ctx) {
 }
 
 // (32:0) {#if callbackMessageType === 'info'}
-function create_if_block$d(ctx) {
+function create_if_block$e(ctx) {
 	let text_1;
 	let current;
 
@@ -25649,7 +24162,7 @@ function create_if_block$d(ctx) {
 				classes: /*cleanMessage*/ ctx[0].length < 100
 				? 'tw_font-bold tw_mt-6'
 				: 'tw_mt-6',
-				$$slots: { default: [create_default_slot$d] },
+				$$slots: { default: [create_default_slot$e] },
 				$$scope: { ctx }
 			}
 		});
@@ -25711,7 +24224,7 @@ function create_default_slot_1$9(ctx) {
 }
 
 // (33:2) <Text classes={cleanMessage.length < 100 ? 'tw_font-bold tw_mt-6' : 'tw_mt-6'}>
-function create_default_slot$d(ctx) {
+function create_default_slot$e(ctx) {
 	let html_tag;
 	let html_anchor;
 
@@ -25735,12 +24248,12 @@ function create_default_slot$d(ctx) {
 	};
 }
 
-function create_fragment$n(ctx) {
+function create_fragment$p(ctx) {
 	let current_block_type_index;
 	let if_block;
 	let if_block_anchor;
 	let current;
-	const if_block_creators = [create_if_block$d, create_else_block$4];
+	const if_block_creators = [create_if_block$e, create_else_block$4];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
@@ -25817,7 +24330,7 @@ function getCallbackMessage(messageType) {
 	}
 }
 
-function instance$o($$self, $$props, $$invalidate) {
+function instance$q($$self, $$props, $$invalidate) {
 	const callbackMetadata = null;
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
@@ -25857,7 +24370,7 @@ class Text_output extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$o, create_fragment$n, safe_not_equal, {
+		init(this, options, instance$q, create_fragment$p, safe_not_equal, {
 			callbackMetadata: 2,
 			selfSubmitFunction: 3,
 			stepMetadata: 4,
@@ -25883,9 +24396,9 @@ class Text_output extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/unknown/unknown.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/unknown/unknown.svelte generated by Svelte v3.55.1 */
 
-function create_fragment$m(ctx) {
+function create_fragment$o(ctx) {
 	let p;
 
 	return {
@@ -25906,7 +24419,7 @@ function create_fragment$m(ctx) {
 	};
 }
 
-function instance$n($$self, $$props, $$invalidate) {
+function instance$p($$self, $$props, $$invalidate) {
 	const callbackMetadata = null;
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
@@ -25925,7 +24438,7 @@ class Unknown extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$n, create_fragment$m, safe_not_equal, {
+		init(this, options, instance$p, create_fragment$o, safe_not_equal, {
 			callbackMetadata: 1,
 			selfSubmitFunction: 2,
 			stepMetadata: 3,
@@ -25951,9 +24464,9 @@ class Unknown extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/password/validated-create-password.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/password/validated-create-password.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$c(ctx) {
+function create_default_slot$d(ctx) {
 	let policies;
 	let current;
 
@@ -26009,7 +24522,7 @@ function create_key_block$1(ctx) {
 				key: /*inputName*/ ctx[4],
 				showMessage: /*isInvalid*/ ctx[5],
 				style: /*style*/ ctx[2],
-				$$slots: { default: [create_default_slot$c] },
+				$$slots: { default: [create_default_slot$d] },
 				$$scope: { ctx }
 			}
 		});
@@ -26052,7 +24565,7 @@ function create_key_block$1(ctx) {
 	};
 }
 
-function create_fragment$l(ctx) {
+function create_fragment$n(ctx) {
 	let previous_key = /*callback*/ ctx[0];
 	let key_block_anchor;
 	let current;
@@ -26097,7 +24610,7 @@ function create_fragment$l(ctx) {
 	};
 }
 
-function instance$m($$self, $$props, $$invalidate) {
+function instance$o($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -26149,7 +24662,7 @@ class Validated_create_password extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$m, create_fragment$l, safe_not_equal, {
+		init(this, options, instance$o, create_fragment$n, safe_not_equal, {
 			selfSubmitFunction: 7,
 			stepMetadata: 8,
 			callback: 0,
@@ -26167,9 +24680,9 @@ class Validated_create_password extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/username/validated-create-username.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/username/validated-create-username.svelte generated by Svelte v3.55.1 */
 
-function create_default_slot$b(ctx) {
+function create_default_slot$c(ctx) {
 	let policies;
 	let current;
 
@@ -26233,7 +24746,7 @@ function create_key_block(ctx) {
 				value: typeof /*value*/ ctx[7] === 'string'
 				? /*value*/ ctx[7]
 				: '',
-				$$slots: { default: [create_default_slot$b] },
+				$$slots: { default: [create_default_slot$c] },
 				$$scope: { ctx }
 			}
 		});
@@ -26283,7 +24796,7 @@ function create_key_block(ctx) {
 	};
 }
 
-function create_fragment$k(ctx) {
+function create_fragment$m(ctx) {
 	let previous_key = /*callback*/ ctx[0];
 	let key_block_anchor;
 	let current;
@@ -26328,7 +24841,7 @@ function create_fragment$k(ctx) {
 	};
 }
 
-function instance$l($$self, $$props, $$invalidate) {
+function instance$n($$self, $$props, $$invalidate) {
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
 	let { callback } = $$props;
@@ -26393,7 +24906,7 @@ class Validated_create_username extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$l, create_fragment$k, safe_not_equal, {
+		init(this, options, instance$n, create_fragment$m, safe_not_equal, {
 			selfSubmitFunction: 10,
 			stepMetadata: 11,
 			callback: 0,
@@ -26411,9 +24924,9 @@ class Validated_create_username extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/device-profile/device-profile.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/device-profile/device-profile.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$c(ctx) {
+function create_if_block$d(ctx) {
 	let div;
 	let spinner;
 	let t;
@@ -26429,7 +24942,7 @@ function create_if_block$c(ctx) {
 
 	text_1 = new Text({
 			props: {
-				$$slots: { default: [create_default_slot$a] },
+				$$slots: { default: [create_default_slot$b] },
 				$$scope: { ctx }
 			}
 		});
@@ -26478,7 +24991,7 @@ function create_if_block$c(ctx) {
 }
 
 // (26:4) <Text>
-function create_default_slot$a(ctx) {
+function create_default_slot$b(ctx) {
 	let t;
 
 	return {
@@ -26495,10 +25008,10 @@ function create_default_slot$a(ctx) {
 	};
 }
 
-function create_fragment$j(ctx) {
+function create_fragment$l(ctx) {
 	let if_block_anchor;
 	let current;
-	let if_block = /*stepMetadata*/ ctx[0]?.derived.numOfCallbacks === 1 && create_if_block$c(ctx);
+	let if_block = /*stepMetadata*/ ctx[0]?.derived.numOfCallbacks === 1 && create_if_block$d(ctx);
 
 	return {
 		c() {
@@ -26519,7 +25032,7 @@ function create_fragment$j(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block$c(ctx);
+					if_block = create_if_block$d(ctx);
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(if_block_anchor.parentNode, if_block_anchor);
@@ -26550,12 +25063,12 @@ function create_fragment$j(ctx) {
 	};
 }
 
-function instance$k($$self, $$props, $$invalidate) {
+function instance$m($$self, $$props, $$invalidate) {
 	let { callback } = $$props;
 	let { callbackMetadata = null } = $$props;
 	let { stepMetadata = null } = $$props;
 	let { selfSubmitFunction } = $$props;
-	const device = new FRDevice({});
+	const device = new O$1({});
 	let deviceMessage = callback.getMessage();
 
 	async function initializeProfile() {
@@ -26587,7 +25100,7 @@ class Device_profile extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$k, create_fragment$j, safe_not_equal, {
+		init(this, options, instance$m, create_fragment$l, safe_not_equal, {
 			callback: 3,
 			callbackMetadata: 2,
 			stepMetadata: 0,
@@ -26639,9 +25152,9 @@ function handleCaptchaToken(callback) {
     };
 }
 
-/* src/lib/journey/callbacks/recaptcha/recaptcha.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/recaptcha/recaptcha.svelte generated by Svelte v3.55.1 */
 
-function create_if_block$b(ctx) {
+function create_if_block$c(ctx) {
 	let div;
 
 	return {
@@ -26665,9 +25178,9 @@ function create_if_block$b(ctx) {
 	};
 }
 
-function create_fragment$i(ctx) {
+function create_fragment$k(ctx) {
 	let if_block_anchor;
-	let if_block = /*isV3*/ ctx[1] === false && create_if_block$b(ctx);
+	let if_block = /*isV3*/ ctx[1] === false && create_if_block$c(ctx);
 
 	return {
 		c() {
@@ -26690,7 +25203,7 @@ function create_fragment$i(ctx) {
 	};
 }
 
-function instance$j($$self, $$props, $$invalidate) {
+function instance$l($$self, $$props, $$invalidate) {
 	let { callback } = $$props;
 	const selfSubmitFunction = null;
 	const stepMetadata = null;
@@ -26789,7 +25302,7 @@ class Recaptcha extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$j, create_fragment$i, safe_not_equal, {
+		init(this, options, instance$l, create_fragment$k, safe_not_equal, {
 			callback: 3,
 			selfSubmitFunction: 4,
 			stepMetadata: 5,
@@ -26810,9 +25323,9 @@ class Recaptcha extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/callbacks/metadata/metadata.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/metadata/metadata.svelte generated by Svelte v3.55.1 */
 
-function instance$i($$self, $$props, $$invalidate) {
+function instance$k($$self, $$props, $$invalidate) {
 	const callback = null;
 	const callbackMetadata = null;
 	const selfSubmitFunction = null;
@@ -26825,7 +25338,7 @@ class Metadata extends SvelteComponent {
 	constructor(options) {
 		super();
 
-		init(this, options, instance$i, null, safe_not_equal, {
+		init(this, options, instance$k, null, safe_not_equal, {
 			callback: 0,
 			callbackMetadata: 1,
 			selfSubmitFunction: 2,
@@ -26855,17 +25368,333 @@ class Metadata extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/_utilities/callback-mapper.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/callbacks/ping-protect-evaluation/ping-protect-evaluation.svelte generated by Svelte v3.55.1 */
+
+function create_default_slot$a(ctx) {
+	let p;
+	let t;
+	let current;
+	t = new Locale_strings({ props: { key: "signalsEvaluation" } });
+
+	return {
+		c() {
+			p = element("p");
+			create_component(t.$$.fragment);
+		},
+		m(target, anchor) {
+			insert(target, p, anchor);
+			mount_component(t, p, null);
+			current = true;
+		},
+		p: noop,
+		i(local) {
+			if (current) return;
+			transition_in(t.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(t.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(p);
+			destroy_component(t);
+		}
+	};
+}
+
+function create_fragment$j(ctx) {
+	let div;
+	let spinner;
+	let current;
+
+	spinner = new Spinner({
+			props: {
+				colorClass: "tw_text-primary-light",
+				layoutClasses: "tw_h-24 tw_mb-6 tw_w-24",
+				$$slots: { default: [create_default_slot$a] },
+				$$scope: { ctx }
+			}
+		});
+
+	return {
+		c() {
+			div = element("div");
+			create_component(spinner.$$.fragment);
+			attr(div, "class", "tw_text-center tw_w-full tw_py-4");
+		},
+		m(target, anchor) {
+			insert(target, div, anchor);
+			mount_component(spinner, div, null);
+			current = true;
+		},
+		p(ctx, [dirty]) {
+			const spinner_changes = {};
+
+			if (dirty & /*$$scope*/ 16) {
+				spinner_changes.$$scope = { dirty, ctx };
+			}
+
+			spinner.$set(spinner_changes);
+		},
+		i(local) {
+			if (current) return;
+			transition_in(spinner.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(spinner.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(div);
+			destroy_component(spinner);
+		}
+	};
+}
+
+function instance$j($$self, $$props, $$invalidate) {
+	let { callback } = $$props;
+	let { selfSubmitFunction = null } = $$props;
+	let { pingProtect = { envId: '' } } = $$props;
+	let pauseBehavioralData = false;
+
+	onMount(() => {
+		async function handleGetData() {
+			try {
+				await e.getData();
+			} catch(error) {
+				if (error instanceof Error) {
+					callback.setClientError(error.message);
+				} else {
+					callback.setClientError('An error occurred while initializing PingProtect');
+				}
+			}
+
+			return selfSubmitFunction && selfSubmitFunction();
+		}
+
+		handleGetData();
+	});
+
+	$$self.$$set = $$props => {
+		if ('callback' in $$props) $$invalidate(0, callback = $$props.callback);
+		if ('selfSubmitFunction' in $$props) $$invalidate(1, selfSubmitFunction = $$props.selfSubmitFunction);
+		if ('pingProtect' in $$props) $$invalidate(2, pingProtect = $$props.pingProtect);
+	};
+
+	$$self.$$.update = () => {
+		if ($$self.$$.dirty & /*pingProtect, pauseBehavioralData*/ 12) {
+			{
+				$$invalidate(3, pauseBehavioralData = pingProtect?.behavioralDataCollection ?? false);
+
+				if (typeof window !== 'undefined') {
+					if (pauseBehavioralData === true) {
+						e.pauseBehavioralData();
+					} else {
+						e.resumeBehavioralData();
+					}
+				}
+			}
+		}
+	};
+
+	return [callback, selfSubmitFunction, pingProtect, pauseBehavioralData];
+}
+
+class Ping_protect_evaluation extends SvelteComponent {
+	constructor(options) {
+		super();
+
+		init(this, options, instance$j, create_fragment$j, safe_not_equal, {
+			callback: 0,
+			selfSubmitFunction: 1,
+			pingProtect: 2
+		});
+	}
+}
+
+/* src/lib/journey/callbacks/ping-protect-initialize/ping-protect-initialize.svelte generated by Svelte v3.55.1 */
+
+function create_if_block$b(ctx) {
+	let spinner;
+	let current;
+
+	spinner = new Spinner({
+			props: {
+				colorClass: "tw_text-primary-light",
+				layoutClasses: "tw_h-24 tw_mb-6 tw_w-24"
+			}
+		});
+
+	return {
+		c() {
+			create_component(spinner.$$.fragment);
+		},
+		m(target, anchor) {
+			mount_component(spinner, target, anchor);
+			current = true;
+		},
+		i(local) {
+			if (current) return;
+			transition_in(spinner.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(spinner.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			destroy_component(spinner, detaching);
+		}
+	};
+}
+
+function create_fragment$i(ctx) {
+	let div;
+	let current;
+	let if_block = !/*loaded*/ ctx[0] && create_if_block$b();
+
+	return {
+		c() {
+			div = element("div");
+			if (if_block) if_block.c();
+		},
+		m(target, anchor) {
+			insert(target, div, anchor);
+			if (if_block) if_block.m(div, null);
+			current = true;
+		},
+		p(ctx, [dirty]) {
+			if (!/*loaded*/ ctx[0]) {
+				if (if_block) {
+					if (dirty & /*loaded*/ 1) {
+						transition_in(if_block, 1);
+					}
+				} else {
+					if_block = create_if_block$b();
+					if_block.c();
+					transition_in(if_block, 1);
+					if_block.m(div, null);
+				}
+			} else if (if_block) {
+				group_outros();
+
+				transition_out(if_block, 1, 1, () => {
+					if_block = null;
+				});
+
+				check_outros();
+			}
+		},
+		i(local) {
+			if (current) return;
+			transition_in(if_block);
+			current = true;
+		},
+		o(local) {
+			transition_out(if_block);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(div);
+			if (if_block) if_block.d();
+		}
+	};
+}
+
+function instance$i($$self, $$props, $$invalidate) {
+	const style = {};
+	const stepMetadata = null;
+	let { callback } = $$props;
+	let { selfSubmitFunction = null } = $$props;
+	let loaded = false;
+
+	onMount(() => {
+		async function loadingPingProtect() {
+			const config = callback.getConfig();
+
+			try {
+				await e.start(config);
+				$$invalidate(0, loaded = true);
+			} catch(error) {
+				if (error instanceof Error) {
+					callback.setClientError(error.message);
+				} else {
+					callback.setClientError('An error occurred while initializing PingProtect');
+				}
+			}
+
+			return selfSubmitFunction && selfSubmitFunction();
+		}
+
+		loadingPingProtect();
+	});
+
+	$$self.$$set = $$props => {
+		if ('callback' in $$props) $$invalidate(3, callback = $$props.callback);
+		if ('selfSubmitFunction' in $$props) $$invalidate(4, selfSubmitFunction = $$props.selfSubmitFunction);
+	};
+
+	return [loaded, style, stepMetadata, callback, selfSubmitFunction];
+}
+
+class Ping_protect_initialize extends SvelteComponent {
+	constructor(options) {
+		super();
+
+		init(this, options, instance$i, create_fragment$i, safe_not_equal, {
+			style: 1,
+			stepMetadata: 2,
+			callback: 3,
+			selfSubmitFunction: 4
+		});
+	}
+
+	get style() {
+		return this.$$.ctx[1];
+	}
+
+	get stepMetadata() {
+		return this.$$.ctx[2];
+	}
+}
+
+/* src/lib/journey/_utilities/callback-mapper.svelte generated by Svelte v3.55.1 */
 
 function get_else_ctx(ctx) {
 	const child_ctx = ctx.slice();
 
 	const constants_0 = {
 		.../*props*/ child_ctx[0],
-		callback: /*_FRCallback*/ child_ctx[21]
+		callback: /*_FRCallback*/ child_ctx[23]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
+	return child_ctx;
+}
+
+function get_if_ctx_20(ctx) {
+	const child_ctx = ctx.slice();
+
+	const constants_0 = {
+		.../*props*/ child_ctx[0],
+		callback: /*_PingProtectInitialize*/ child_ctx[22]
+	};
+
+	child_ctx[24] = constants_0;
+	return child_ctx;
+}
+
+function get_if_ctx_19(ctx) {
+	const child_ctx = ctx.slice();
+
+	const constants_0 = {
+		.../*props*/ child_ctx[0],
+		callback: /*_PingProtectEvaluation*/ child_ctx[21]
+	};
+
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26877,7 +25706,7 @@ function get_if_ctx_18(ctx) {
 		callback: /*_RecaptchaCallback*/ child_ctx[20]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26889,7 +25718,7 @@ function get_if_ctx_17(ctx) {
 		callback: /*_MetadataCallback*/ child_ctx[18]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26901,7 +25730,7 @@ function get_if_ctx_16(ctx) {
 		callback: /*_DeviceProfileCallback*/ child_ctx[19]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26913,7 +25742,7 @@ function get_if_ctx_15(ctx) {
 		callback: /*_SuspendedTextOutputCallback*/ child_ctx[17]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26925,7 +25754,7 @@ function get_if_ctx_14(ctx) {
 		callback: /*_TextOutputCallback*/ child_ctx[16]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26937,7 +25766,7 @@ function get_if_ctx_13(ctx) {
 		callback: /*_TermsAndConditionsCallback*/ child_ctx[15]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26949,7 +25778,7 @@ function get_if_ctx_12(ctx) {
 		callback: /*_ValidatedCreateUsernameCallback*/ child_ctx[14]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26961,7 +25790,7 @@ function get_if_ctx_11(ctx) {
 		callback: /*_ValidatedCreatePasswordCallback*/ child_ctx[13]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26973,7 +25802,7 @@ function get_if_ctx_10(ctx) {
 		callback: /*_StringAttributeInputCallback*/ child_ctx[12]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26985,7 +25814,7 @@ function get_if_ctx_9(ctx) {
 		callback: /*_SelectIdPCallback*/ child_ctx[11]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -26997,7 +25826,7 @@ function get_if_ctx_8(ctx) {
 		callback: /*_RedirectCallback*/ child_ctx[10]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27009,7 +25838,7 @@ function get_if_ctx_7(ctx) {
 		callback: /*_PollingWaitCallback*/ child_ctx[9]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27021,7 +25850,7 @@ function get_if_ctx_6(ctx) {
 		callback: /*_PasswordCallback*/ child_ctx[8]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27033,7 +25862,7 @@ function get_if_ctx_5(ctx) {
 		callback: /*_NameCallback*/ child_ctx[7]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27045,7 +25874,7 @@ function get_if_ctx_4(ctx) {
 		callback: /*_KbaCreateCallback*/ child_ctx[6]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27057,7 +25886,7 @@ function get_if_ctx_3(ctx) {
 		callback: /*_HiddenValueCallback*/ child_ctx[5]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27069,7 +25898,7 @@ function get_if_ctx_2(ctx) {
 		callback: /*_ConfirmationCallback*/ child_ctx[4]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27081,7 +25910,7 @@ function get_if_ctx_1(ctx) {
 		callback: /*_ChoiceCallback*/ child_ctx[3]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
@@ -27093,15 +25922,15 @@ function get_if_ctx$1(ctx) {
 		callback: /*_BooleanAttributeInputCallback*/ child_ctx[2]
 	};
 
-	child_ctx[22] = constants_0;
+	child_ctx[24] = constants_0;
 	return child_ctx;
 }
 
-// (231:0) {:else}
+// (253:0) {:else}
 function create_else_block$3(ctx) {
 	let unknown;
 	let current;
-	const unknown_spread_levels = [/*newProps*/ ctx[22]];
+	const unknown_spread_levels = [/*newProps*/ ctx[24]];
 	let unknown_props = {};
 
 	for (let i = 0; i < unknown_spread_levels.length; i += 1) {
@@ -27119,8 +25948,8 @@ function create_else_block$3(ctx) {
 			current = true;
 		},
 		p(ctx, dirty) {
-			const unknown_changes = (dirty & /*props, _FRCallback*/ 2097153)
-			? get_spread_update(unknown_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			const unknown_changes = (dirty & /*props, _FRCallback*/ 8388609)
+			? get_spread_update(unknown_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			unknown.$set(unknown_changes);
@@ -27140,11 +25969,97 @@ function create_else_block$3(ctx) {
 	};
 }
 
-// (225:52) 
+// (247:67) 
+function create_if_block_20(ctx) {
+	let pingprotectinitialize;
+	let current;
+	const pingprotectinitialize_spread_levels = [/*newProps*/ ctx[24]];
+	let pingprotectinitialize_props = {};
+
+	for (let i = 0; i < pingprotectinitialize_spread_levels.length; i += 1) {
+		pingprotectinitialize_props = assign(pingprotectinitialize_props, pingprotectinitialize_spread_levels[i]);
+	}
+
+	pingprotectinitialize = new Ping_protect_initialize({ props: pingprotectinitialize_props });
+
+	return {
+		c() {
+			create_component(pingprotectinitialize.$$.fragment);
+		},
+		m(target, anchor) {
+			mount_component(pingprotectinitialize, target, anchor);
+			current = true;
+		},
+		p(ctx, dirty) {
+			const pingprotectinitialize_changes = (dirty & /*props, _PingProtectInitialize*/ 4194305)
+			? get_spread_update(pingprotectinitialize_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
+			: {};
+
+			pingprotectinitialize.$set(pingprotectinitialize_changes);
+		},
+		i(local) {
+			if (current) return;
+			transition_in(pingprotectinitialize.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(pingprotectinitialize.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			destroy_component(pingprotectinitialize, detaching);
+		}
+	};
+}
+
+// (241:67) 
+function create_if_block_19(ctx) {
+	let pingprotectevaluation;
+	let current;
+	const pingprotectevaluation_spread_levels = [/*newProps*/ ctx[24]];
+	let pingprotectevaluation_props = {};
+
+	for (let i = 0; i < pingprotectevaluation_spread_levels.length; i += 1) {
+		pingprotectevaluation_props = assign(pingprotectevaluation_props, pingprotectevaluation_spread_levels[i]);
+	}
+
+	pingprotectevaluation = new Ping_protect_evaluation({ props: pingprotectevaluation_props });
+
+	return {
+		c() {
+			create_component(pingprotectevaluation.$$.fragment);
+		},
+		m(target, anchor) {
+			mount_component(pingprotectevaluation, target, anchor);
+			current = true;
+		},
+		p(ctx, dirty) {
+			const pingprotectevaluation_changes = (dirty & /*props, _PingProtectEvaluation*/ 2097153)
+			? get_spread_update(pingprotectevaluation_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
+			: {};
+
+			pingprotectevaluation.$set(pingprotectevaluation_changes);
+		},
+		i(local) {
+			if (current) return;
+			transition_in(pingprotectevaluation.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(pingprotectevaluation.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			destroy_component(pingprotectevaluation, detaching);
+		}
+	};
+}
+
+// (235:52) 
 function create_if_block_18(ctx) {
 	let recaptcha;
 	let current;
-	const recaptcha_spread_levels = [/*newProps*/ ctx[22]];
+	const recaptcha_spread_levels = [/*newProps*/ ctx[24]];
 	let recaptcha_props = {};
 
 	for (let i = 0; i < recaptcha_spread_levels.length; i += 1) {
@@ -27163,7 +26078,7 @@ function create_if_block_18(ctx) {
 		},
 		p(ctx, dirty) {
 			const recaptcha_changes = (dirty & /*props, _RecaptchaCallback*/ 1048577)
-			? get_spread_update(recaptcha_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(recaptcha_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			recaptcha.$set(recaptcha_changes);
@@ -27183,11 +26098,11 @@ function create_if_block_18(ctx) {
 	};
 }
 
-// (219:51) 
+// (229:51) 
 function create_if_block_17(ctx) {
 	let metadata;
 	let current;
-	const metadata_spread_levels = [/*newProps*/ ctx[22]];
+	const metadata_spread_levels = [/*newProps*/ ctx[24]];
 	let metadata_props = {};
 
 	for (let i = 0; i < metadata_spread_levels.length; i += 1) {
@@ -27206,7 +26121,7 @@ function create_if_block_17(ctx) {
 		},
 		p(ctx, dirty) {
 			const metadata_changes = (dirty & /*props, _MetadataCallback*/ 262145)
-			? get_spread_update(metadata_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(metadata_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			metadata.$set(metadata_changes);
@@ -27226,11 +26141,11 @@ function create_if_block_17(ctx) {
 	};
 }
 
-// (213:56) 
+// (223:56) 
 function create_if_block_16(ctx) {
 	let deviceprofile;
 	let current;
-	const deviceprofile_spread_levels = [/*newProps*/ ctx[22]];
+	const deviceprofile_spread_levels = [/*newProps*/ ctx[24]];
 	let deviceprofile_props = {};
 
 	for (let i = 0; i < deviceprofile_spread_levels.length; i += 1) {
@@ -27249,7 +26164,7 @@ function create_if_block_16(ctx) {
 		},
 		p(ctx, dirty) {
 			const deviceprofile_changes = (dirty & /*props, _DeviceProfileCallback*/ 524289)
-			? get_spread_update(deviceprofile_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(deviceprofile_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			deviceprofile.$set(deviceprofile_changes);
@@ -27269,11 +26184,11 @@ function create_if_block_16(ctx) {
 	};
 }
 
-// (207:62) 
+// (217:62) 
 function create_if_block_15(ctx) {
 	let textoutput;
 	let current;
-	const textoutput_spread_levels = [/*newProps*/ ctx[22]];
+	const textoutput_spread_levels = [/*newProps*/ ctx[24]];
 	let textoutput_props = {};
 
 	for (let i = 0; i < textoutput_spread_levels.length; i += 1) {
@@ -27292,7 +26207,7 @@ function create_if_block_15(ctx) {
 		},
 		p(ctx, dirty) {
 			const textoutput_changes = (dirty & /*props, _SuspendedTextOutputCallback*/ 131073)
-			? get_spread_update(textoutput_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(textoutput_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			textoutput.$set(textoutput_changes);
@@ -27312,11 +26227,11 @@ function create_if_block_15(ctx) {
 	};
 }
 
-// (201:53) 
+// (211:53) 
 function create_if_block_14(ctx) {
 	let textoutput;
 	let current;
-	const textoutput_spread_levels = [/*newProps*/ ctx[22]];
+	const textoutput_spread_levels = [/*newProps*/ ctx[24]];
 	let textoutput_props = {};
 
 	for (let i = 0; i < textoutput_spread_levels.length; i += 1) {
@@ -27335,7 +26250,7 @@ function create_if_block_14(ctx) {
 		},
 		p(ctx, dirty) {
 			const textoutput_changes = (dirty & /*props, _TextOutputCallback*/ 65537)
-			? get_spread_update(textoutput_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(textoutput_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			textoutput.$set(textoutput_changes);
@@ -27355,11 +26270,11 @@ function create_if_block_14(ctx) {
 	};
 }
 
-// (195:61) 
+// (205:61) 
 function create_if_block_13(ctx) {
 	let termsconditions;
 	let current;
-	const termsconditions_spread_levels = [/*newProps*/ ctx[22]];
+	const termsconditions_spread_levels = [/*newProps*/ ctx[24]];
 	let termsconditions_props = {};
 
 	for (let i = 0; i < termsconditions_spread_levels.length; i += 1) {
@@ -27378,7 +26293,7 @@ function create_if_block_13(ctx) {
 		},
 		p(ctx, dirty) {
 			const termsconditions_changes = (dirty & /*props, _TermsAndConditionsCallback*/ 32769)
-			? get_spread_update(termsconditions_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(termsconditions_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			termsconditions.$set(termsconditions_changes);
@@ -27398,11 +26313,11 @@ function create_if_block_13(ctx) {
 	};
 }
 
-// (189:66) 
+// (199:66) 
 function create_if_block_12(ctx) {
 	let validatedcreateusername;
 	let current;
-	const validatedcreateusername_spread_levels = [/*newProps*/ ctx[22]];
+	const validatedcreateusername_spread_levels = [/*newProps*/ ctx[24]];
 	let validatedcreateusername_props = {};
 
 	for (let i = 0; i < validatedcreateusername_spread_levels.length; i += 1) {
@@ -27421,7 +26336,7 @@ function create_if_block_12(ctx) {
 		},
 		p(ctx, dirty) {
 			const validatedcreateusername_changes = (dirty & /*props, _ValidatedCreateUsernameCallback*/ 16385)
-			? get_spread_update(validatedcreateusername_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(validatedcreateusername_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			validatedcreateusername.$set(validatedcreateusername_changes);
@@ -27441,11 +26356,11 @@ function create_if_block_12(ctx) {
 	};
 }
 
-// (183:66) 
+// (193:66) 
 function create_if_block_11(ctx) {
 	let validatedcreatepassword;
 	let current;
-	const validatedcreatepassword_spread_levels = [/*newProps*/ ctx[22]];
+	const validatedcreatepassword_spread_levels = [/*newProps*/ ctx[24]];
 	let validatedcreatepassword_props = {};
 
 	for (let i = 0; i < validatedcreatepassword_spread_levels.length; i += 1) {
@@ -27464,7 +26379,7 @@ function create_if_block_11(ctx) {
 		},
 		p(ctx, dirty) {
 			const validatedcreatepassword_changes = (dirty & /*props, _ValidatedCreatePasswordCallback*/ 8193)
-			? get_spread_update(validatedcreatepassword_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(validatedcreatepassword_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			validatedcreatepassword.$set(validatedcreatepassword_changes);
@@ -27484,11 +26399,11 @@ function create_if_block_11(ctx) {
 	};
 }
 
-// (177:63) 
+// (187:63) 
 function create_if_block_10(ctx) {
 	let stringattributeinput;
 	let current;
-	const stringattributeinput_spread_levels = [/*newProps*/ ctx[22]];
+	const stringattributeinput_spread_levels = [/*newProps*/ ctx[24]];
 	let stringattributeinput_props = {};
 
 	for (let i = 0; i < stringattributeinput_spread_levels.length; i += 1) {
@@ -27507,7 +26422,7 @@ function create_if_block_10(ctx) {
 		},
 		p(ctx, dirty) {
 			const stringattributeinput_changes = (dirty & /*props, _StringAttributeInputCallback*/ 4097)
-			? get_spread_update(stringattributeinput_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(stringattributeinput_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			stringattributeinput.$set(stringattributeinput_changes);
@@ -27527,11 +26442,11 @@ function create_if_block_10(ctx) {
 	};
 }
 
-// (171:52) 
+// (181:52) 
 function create_if_block_9(ctx) {
 	let selectidp;
 	let current;
-	const selectidp_spread_levels = [/*newProps*/ ctx[22]];
+	const selectidp_spread_levels = [/*newProps*/ ctx[24]];
 	let selectidp_props = {};
 
 	for (let i = 0; i < selectidp_spread_levels.length; i += 1) {
@@ -27550,7 +26465,7 @@ function create_if_block_9(ctx) {
 		},
 		p(ctx, dirty) {
 			const selectidp_changes = (dirty & /*props, _SelectIdPCallback*/ 2049)
-			? get_spread_update(selectidp_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(selectidp_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			selectidp.$set(selectidp_changes);
@@ -27570,11 +26485,11 @@ function create_if_block_9(ctx) {
 	};
 }
 
-// (165:51) 
+// (175:51) 
 function create_if_block_8(ctx) {
 	let redirect;
 	let current;
-	const redirect_spread_levels = [/*newProps*/ ctx[22]];
+	const redirect_spread_levels = [/*newProps*/ ctx[24]];
 	let redirect_props = {};
 
 	for (let i = 0; i < redirect_spread_levels.length; i += 1) {
@@ -27593,7 +26508,7 @@ function create_if_block_8(ctx) {
 		},
 		p(ctx, dirty) {
 			const redirect_changes = (dirty & /*props, _RedirectCallback*/ 1025)
-			? get_spread_update(redirect_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(redirect_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			redirect.$set(redirect_changes);
@@ -27613,11 +26528,11 @@ function create_if_block_8(ctx) {
 	};
 }
 
-// (159:54) 
+// (169:54) 
 function create_if_block_7(ctx) {
 	let pollingwait;
 	let current;
-	const pollingwait_spread_levels = [/*newProps*/ ctx[22]];
+	const pollingwait_spread_levels = [/*newProps*/ ctx[24]];
 	let pollingwait_props = {};
 
 	for (let i = 0; i < pollingwait_spread_levels.length; i += 1) {
@@ -27636,7 +26551,7 @@ function create_if_block_7(ctx) {
 		},
 		p(ctx, dirty) {
 			const pollingwait_changes = (dirty & /*props, _PollingWaitCallback*/ 513)
-			? get_spread_update(pollingwait_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(pollingwait_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			pollingwait.$set(pollingwait_changes);
@@ -27656,11 +26571,11 @@ function create_if_block_7(ctx) {
 	};
 }
 
-// (153:51) 
+// (163:51) 
 function create_if_block_6(ctx) {
 	let password;
 	let current;
-	const password_spread_levels = [/*newProps*/ ctx[22]];
+	const password_spread_levels = [/*newProps*/ ctx[24]];
 	let password_props = {};
 
 	for (let i = 0; i < password_spread_levels.length; i += 1) {
@@ -27679,7 +26594,7 @@ function create_if_block_6(ctx) {
 		},
 		p(ctx, dirty) {
 			const password_changes = (dirty & /*props, _PasswordCallback*/ 257)
-			? get_spread_update(password_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(password_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			password.$set(password_changes);
@@ -27699,11 +26614,11 @@ function create_if_block_6(ctx) {
 	};
 }
 
-// (147:47) 
+// (157:47) 
 function create_if_block_5$1(ctx) {
 	let name;
 	let current;
-	const name_spread_levels = [/*newProps*/ ctx[22]];
+	const name_spread_levels = [/*newProps*/ ctx[24]];
 	let name_props = {};
 
 	for (let i = 0; i < name_spread_levels.length; i += 1) {
@@ -27722,7 +26637,7 @@ function create_if_block_5$1(ctx) {
 		},
 		p(ctx, dirty) {
 			const name_changes = (dirty & /*props, _NameCallback*/ 129)
-			? get_spread_update(name_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(name_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			name.$set(name_changes);
@@ -27742,11 +26657,11 @@ function create_if_block_5$1(ctx) {
 	};
 }
 
-// (141:52) 
-function create_if_block_4$4(ctx) {
+// (151:52) 
+function create_if_block_4$5(ctx) {
 	let kbacreate;
 	let current;
-	const kbacreate_spread_levels = [/*newProps*/ ctx[22]];
+	const kbacreate_spread_levels = [/*newProps*/ ctx[24]];
 	let kbacreate_props = {};
 
 	for (let i = 0; i < kbacreate_spread_levels.length; i += 1) {
@@ -27765,7 +26680,7 @@ function create_if_block_4$4(ctx) {
 		},
 		p(ctx, dirty) {
 			const kbacreate_changes = (dirty & /*props, _KbaCreateCallback*/ 65)
-			? get_spread_update(kbacreate_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(kbacreate_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			kbacreate.$set(kbacreate_changes);
@@ -27785,11 +26700,11 @@ function create_if_block_4$4(ctx) {
 	};
 }
 
-// (135:54) 
-function create_if_block_3$6(ctx) {
+// (145:54) 
+function create_if_block_3$7(ctx) {
 	let hiddenvalue;
 	let current;
-	const hiddenvalue_spread_levels = [/*newProps*/ ctx[22]];
+	const hiddenvalue_spread_levels = [/*newProps*/ ctx[24]];
 	let hiddenvalue_props = {};
 
 	for (let i = 0; i < hiddenvalue_spread_levels.length; i += 1) {
@@ -27808,7 +26723,7 @@ function create_if_block_3$6(ctx) {
 		},
 		p(ctx, dirty) {
 			const hiddenvalue_changes = (dirty & /*props, _HiddenValueCallback*/ 33)
-			? get_spread_update(hiddenvalue_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(hiddenvalue_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			hiddenvalue.$set(hiddenvalue_changes);
@@ -27828,11 +26743,11 @@ function create_if_block_3$6(ctx) {
 	};
 }
 
-// (129:55) 
+// (139:55) 
 function create_if_block_2$7(ctx) {
 	let confirmation;
 	let current;
-	const confirmation_spread_levels = [/*newProps*/ ctx[22]];
+	const confirmation_spread_levels = [/*newProps*/ ctx[24]];
 	let confirmation_props = {};
 
 	for (let i = 0; i < confirmation_spread_levels.length; i += 1) {
@@ -27851,7 +26766,7 @@ function create_if_block_2$7(ctx) {
 		},
 		p(ctx, dirty) {
 			const confirmation_changes = (dirty & /*props, _ConfirmationCallback*/ 17)
-			? get_spread_update(confirmation_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(confirmation_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			confirmation.$set(confirmation_changes);
@@ -27871,11 +26786,11 @@ function create_if_block_2$7(ctx) {
 	};
 }
 
-// (123:49) 
+// (133:49) 
 function create_if_block_1$8(ctx) {
 	let choice;
 	let current;
-	const choice_spread_levels = [/*newProps*/ ctx[22]];
+	const choice_spread_levels = [/*newProps*/ ctx[24]];
 	let choice_props = {};
 
 	for (let i = 0; i < choice_spread_levels.length; i += 1) {
@@ -27894,7 +26809,7 @@ function create_if_block_1$8(ctx) {
 		},
 		p(ctx, dirty) {
 			const choice_changes = (dirty & /*props, _ChoiceCallback*/ 9)
-			? get_spread_update(choice_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(choice_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			choice.$set(choice_changes);
@@ -27914,11 +26829,11 @@ function create_if_block_1$8(ctx) {
 	};
 }
 
-// (117:0) {#if cbType === CallbackType.BooleanAttributeInputCallback}
+// (127:0) {#if cbType === CallbackType.BooleanAttributeInputCallback}
 function create_if_block$a(ctx) {
 	let boolean;
 	let current;
-	const boolean_spread_levels = [/*newProps*/ ctx[22]];
+	const boolean_spread_levels = [/*newProps*/ ctx[24]];
 	let boolean_props = {};
 
 	for (let i = 0; i < boolean_spread_levels.length; i += 1) {
@@ -27937,7 +26852,7 @@ function create_if_block$a(ctx) {
 		},
 		p(ctx, dirty) {
 			const boolean_changes = (dirty & /*props, _BooleanAttributeInputCallback*/ 5)
-			? get_spread_update(boolean_spread_levels, [get_spread_object(/*newProps*/ ctx[22])])
+			? get_spread_update(boolean_spread_levels, [get_spread_object(/*newProps*/ ctx[24])])
 			: {};
 
 			boolean.$set(boolean_changes);
@@ -27967,8 +26882,8 @@ function create_fragment$h(ctx) {
 		create_if_block$a,
 		create_if_block_1$8,
 		create_if_block_2$7,
-		create_if_block_3$6,
-		create_if_block_4$4,
+		create_if_block_3$7,
+		create_if_block_4$5,
 		create_if_block_5$1,
 		create_if_block_6,
 		create_if_block_7,
@@ -27983,32 +26898,36 @@ function create_fragment$h(ctx) {
 		create_if_block_16,
 		create_if_block_17,
 		create_if_block_18,
+		create_if_block_19,
+		create_if_block_20,
 		create_else_block$3
 	];
 
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
-		if (/*cbType*/ ctx[1] === CallbackType.BooleanAttributeInputCallback) return 0;
-		if (/*cbType*/ ctx[1] === CallbackType.ChoiceCallback) return 1;
-		if (/*cbType*/ ctx[1] === CallbackType.ConfirmationCallback) return 2;
-		if (/*cbType*/ ctx[1] === CallbackType.HiddenValueCallback) return 3;
-		if (/*cbType*/ ctx[1] === CallbackType.KbaCreateCallback) return 4;
-		if (/*cbType*/ ctx[1] === CallbackType.NameCallback) return 5;
-		if (/*cbType*/ ctx[1] === CallbackType.PasswordCallback) return 6;
-		if (/*cbType*/ ctx[1] === CallbackType.PollingWaitCallback) return 7;
-		if (/*cbType*/ ctx[1] === CallbackType.RedirectCallback) return 8;
-		if (/*cbType*/ ctx[1] === CallbackType.SelectIdPCallback) return 9;
-		if (/*cbType*/ ctx[1] === CallbackType.StringAttributeInputCallback) return 10;
-		if (/*cbType*/ ctx[1] === CallbackType.ValidatedCreatePasswordCallback) return 11;
-		if (/*cbType*/ ctx[1] === CallbackType.ValidatedCreateUsernameCallback) return 12;
-		if (/*cbType*/ ctx[1] === CallbackType.TermsAndConditionsCallback) return 13;
-		if (/*cbType*/ ctx[1] === CallbackType.TextOutputCallback) return 14;
-		if (/*cbType*/ ctx[1] === CallbackType.SuspendedTextOutputCallback) return 15;
-		if (/*cbType*/ ctx[1] === CallbackType.DeviceProfileCallback) return 16;
-		if (/*cbType*/ ctx[1] === CallbackType.MetadataCallback) return 17;
-		if (/*cbType*/ ctx[1] === CallbackType.ReCaptchaCallback) return 18;
-		return 19;
+		if (/*cbType*/ ctx[1] === l.BooleanAttributeInputCallback) return 0;
+		if (/*cbType*/ ctx[1] === l.ChoiceCallback) return 1;
+		if (/*cbType*/ ctx[1] === l.ConfirmationCallback) return 2;
+		if (/*cbType*/ ctx[1] === l.HiddenValueCallback) return 3;
+		if (/*cbType*/ ctx[1] === l.KbaCreateCallback) return 4;
+		if (/*cbType*/ ctx[1] === l.NameCallback) return 5;
+		if (/*cbType*/ ctx[1] === l.PasswordCallback) return 6;
+		if (/*cbType*/ ctx[1] === l.PollingWaitCallback) return 7;
+		if (/*cbType*/ ctx[1] === l.RedirectCallback) return 8;
+		if (/*cbType*/ ctx[1] === l.SelectIdPCallback) return 9;
+		if (/*cbType*/ ctx[1] === l.StringAttributeInputCallback) return 10;
+		if (/*cbType*/ ctx[1] === l.ValidatedCreatePasswordCallback) return 11;
+		if (/*cbType*/ ctx[1] === l.ValidatedCreateUsernameCallback) return 12;
+		if (/*cbType*/ ctx[1] === l.TermsAndConditionsCallback) return 13;
+		if (/*cbType*/ ctx[1] === l.TextOutputCallback) return 14;
+		if (/*cbType*/ ctx[1] === l.SuspendedTextOutputCallback) return 15;
+		if (/*cbType*/ ctx[1] === l.DeviceProfileCallback) return 16;
+		if (/*cbType*/ ctx[1] === l.MetadataCallback) return 17;
+		if (/*cbType*/ ctx[1] === l.ReCaptchaCallback) return 18;
+		if (/*cbType*/ ctx[1] === l.PingOneProtectEvaluationCallback) return 19;
+		if (/*cbType*/ ctx[1] === l.PingOneProtectInitializeCallback) return 20;
+		return 21;
 	}
 
 	function select_block_ctx(ctx, index) {
@@ -28031,6 +26950,8 @@ function create_fragment$h(ctx) {
 		if (index === 16) return get_if_ctx_16(ctx);
 		if (index === 17) return get_if_ctx_17(ctx);
 		if (index === 18) return get_if_ctx_18(ctx);
+		if (index === 19) return get_if_ctx_19(ctx);
+		if (index === 20) return get_if_ctx_20(ctx);
 		return get_else_ctx(ctx);
 	}
 
@@ -28112,6 +27033,8 @@ function instance$h($$self, $$props, $$invalidate) {
 	let _MetadataCallback;
 	let _DeviceProfileCallback;
 	let _RecaptchaCallback;
+	let _PingProtectEvaluation;
+	let _PingProtectInitialize;
 	let _FRCallback;
 
 	$$self.$$set = $$props => {
@@ -28124,65 +27047,71 @@ function instance$h($$self, $$props, $$invalidate) {
 				$$invalidate(1, cbType = props.callback.getType());
 
 				switch (cbType) {
-					case CallbackType.BooleanAttributeInputCallback:
+					case l.BooleanAttributeInputCallback:
 						$$invalidate(2, _BooleanAttributeInputCallback = props.callback);
 						break;
-					case CallbackType.ChoiceCallback:
+					case l.ChoiceCallback:
 						$$invalidate(3, _ChoiceCallback = props.callback);
 						break;
-					case CallbackType.ConfirmationCallback:
+					case l.ConfirmationCallback:
 						$$invalidate(4, _ConfirmationCallback = props.callback);
 						break;
-					case CallbackType.HiddenValueCallback:
+					case l.HiddenValueCallback:
 						$$invalidate(5, _HiddenValueCallback = props.callback);
 						break;
-					case CallbackType.KbaCreateCallback:
+					case l.KbaCreateCallback:
 						$$invalidate(6, _KbaCreateCallback = props.callback);
 						break;
-					case CallbackType.NameCallback:
+					case l.NameCallback:
 						$$invalidate(7, _NameCallback = props.callback);
 						break;
-					case CallbackType.ReCaptchaCallback:
+					case l.ReCaptchaCallback:
 						$$invalidate(20, _RecaptchaCallback = props.callback);
 						break;
-					case CallbackType.PasswordCallback:
+					case l.PasswordCallback:
 						$$invalidate(8, _PasswordCallback = props.callback);
 						break;
-					case CallbackType.PollingWaitCallback:
+					case l.PollingWaitCallback:
 						$$invalidate(9, _PollingWaitCallback = props.callback);
 						break;
-					case CallbackType.RedirectCallback:
+					case l.RedirectCallback:
 						$$invalidate(10, _RedirectCallback = props.callback);
 						break;
-					case CallbackType.SelectIdPCallback:
+					case l.SelectIdPCallback:
 						$$invalidate(11, _SelectIdPCallback = props.callback);
 						break;
-					case CallbackType.StringAttributeInputCallback:
+					case l.StringAttributeInputCallback:
 						$$invalidate(12, _StringAttributeInputCallback = props.callback);
 						break;
-					case CallbackType.ValidatedCreatePasswordCallback:
+					case l.ValidatedCreatePasswordCallback:
 						$$invalidate(13, _ValidatedCreatePasswordCallback = props.callback);
 						break;
-					case CallbackType.ValidatedCreateUsernameCallback:
+					case l.ValidatedCreateUsernameCallback:
 						$$invalidate(14, _ValidatedCreateUsernameCallback = props.callback);
 						break;
-					case CallbackType.TermsAndConditionsCallback:
+					case l.TermsAndConditionsCallback:
 						$$invalidate(15, _TermsAndConditionsCallback = props.callback);
 						break;
-					case CallbackType.TextOutputCallback:
+					case l.TextOutputCallback:
 						$$invalidate(16, _TextOutputCallback = props.callback);
 						break;
-					case CallbackType.SuspendedTextOutputCallback:
+					case l.SuspendedTextOutputCallback:
 						$$invalidate(17, _SuspendedTextOutputCallback = props.callback);
 						break;
-					case CallbackType.DeviceProfileCallback:
+					case l.DeviceProfileCallback:
 						$$invalidate(19, _DeviceProfileCallback = props.callback);
 						break;
-					case CallbackType.MetadataCallback:
+					case l.MetadataCallback:
 						$$invalidate(18, _MetadataCallback = props.callback);
 						break;
+					case l.PingOneProtectEvaluationCallback:
+						$$invalidate(21, _PingProtectEvaluation = props.callback);
+						break;
+					case l.PingOneProtectInitializeCallback:
+						$$invalidate(22, _PingProtectInitialize = props.callback);
+						break;
 					default:
-						$$invalidate(21, _FRCallback = props.callback);
+						$$invalidate(23, _FRCallback = props.callback);
 				}
 			}
 		}
@@ -28210,6 +27139,8 @@ function instance$h($$self, $$props, $$invalidate) {
 		_MetadataCallback,
 		_DeviceProfileCallback,
 		_RecaptchaCallback,
+		_PingProtectEvaluation,
+		_PingProtectInitialize,
 		_FRCallback
 	];
 }
@@ -28221,7 +27152,7 @@ class Callback_mapper extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/generic.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/generic.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$6(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -28231,7 +27162,7 @@ function get_each_context$6(ctx, list, i) {
 }
 
 // (70:2) {#if form?.icon && componentStyle !== 'inline'}
-function create_if_block_4$3(ctx) {
+function create_if_block_4$4(ctx) {
 	let div;
 	let shieldicon;
 	let current;
@@ -28271,7 +27202,7 @@ function create_if_block_4$3(ctx) {
 }
 
 // (86:2) {#if form?.message}
-function create_if_block_3$5(ctx) {
+function create_if_block_3$6(ctx) {
 	let alert;
 	let current;
 
@@ -28452,7 +27383,7 @@ function create_if_block_1$7(ctx) {
 				style: "primary",
 				type: "submit",
 				width: "full",
-				$$slots: { default: [create_default_slot_2$4] },
+				$$slots: { default: [create_default_slot_2$5] },
 				$$scope: { ctx }
 			}
 		});
@@ -28570,7 +27501,7 @@ function create_default_slot_3$2(ctx) {
 }
 
 // (114:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
-function create_default_slot_2$4(ctx) {
+function create_default_slot_2$5(ctx) {
 	let t;
 	let current;
 	t = new Locale_strings({ props: { key: "nextButton" } });
@@ -28647,7 +27578,7 @@ function create_default_slot$9(ctx) {
 	let t5;
 	let backto;
 	let current;
-	let if_block0 = /*form*/ ctx[2]?.icon && /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_4$3();
+	let if_block0 = /*form*/ ctx[2]?.icon && /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_4$4();
 
 	sanitize0 = new Server_strings({
 			props: {
@@ -28663,7 +27594,7 @@ function create_default_slot$9(ctx) {
 			}
 		});
 
-	let if_block1 = /*form*/ ctx[2]?.message && create_if_block_3$5(ctx);
+	let if_block1 = /*form*/ ctx[2]?.message && create_if_block_3$6(ctx);
 	let each_value = /*step*/ ctx[5]?.callbacks;
 	let each_blocks = [];
 
@@ -28734,9 +27665,7 @@ function create_default_slot$9(ctx) {
 			insert(target, t3, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t4, anchor);
@@ -28756,7 +27685,7 @@ function create_default_slot$9(ctx) {
 						transition_in(if_block0, 1);
 					}
 				} else {
-					if_block0 = create_if_block_4$3();
+					if_block0 = create_if_block_4$4();
 					if_block0.c();
 					transition_in(if_block0, 1);
 					if_block0.m(t0.parentNode, t0);
@@ -28786,7 +27715,7 @@ function create_default_slot$9(ctx) {
 						transition_in(if_block1, 1);
 					}
 				} else {
-					if_block1 = create_if_block_3$5(ctx);
+					if_block1 = create_if_block_3$6(ctx);
 					if_block1.c();
 					transition_in(if_block1, 1);
 					if_block1.m(t3.parentNode, t3);
@@ -29057,7 +27986,7 @@ function instance$g($$self, $$props, $$invalidate) {
 	$$self.$$.update = () => {
 		if ($$self.$$.dirty & /*step, form*/ 36) {
 			{
-				shouldRedirectFromStep(step) && FRAuth.redirect(step);
+				shouldRedirectFromStep(step) && f$1.redirect(step);
 				$$invalidate(7, formMessageKey = convertStringToKey(form?.message));
 			}
 		}
@@ -29098,7 +28027,7 @@ class Generic extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/key-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/key-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$f(ctx) {
 	let svg;
@@ -29202,7 +28131,7 @@ class Key_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/one-time-password.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/one-time-password.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$5(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -29212,7 +28141,7 @@ function get_each_context$5(ctx, list, i) {
 }
 
 // (57:2) {#if componentStyle !== 'inline'}
-function create_if_block_3$4(ctx) {
+function create_if_block_3$5(ctx) {
 	let t0;
 	let h1;
 	let t1;
@@ -29220,7 +28149,7 @@ function create_if_block_3$4(ctx) {
 	let p;
 	let t3;
 	let current;
-	let if_block = /*form*/ ctx[2]?.icon && create_if_block_4$2();
+	let if_block = /*form*/ ctx[2]?.icon && create_if_block_4$3();
 
 	t1 = new Locale_strings({
 			props: { key: "twoFactorAuthentication" }
@@ -29259,7 +28188,7 @@ function create_if_block_3$4(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block_4$2();
+					if_block = create_if_block_4$3();
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(t0.parentNode, t0);
@@ -29300,7 +28229,7 @@ function create_if_block_3$4(ctx) {
 }
 
 // (58:4) {#if form?.icon}
-function create_if_block_4$2(ctx) {
+function create_if_block_4$3(ctx) {
 	let div;
 	let keyicon;
 	let current;
@@ -29472,7 +28401,7 @@ function create_if_block_1$6(ctx) {
 				style: "primary",
 				type: "submit",
 				width: "full",
-				$$slots: { default: [create_default_slot_2$3] },
+				$$slots: { default: [create_default_slot_2$4] },
 				$$scope: { ctx }
 			}
 		});
@@ -29560,7 +28489,7 @@ function create_if_block$8(ctx) {
 }
 
 // (96:4) <Button busy={journey?.loading} style="primary" type="submit" width="full">
-function create_default_slot_2$3(ctx) {
+function create_default_slot_2$4(ctx) {
 	let t;
 	let current;
 	t = new Locale_strings({ props: { key: "loginButton" } });
@@ -29636,7 +28565,7 @@ function create_default_slot$8(ctx) {
 	let if_block2;
 	let if_block2_anchor;
 	let current;
-	let if_block0 = /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_3$4(ctx);
+	let if_block0 = /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_3$5(ctx);
 	let if_block1 = /*form*/ ctx[2]?.message && create_if_block_2$5(ctx);
 	let each_value = /*modifiedCallbacks*/ ctx[8];
 	let each_blocks = [];
@@ -29686,9 +28615,7 @@ function create_default_slot$8(ctx) {
 			insert(target, t1, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t2, anchor);
@@ -29709,7 +28636,7 @@ function create_default_slot$8(ctx) {
 						transition_in(if_block0, 1);
 					}
 				} else {
-					if_block0 = create_if_block_3$4(ctx);
+					if_block0 = create_if_block_3$5(ctx);
 					if_block0.c();
 					transition_in(if_block0, 1);
 					if_block0.m(t0.parentNode, t0);
@@ -29957,7 +28884,7 @@ function instance$e($$self, $$props, $$invalidate) {
 		if ($$self.$$.dirty & /*form, step*/ 2052) {
 			{
 				$$invalidate(7, formMessageKey = convertStringToKey(form?.message));
-				const confirmationCallbacks = step.getCallbacksOfType(CallbackType.ConfirmationCallback);
+				const confirmationCallbacks = step.getCallbacksOfType(l.ConfirmationCallback);
 
 				if (confirmationCallbacks.length) {
 					const confirmationCb = confirmationCallbacks[0];
@@ -29968,7 +28895,7 @@ function instance$e($$self, $$props, $$invalidate) {
  * Filter out ConfirmationCallbacks; we'll use them seperately
  */
 				$$invalidate(8, modifiedCallbacks = step.callbacks.filter(callback => {
-					if (callback.getType() === CallbackType.ConfirmationCallback) {
+					if (callback.getType() === l.ConfirmationCallback) {
 						return false;
 					}
 
@@ -30010,7 +28937,7 @@ class One_time_password extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/new-user-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/new-user-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$d(ctx) {
 	let svg;
@@ -30114,7 +29041,7 @@ class New_user_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/registration.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/registration.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$4(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -30132,7 +29059,7 @@ function create_if_block_2$4(ctx) {
 	let p;
 	let t3;
 	let current;
-	let if_block = /*form*/ ctx[2]?.icon && create_if_block_3$3();
+	let if_block = /*form*/ ctx[2]?.icon && create_if_block_3$4();
 	t1 = new Locale_strings({ props: { key: "registerHeader" } });
 
 	t3 = new Locale_strings({
@@ -30169,7 +29096,7 @@ function create_if_block_2$4(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block_3$3();
+					if_block = create_if_block_3$4();
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(t0.parentNode, t0);
@@ -30211,7 +29138,7 @@ function create_if_block_2$4(ctx) {
 }
 
 // (46:4) {#if form?.icon}
-function create_if_block_3$3(ctx) {
+function create_if_block_3$4(ctx) {
 	let div;
 	let newusericon;
 	let current;
@@ -30260,7 +29187,7 @@ function create_if_block_1$5(ctx) {
 				id: "formFailureMessageAlert",
 				needsFocus: /*alertNeedsFocus*/ ctx[6],
 				type: "error",
-				$$slots: { default: [create_default_slot_2$2] },
+				$$slots: { default: [create_default_slot_2$3] },
 				$$scope: { ctx }
 			}
 		});
@@ -30299,7 +29226,7 @@ function create_if_block_1$5(ctx) {
 }
 
 // (63:4) <Alert id="formFailureMessageAlert" needsFocus={alertNeedsFocus} type="error">
-function create_default_slot_2$2(ctx) {
+function create_default_slot_2$3(ctx) {
 	let t_value = interpolate(/*formMessageKey*/ ctx[7], null, /*form*/ ctx[2]?.message) + "";
 	let t;
 
@@ -30496,9 +29423,7 @@ function create_default_slot$7(ctx) {
 			insert(target, t1, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t2, anchor);
@@ -30797,7 +29722,7 @@ class Registration extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/login.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/login.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$3(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -30807,12 +29732,12 @@ function get_each_context$3(ctx, list, i) {
 }
 
 // (45:2) {#if componentStyle !== 'inline'}
-function create_if_block_3$2(ctx) {
+function create_if_block_3$3(ctx) {
 	let t0;
 	let h1;
 	let t1;
 	let current;
-	let if_block = /*form*/ ctx[2]?.icon && create_if_block_4$1();
+	let if_block = /*form*/ ctx[2]?.icon && create_if_block_4$2();
 	t1 = new Locale_strings({ props: { key: "loginHeader" } });
 
 	return {
@@ -30837,7 +29762,7 @@ function create_if_block_3$2(ctx) {
 						transition_in(if_block, 1);
 					}
 				} else {
-					if_block = create_if_block_4$1();
+					if_block = create_if_block_4$2();
 					if_block.c();
 					transition_in(if_block, 1);
 					if_block.m(t0.parentNode, t0);
@@ -30873,7 +29798,7 @@ function create_if_block_3$2(ctx) {
 }
 
 // (46:4) {#if form?.icon}
-function create_if_block_4$1(ctx) {
+function create_if_block_4$2(ctx) {
 	let div;
 	let keyicon;
 	let current;
@@ -30922,7 +29847,7 @@ function create_if_block_2$3(ctx) {
 				id: "formFailureMessageAlert",
 				needsFocus: /*alertNeedsFocus*/ ctx[6],
 				type: "error",
-				$$slots: { default: [create_default_slot_2$1] },
+				$$slots: { default: [create_default_slot_2$2] },
 				$$scope: { ctx }
 			}
 		});
@@ -30961,7 +29886,7 @@ function create_if_block_2$3(ctx) {
 }
 
 // (57:4) <Alert id="formFailureMessageAlert" needsFocus={alertNeedsFocus} type="error">
-function create_default_slot_2$1(ctx) {
+function create_default_slot_2$2(ctx) {
 	let t_value = interpolate(/*formMessageKey*/ ctx[7], null, /*form*/ ctx[2]?.message) + "";
 	let t;
 
@@ -31204,7 +30129,7 @@ function create_default_slot$6(ctx) {
 	let t3;
 	let if_block3_anchor;
 	let current;
-	let if_block0 = /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_3$2(ctx);
+	let if_block0 = /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_3$3(ctx);
 	let if_block1 = /*form*/ ctx[2]?.message && create_if_block_2$3(ctx);
 	let each_value = /*step*/ ctx[5]?.callbacks;
 	let each_blocks = [];
@@ -31244,9 +30169,7 @@ function create_default_slot$6(ctx) {
 			insert(target, t1, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t2, anchor);
@@ -31265,7 +30188,7 @@ function create_default_slot$6(ctx) {
 						transition_in(if_block0, 1);
 					}
 				} else {
-					if_block0 = create_if_block_3$2(ctx);
+					if_block0 = create_if_block_3$3(ctx);
 					if_block0.c();
 					transition_in(if_block0, 1);
 					if_block0.m(t0.parentNode, t0);
@@ -31584,7 +30507,7 @@ class Login extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/fingerprint-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/fingerprint-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$a(ctx) {
 	let svg;
@@ -31661,9 +30584,9 @@ class Fingerprint_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/webauthn.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/webauthn.svelte generated by Svelte v3.55.1 */
 
-function create_if_block_2$2(ctx) {
+function create_if_block_4$1(ctx) {
 	let div;
 	let fingerprinticon;
 	let current;
@@ -31702,17 +30625,57 @@ function create_if_block_2$2(ctx) {
 	};
 }
 
-// (86:2) {#if form?.message}
-function create_if_block_1$3(ctx) {
+// (101:2) {#if waitingForWebAuthnAPI}
+function create_if_block_3$2(ctx) {
+	let div;
+	let spinner;
+	let current;
+
+	spinner = new Spinner({
+			props: {
+				colorClass: "tw_text-primary-light",
+				layoutClasses: "tw_h-28 tw_w-28"
+			}
+		});
+
+	return {
+		c() {
+			div = element("div");
+			create_component(spinner.$$.fragment);
+			attr(div, "class", "tw_text-center tw_w-full tw_py-4");
+		},
+		m(target, anchor) {
+			insert(target, div, anchor);
+			mount_component(spinner, div, null);
+			current = true;
+		},
+		i(local) {
+			if (current) return;
+			transition_in(spinner.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(spinner.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(div);
+			destroy_component(spinner);
+		}
+	};
+}
+
+// (106:2) {#if form?.message}
+function create_if_block_2$2(ctx) {
 	let alert;
 	let current;
 
 	alert = new Alert({
 			props: {
 				id: formFailureMessageId$2,
-				needsFocus: /*alertNeedsFocus*/ ctx[3],
+				needsFocus: /*alertNeedsFocus*/ ctx[4],
 				type: "error",
-				$$slots: { default: [create_default_slot_1$4] },
+				$$slots: { default: [create_default_slot_2$1] },
 				$$scope: { ctx }
 			}
 		});
@@ -31727,9 +30690,9 @@ function create_if_block_1$3(ctx) {
 		},
 		p(ctx, dirty) {
 			const alert_changes = {};
-			if (dirty & /*alertNeedsFocus*/ 8) alert_changes.needsFocus = /*alertNeedsFocus*/ ctx[3];
+			if (dirty & /*alertNeedsFocus*/ 16) alert_changes.needsFocus = /*alertNeedsFocus*/ ctx[4];
 
-			if (dirty & /*$$scope, formMessageKey, form*/ 4116) {
+			if (dirty & /*$$scope, formMessageKey, form*/ 262212) {
 				alert_changes.$$scope = { dirty, ctx };
 			}
 
@@ -31750,9 +30713,9 @@ function create_if_block_1$3(ctx) {
 	};
 }
 
-// (87:4) <Alert id={formFailureMessageId} needsFocus={alertNeedsFocus} type="error">
-function create_default_slot_1$4(ctx) {
-	let t_value = interpolate(/*formMessageKey*/ ctx[4], null, /*form*/ ctx[2]?.message) + "";
+// (107:4) <Alert id={formFailureMessageId} needsFocus={alertNeedsFocus} type="error">
+function create_default_slot_2$1(ctx) {
+	let t_value = interpolate(/*formMessageKey*/ ctx[6], null, /*form*/ ctx[2]?.message) + "";
 	let t;
 
 	return {
@@ -31763,7 +30726,7 @@ function create_default_slot_1$4(ctx) {
 			insert(target, t, anchor);
 		},
 		p(ctx, dirty) {
-			if (dirty & /*formMessageKey, form*/ 20 && t_value !== (t_value = interpolate(/*formMessageKey*/ ctx[4], null, /*form*/ ctx[2]?.message) + "")) set_data(t, t_value);
+			if (dirty & /*formMessageKey, form*/ 68 && t_value !== (t_value = interpolate(/*formMessageKey*/ ctx[6], null, /*form*/ ctx[2]?.message) + "")) set_data(t, t_value);
 		},
 		d(detaching) {
 			if (detaching) detach(t);
@@ -31771,16 +30734,174 @@ function create_default_slot_1$4(ctx) {
 	};
 }
 
-// (103:2) {:else}
+// (126:2) {:else}
 function create_else_block$2(ctx) {
 	let header;
+	let current_block_type_index;
+	let if_block;
+	let current;
+	const if_block_creators = [create_if_block_1$3, create_else_block_1];
+	const if_blocks = [];
+
+	function select_block_type_1(ctx, dirty) {
+		if (/*requestsDeviceName*/ ctx[3]) return 0;
+		return 1;
+	}
+
+	current_block_type_index = select_block_type_1(ctx);
+	if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+
+	return {
+		c() {
+			header = element("header");
+			if_block.c();
+			attr(header, "class", `tw_input-spacing`);
+			attr(header, "id", formHeaderId$2);
+		},
+		m(target, anchor) {
+			insert(target, header, anchor);
+			if_blocks[current_block_type_index].m(header, null);
+			current = true;
+		},
+		p(ctx, dirty) {
+			let previous_block_index = current_block_type_index;
+			current_block_type_index = select_block_type_1(ctx);
+
+			if (current_block_type_index === previous_block_index) {
+				if_blocks[current_block_type_index].p(ctx, dirty);
+			} else {
+				group_outros();
+
+				transition_out(if_blocks[previous_block_index], 1, 1, () => {
+					if_blocks[previous_block_index] = null;
+				});
+
+				check_outros();
+				if_block = if_blocks[current_block_type_index];
+
+				if (!if_block) {
+					if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+					if_block.c();
+				} else {
+					if_block.p(ctx, dirty);
+				}
+
+				transition_in(if_block, 1);
+				if_block.m(header, null);
+			}
+		},
+		i(local) {
+			if (current) return;
+			transition_in(if_block);
+			current = true;
+		},
+		o(local) {
+			transition_out(if_block);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(header);
+			if_blocks[current_block_type_index].d();
+		}
+	};
+}
+
+// (112:2) {#if webAuthnType === WebAuthnStepType.Authentication}
+function create_if_block$5(ctx) {
+	let header;
+	let div;
+	let spinner;
+	let t0;
+	let h1;
+	let t1;
+	let t2;
+	let p;
+	let t3;
+	let current;
+
+	spinner = new Spinner({
+			props: {
+				colorClass: "tw_text-primary-light",
+				layoutClasses: "tw_h-28 tw_w-28"
+			}
+		});
+
+	t1 = new Locale_strings({ props: { key: "verifyYourIdentity" } });
+
+	t3 = new Locale_strings({
+			props: { key: "useDeviceForIdentityVerification" }
+		});
+
+	return {
+		c() {
+			header = element("header");
+			div = element("div");
+			create_component(spinner.$$.fragment);
+			t0 = space();
+			h1 = element("h1");
+			create_component(t1.$$.fragment);
+			t2 = space();
+			p = element("p");
+			create_component(t3.$$.fragment);
+			attr(div, "class", "tw_text-center tw_w-full tw_py-4");
+			attr(h1, "class", "tw_primary-header dark:tw_primary-header_dark");
+			attr(p, "class", "tw_text-center tw_-mt-5 tw_mb-2 tw_py-4 tw_text-secondary-dark dark:tw_text-secondary-light");
+			attr(header, "id", formHeaderId$2);
+		},
+		m(target, anchor) {
+			insert(target, header, anchor);
+			append(header, div);
+			mount_component(spinner, div, null);
+			append(header, t0);
+			append(header, h1);
+			mount_component(t1, h1, null);
+			append(header, t2);
+			append(header, p);
+			mount_component(t3, p, null);
+			current = true;
+		},
+		p: noop,
+		i(local) {
+			if (current) return;
+			transition_in(spinner.$$.fragment, local);
+			transition_in(t1.$$.fragment, local);
+			transition_in(t3.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(spinner.$$.fragment, local);
+			transition_out(t1.$$.fragment, local);
+			transition_out(t3.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(header);
+			destroy_component(spinner);
+			destroy_component(t1);
+			destroy_component(t3);
+		}
+	};
+}
+
+// (151:6) {:else}
+function create_else_block_1(ctx) {
 	let h1;
 	let t0;
 	let t1;
 	let p;
 	let t2;
 	let current;
-	t0 = new Locale_strings({ props: { key: "registerYourDevice" } });
+
+	t0 = new Locale_strings({
+			props: {
+				key: "registerYourDevice",
+				values: {
+					name: /*deviceName*/ ctx[5].length > 0
+					? /*deviceName*/ ctx[5]
+					: interpolate('yourDevice')
+				}
+			}
+		});
 
 	t2 = new Locale_strings({
 			props: {
@@ -31790,7 +30911,6 @@ function create_else_block$2(ctx) {
 
 	return {
 		c() {
-			header = element("header");
 			h1 = element("h1");
 			create_component(t0.$$.fragment);
 			t1 = space();
@@ -31798,18 +30918,26 @@ function create_else_block$2(ctx) {
 			create_component(t2.$$.fragment);
 			attr(h1, "class", "tw_primary-header dark:tw_primary-header_dark");
 			attr(p, "class", "tw_text-center tw_-mt-5 tw_mb-2 tw_py-4 tw_text-secondary-dark dark:tw_text-secondary-light");
-			attr(header, "id", formHeaderId$2);
 		},
 		m(target, anchor) {
-			insert(target, header, anchor);
-			append(header, h1);
+			insert(target, h1, anchor);
 			mount_component(t0, h1, null);
-			append(header, t1);
-			append(header, p);
+			insert(target, t1, anchor);
+			insert(target, p, anchor);
 			mount_component(t2, p, null);
 			current = true;
 		},
-		p: noop,
+		p(ctx, dirty) {
+			const t0_changes = {};
+
+			if (dirty & /*deviceName*/ 32) t0_changes.values = {
+				name: /*deviceName*/ ctx[5].length > 0
+				? /*deviceName*/ ctx[5]
+				: interpolate('yourDevice')
+			};
+
+			t0.$set(t0_changes);
+		},
 		i(local) {
 			if (current) return;
 			transition_in(t0.$$.fragment, local);
@@ -31822,124 +30950,174 @@ function create_else_block$2(ctx) {
 			current = false;
 		},
 		d(detaching) {
-			if (detaching) detach(header);
+			if (detaching) detach(h1);
 			destroy_component(t0);
+			if (detaching) detach(t1);
+			if (detaching) detach(p);
 			destroy_component(t2);
 		}
 	};
 }
 
-// (92:2) {#if webAuthnType === WebAuthnStepType.Authentication}
-function create_if_block$5(ctx) {
-	let header;
+// (128:6) {#if requestsDeviceName}
+function create_if_block_1$3(ctx) {
 	let h1;
 	let t0;
 	let t1;
-	let p;
+	let input;
 	let t2;
+	let button;
 	let current;
-	t0 = new Locale_strings({ props: { key: "verifyYourIdentity" } });
+	t0 = new Locale_strings({ props: { key: "nameYourDevice" } });
 
-	t2 = new Locale_strings({
-			props: { key: "useDeviceForIdentityVerification" }
+	input = new Floating_label({
+			props: {
+				type: "text",
+				isRequired: false,
+				isFirstInvalidInput: false,
+				key: "devicename",
+				onChange: /*updateDeviceName*/ ctx[11],
+				label: interpolate('optionallyNameDevice')
+			}
+		});
+
+	button = new Button({
+			props: {
+				style: "primary",
+				type: "submit",
+				width: "full",
+				onClick: /*func*/ ctx[15],
+				$$slots: { default: [create_default_slot_1$4] },
+				$$scope: { ctx }
+			}
 		});
 
 	return {
 		c() {
-			header = element("header");
 			h1 = element("h1");
 			create_component(t0.$$.fragment);
 			t1 = space();
-			p = element("p");
-			create_component(t2.$$.fragment);
+			create_component(input.$$.fragment);
+			t2 = space();
+			create_component(button.$$.fragment);
 			attr(h1, "class", "tw_primary-header dark:tw_primary-header_dark");
-			attr(p, "class", "tw_text-center tw_-mt-5 tw_mb-2 tw_py-4 tw_text-secondary-dark dark:tw_text-secondary-light");
-			attr(header, "id", formHeaderId$2);
 		},
 		m(target, anchor) {
-			insert(target, header, anchor);
-			append(header, h1);
+			insert(target, h1, anchor);
 			mount_component(t0, h1, null);
-			append(header, t1);
-			append(header, p);
-			mount_component(t2, p, null);
+			insert(target, t1, anchor);
+			mount_component(input, target, anchor);
+			insert(target, t2, anchor);
+			mount_component(button, target, anchor);
+			current = true;
+		},
+		p(ctx, dirty) {
+			const button_changes = {};
+			if (dirty & /*requestsDeviceName, waitingForWebAuthnAPI*/ 520) button_changes.onClick = /*func*/ ctx[15];
+
+			if (dirty & /*$$scope*/ 262144) {
+				button_changes.$$scope = { dirty, ctx };
+			}
+
+			button.$set(button_changes);
+		},
+		i(local) {
+			if (current) return;
+			transition_in(t0.$$.fragment, local);
+			transition_in(input.$$.fragment, local);
+			transition_in(button.$$.fragment, local);
+			current = true;
+		},
+		o(local) {
+			transition_out(t0.$$.fragment, local);
+			transition_out(input.$$.fragment, local);
+			transition_out(button.$$.fragment, local);
+			current = false;
+		},
+		d(detaching) {
+			if (detaching) detach(h1);
+			destroy_component(t0);
+			if (detaching) detach(t1);
+			destroy_component(input, detaching);
+			if (detaching) detach(t2);
+			destroy_component(button, detaching);
+		}
+	};
+}
+
+// (140:8) <Button           style="primary"           type="submit"           width="full"           onClick={() => {             requestsDeviceName = false;             waitingForWebAuthnAPI = true;           }}         >
+function create_default_slot_1$4(ctx) {
+	let t;
+	let current;
+	t = new Locale_strings({ props: { key: "nextButton" } });
+
+	return {
+		c() {
+			create_component(t.$$.fragment);
+		},
+		m(target, anchor) {
+			mount_component(t, target, anchor);
 			current = true;
 		},
 		p: noop,
 		i(local) {
 			if (current) return;
-			transition_in(t0.$$.fragment, local);
-			transition_in(t2.$$.fragment, local);
+			transition_in(t.$$.fragment, local);
 			current = true;
 		},
 		o(local) {
-			transition_out(t0.$$.fragment, local);
-			transition_out(t2.$$.fragment, local);
+			transition_out(t.$$.fragment, local);
 			current = false;
 		},
 		d(detaching) {
-			if (detaching) detach(header);
-			destroy_component(t0);
-			destroy_component(t2);
+			destroy_component(t, detaching);
 		}
 	};
 }
 
-// (70:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus} >
+// (89:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus} >
 function create_default_slot$5(ctx) {
 	let t0;
-	let div;
-	let spinner;
 	let t1;
 	let t2;
 	let current_block_type_index;
-	let if_block2;
-	let if_block2_anchor;
+	let if_block3;
+	let if_block3_anchor;
 	let current;
-	let if_block0 = /*form*/ ctx[2]?.icon && /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_2$2();
-
-	spinner = new Spinner({
-			props: {
-				colorClass: "tw_text-primary-light",
-				layoutClasses: "tw_h-28 tw_w-28"
-			}
-		});
-
-	let if_block1 = /*form*/ ctx[2]?.message && create_if_block_1$3(ctx);
+	let if_block0 = /*form*/ ctx[2]?.icon && /*componentStyle*/ ctx[1] !== 'inline' && create_if_block_4$1();
+	let if_block1 = /*waitingForWebAuthnAPI*/ ctx[9] && create_if_block_3$2();
+	let if_block2 = /*form*/ ctx[2]?.message && create_if_block_2$2(ctx);
 	const if_block_creators = [create_if_block$5, create_else_block$2];
 	const if_blocks = [];
 
 	function select_block_type(ctx, dirty) {
-		if (/*webAuthnType*/ ctx[7] === WebAuthnStepType.Authentication) return 0;
+		if (/*webAuthnType*/ ctx[10] === i.Authentication) return 0;
 		return 1;
 	}
 
 	current_block_type_index = select_block_type(ctx);
-	if_block2 = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+	if_block3 = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
 
 	return {
 		c() {
 			if (if_block0) if_block0.c();
 			t0 = space();
-			div = element("div");
-			create_component(spinner.$$.fragment);
-			t1 = space();
 			if (if_block1) if_block1.c();
+			t1 = space();
+			if (if_block2) if_block2.c();
 			t2 = space();
-			if_block2.c();
-			if_block2_anchor = empty();
-			attr(div, "class", "tw_text-center tw_w-full tw_py-4");
+			if_block3.c();
+			if_block3_anchor = empty();
 		},
 		m(target, anchor) {
 			if (if_block0) if_block0.m(target, anchor);
 			insert(target, t0, anchor);
-			insert(target, div, anchor);
-			mount_component(spinner, div, null);
-			insert(target, t1, anchor);
 			if (if_block1) if_block1.m(target, anchor);
+			insert(target, t1, anchor);
+			if (if_block2) if_block2.m(target, anchor);
 			insert(target, t2, anchor);
 			if_blocks[current_block_type_index].m(target, anchor);
-			insert(target, if_block2_anchor, anchor);
+			insert(target, if_block3_anchor, anchor);
 			current = true;
 		},
 		p(ctx, dirty) {
@@ -31949,7 +31127,7 @@ function create_default_slot$5(ctx) {
 						transition_in(if_block0, 1);
 					}
 				} else {
-					if_block0 = create_if_block_2$2();
+					if_block0 = create_if_block_4$1();
 					if_block0.c();
 					transition_in(if_block0, 1);
 					if_block0.m(t0.parentNode, t0);
@@ -31964,18 +31142,16 @@ function create_default_slot$5(ctx) {
 				check_outros();
 			}
 
-			if (/*form*/ ctx[2]?.message) {
+			if (/*waitingForWebAuthnAPI*/ ctx[9]) {
 				if (if_block1) {
-					if_block1.p(ctx, dirty);
-
-					if (dirty & /*form*/ 4) {
+					if (dirty & /*waitingForWebAuthnAPI*/ 512) {
 						transition_in(if_block1, 1);
 					}
 				} else {
-					if_block1 = create_if_block_1$3(ctx);
+					if_block1 = create_if_block_3$2();
 					if_block1.c();
 					transition_in(if_block1, 1);
-					if_block1.m(t2.parentNode, t2);
+					if_block1.m(t1.parentNode, t1);
 				}
 			} else if (if_block1) {
 				group_outros();
@@ -31987,33 +31163,55 @@ function create_default_slot$5(ctx) {
 				check_outros();
 			}
 
-			if_block2.p(ctx, dirty);
+			if (/*form*/ ctx[2]?.message) {
+				if (if_block2) {
+					if_block2.p(ctx, dirty);
+
+					if (dirty & /*form*/ 4) {
+						transition_in(if_block2, 1);
+					}
+				} else {
+					if_block2 = create_if_block_2$2(ctx);
+					if_block2.c();
+					transition_in(if_block2, 1);
+					if_block2.m(t2.parentNode, t2);
+				}
+			} else if (if_block2) {
+				group_outros();
+
+				transition_out(if_block2, 1, 1, () => {
+					if_block2 = null;
+				});
+
+				check_outros();
+			}
+
+			if_block3.p(ctx, dirty);
 		},
 		i(local) {
 			if (current) return;
 			transition_in(if_block0);
-			transition_in(spinner.$$.fragment, local);
 			transition_in(if_block1);
 			transition_in(if_block2);
+			transition_in(if_block3);
 			current = true;
 		},
 		o(local) {
 			transition_out(if_block0);
-			transition_out(spinner.$$.fragment, local);
 			transition_out(if_block1);
 			transition_out(if_block2);
+			transition_out(if_block3);
 			current = false;
 		},
 		d(detaching) {
 			if (if_block0) if_block0.d(detaching);
 			if (detaching) detach(t0);
-			if (detaching) detach(div);
-			destroy_component(spinner);
-			if (detaching) detach(t1);
 			if (if_block1) if_block1.d(detaching);
+			if (detaching) detach(t1);
+			if (if_block2) if_block2.d(detaching);
 			if (detaching) detach(t2);
 			if_blocks[current_block_type_index].d(detaching);
-			if (detaching) detach(if_block2_anchor);
+			if (detaching) detach(if_block3_anchor);
 		}
 	};
 }
@@ -32024,13 +31222,13 @@ function create_fragment$9(ctx) {
 	let current;
 
 	function form_1_formEl_binding(value) {
-		/*form_1_formEl_binding*/ ctx[10](value);
+		/*form_1_formEl_binding*/ ctx[16](value);
 	}
 
 	let form_1_props = {
-		ariaDescribedBy: /*formAriaDescriptor*/ ctx[5],
+		ariaDescribedBy: /*formAriaDescriptor*/ ctx[7],
 		id: formElementId$2,
-		needsFocus: /*formNeedsFocus*/ ctx[6],
+		needsFocus: /*formNeedsFocus*/ ctx[8],
 		$$slots: { default: [create_default_slot$5] },
 		$$scope: { ctx }
 	};
@@ -32052,10 +31250,10 @@ function create_fragment$9(ctx) {
 		},
 		p(ctx, [dirty]) {
 			const form_1_changes = {};
-			if (dirty & /*formAriaDescriptor*/ 32) form_1_changes.ariaDescribedBy = /*formAriaDescriptor*/ ctx[5];
-			if (dirty & /*formNeedsFocus*/ 64) form_1_changes.needsFocus = /*formNeedsFocus*/ ctx[6];
+			if (dirty & /*formAriaDescriptor*/ 128) form_1_changes.ariaDescribedBy = /*formAriaDescriptor*/ ctx[7];
+			if (dirty & /*formNeedsFocus*/ 256) form_1_changes.needsFocus = /*formNeedsFocus*/ ctx[8];
 
-			if (dirty & /*$$scope, alertNeedsFocus, formMessageKey, form, componentStyle*/ 4126) {
+			if (dirty & /*$$scope, requestsDeviceName, waitingForWebAuthnAPI, deviceName, alertNeedsFocus, formMessageKey, form, componentStyle*/ 262782) {
 				form_1_changes.$$scope = { dirty, ctx };
 			}
 
@@ -32093,20 +31291,29 @@ function instance$9($$self, $$props, $$invalidate) {
 	let { formEl = null } = $$props;
 	let { step } = $$props;
 	let alertNeedsFocus = false;
+	let deviceName = '';
+	let noDeviceRegistered = false;
 	let formMessageKey = '';
 	let formAriaDescriptor = 'genericStepHeader';
 	let formNeedsFocus = false;
-	let webAuthnType = FRWebAuthn.getWebAuthnStepType(step);
+	let requestsDeviceName = true;
+	let waitingForWebAuthnAPI = false;
+	let webAuthnType = T.getWebAuthnStepType(step);
+
+	function updateDeviceName(event) {
+		const target = event.target;
+		$$invalidate(5, deviceName = target.value);
+	}
 
 	afterUpdate(() => {
 		if (form?.message) {
-			$$invalidate(5, formAriaDescriptor = formFailureMessageId$2);
-			$$invalidate(3, alertNeedsFocus = true);
-			$$invalidate(6, formNeedsFocus = false);
+			$$invalidate(7, formAriaDescriptor = formFailureMessageId$2);
+			$$invalidate(4, alertNeedsFocus = true);
+			$$invalidate(8, formNeedsFocus = false);
 		} else {
-			$$invalidate(5, formAriaDescriptor = formHeaderId$2);
-			$$invalidate(3, alertNeedsFocus = false);
-			$$invalidate(6, formNeedsFocus = true);
+			$$invalidate(7, formAriaDescriptor = formHeaderId$2);
+			$$invalidate(4, alertNeedsFocus = false);
+			$$invalidate(8, formNeedsFocus = true);
 		}
 	});
 
@@ -32116,14 +31323,20 @@ function instance$9($$self, $$props, $$invalidate) {
 	async function callWebAuthnApi() {
 		try {
 			switch (webAuthnType) {
-				case WebAuthnStepType.Registration:
+				case i.Registration:
 					{
-						await FRWebAuthn.register(step);
+						try {
+							await T.register(step, deviceName);
+							$$invalidate(14, noDeviceRegistered = true);
+						} catch(err) {
+							
+						} // TODO: handle error
+
 						break;
 					}
-				case WebAuthnStepType.Authentication:
+				case i.Authentication:
 					{
-						await FRWebAuthn.authenticate(step);
+						await T.authenticate(step);
 						break;
 					}
 				default:
@@ -32136,10 +31349,10 @@ function instance$9($$self, $$props, $$invalidate) {
 		form.submit();
 	}
 
-	// Call the WebAuthn API without await
-	if (allowWebAuthn) {
-		callWebAuthnApi();
-	}
+	const func = () => {
+		$$invalidate(3, requestsDeviceName = false);
+		$$invalidate(9, waitingForWebAuthnAPI = true);
+	};
 
 	function form_1_formEl_binding(value) {
 		formEl = value;
@@ -32147,17 +31360,24 @@ function instance$9($$self, $$props, $$invalidate) {
 	}
 
 	$$self.$$set = $$props => {
-		if ('allowWebAuthn' in $$props) $$invalidate(8, allowWebAuthn = $$props.allowWebAuthn);
+		if ('allowWebAuthn' in $$props) $$invalidate(12, allowWebAuthn = $$props.allowWebAuthn);
 		if ('componentStyle' in $$props) $$invalidate(1, componentStyle = $$props.componentStyle);
 		if ('form' in $$props) $$invalidate(2, form = $$props.form);
 		if ('formEl' in $$props) $$invalidate(0, formEl = $$props.formEl);
-		if ('step' in $$props) $$invalidate(9, step = $$props.step);
+		if ('step' in $$props) $$invalidate(13, step = $$props.step);
 	};
 
 	$$self.$$.update = () => {
-		if ($$self.$$.dirty & /*form*/ 4) {
+		if ($$self.$$.dirty & /*form, allowWebAuthn, noDeviceRegistered, requestsDeviceName*/ 20492) {
 			{
-				$$invalidate(4, formMessageKey = convertStringToKey(form?.message));
+				$$invalidate(6, formMessageKey = convertStringToKey(form?.message));
+
+				// Call the WebAuthn API without await
+				if (allowWebAuthn && !noDeviceRegistered) {
+					if (i.Registration === webAuthnType && !requestsDeviceName || i.Authentication === webAuthnType) {
+						callWebAuthnApi();
+					}
+				}
 			}
 		}
 	};
@@ -32166,13 +31386,19 @@ function instance$9($$self, $$props, $$invalidate) {
 		formEl,
 		componentStyle,
 		form,
+		requestsDeviceName,
 		alertNeedsFocus,
+		deviceName,
 		formMessageKey,
 		formAriaDescriptor,
 		formNeedsFocus,
+		waitingForWebAuthnAPI,
 		webAuthnType,
+		updateDeviceName,
 		allowWebAuthn,
 		step,
+		noDeviceRegistered,
+		func,
 		form_1_formEl_binding
 	];
 }
@@ -32182,16 +31408,16 @@ class Webauthn extends SvelteComponent {
 		super();
 
 		init(this, options, instance$9, create_fragment$9, safe_not_equal, {
-			allowWebAuthn: 8,
+			allowWebAuthn: 12,
 			componentStyle: 1,
 			form: 2,
 			formEl: 0,
-			step: 9
+			step: 13
 		});
 	}
 }
 
-/* src/lib/components/icons/shield-check-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/shield-check-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$8(ctx) {
 	let svg;
@@ -32254,15 +31480,15 @@ class Shield_check_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/recovery-codes.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/recovery-codes.svelte generated by Svelte v3.55.1 */
 
 function get_each_context$2(ctx, list, i) {
 	const child_ctx = ctx.slice();
-	child_ctx[10] = list[i];
+	child_ctx[11] = list[i];
 	return child_ctx;
 }
 
-// (42:2) {#if form?.icon && componentStyle !== 'inline'}
+// (44:2) {#if form?.icon && componentStyle !== 'inline'}
 function create_if_block$4(ctx) {
 	let div;
 	let clipboardicon;
@@ -32302,11 +31528,11 @@ function create_if_block$4(ctx) {
 	};
 }
 
-// (72:4) {#each codes as code}
+// (74:4) {#each codes as code}
 function create_each_block$2(ctx) {
 	let li;
 	let span;
-	let t0_value = /*code*/ ctx[10] + "";
+	let t0_value = /*code*/ ctx[11] + "";
 	let t0;
 	let t1;
 
@@ -32326,7 +31552,7 @@ function create_each_block$2(ctx) {
 			append(li, t1);
 		},
 		p(ctx, dirty) {
-			if (dirty & /*codes*/ 16 && t0_value !== (t0_value = /*code*/ ctx[10] + "")) set_data(t0, t0_value);
+			if (dirty & /*codes*/ 64 && t0_value !== (t0_value = /*code*/ ctx[11] + "")) set_data(t0, t0_value);
 		},
 		d(detaching) {
 			if (detaching) detach(li);
@@ -32334,7 +31560,7 @@ function create_each_block$2(ctx) {
 	};
 }
 
-// (81:2) <Button busy={journey?.loading} style="primary" type="submit" width="full">
+// (86:2) <Button busy={journey?.loading} style="primary" type="submit" width="full">
 function create_default_slot_1$3(ctx) {
 	let t;
 	let current;
@@ -32364,7 +31590,7 @@ function create_default_slot_1$3(ctx) {
 	};
 }
 
-// (35:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus}   onSubmitWhenValid={() => form.submit()} >
+// (37:0) <Form   bind:formEl   ariaDescribedBy={formAriaDescriptor}   id={formElementId}   needsFocus={formNeedsFocus}   onSubmitWhenValid={() => form.submit()} >
 function create_default_slot$4(ctx) {
 	let t0;
 	let header;
@@ -32384,6 +31610,9 @@ function create_default_slot$4(ctx) {
 	let t9;
 	let ol;
 	let t10;
+	let p2;
+	let t11;
+	let t12;
 	let button;
 	let current;
 	let if_block = /*form*/ ctx[2]?.icon && /*componentStyle*/ ctx[1] !== 'inline' && create_if_block$4();
@@ -32407,12 +31636,20 @@ function create_default_slot$4(ctx) {
 			}
 		});
 
-	let each_value = /*codes*/ ctx[4];
+	let each_value = /*codes*/ ctx[6];
 	let each_blocks = [];
 
 	for (let i = 0; i < each_value.length; i += 1) {
 		each_blocks[i] = create_each_block$2(get_each_context$2(ctx, each_value, i));
 	}
+
+	t11 = new Locale_strings({
+			props: {
+				html: true,
+				key: "useOneOfTheseCodes",
+				values: { name: /*name*/ ctx[7] }
+			}
+		});
 
 	button = new Button({
 			props: {
@@ -32451,6 +31688,9 @@ function create_default_slot$4(ctx) {
 			}
 
 			t10 = space();
+			p2 = element("p");
+			create_component(t11.$$.fragment);
+			t12 = space();
 			create_component(button.$$.fragment);
 			attr(h1, "class", "tw_primary-header dark:tw_primary-header_dark");
 			attr(p0, "class", "tw_-mt-5 tw_mb-2 tw_py-4 tw_text-sm tw_text-secondary-dark dark:tw_text-secondary-light");
@@ -32459,6 +31699,7 @@ function create_default_slot$4(ctx) {
 			attr(h2, "class", "tw_secondary-header dark:tw_secondary-header_dark tw_text-lg");
 			attr(p1, "class", "tw_text-sm tw_text-secondary-dark dark:tw_text-secondary-light tw_my-6");
 			attr(ol, "class", "tw_font-mono tw_border tw_border-secondary-light dark:tw_border-secondary-dark tw_bg-white dark:tw_bg-body-dark tw_list-decimal tw_text-secondary-light dark:tw_text-secondary-light tw_py-4 tw_list-inside tw_rounded-md tw_mb-4 tw_columns-2");
+			attr(p2, "class", "tw_text-sm tw_text-secondary-dark dark:tw_text-secondary-light tw_my-6");
 		},
 		m(target, anchor) {
 			if (if_block) if_block.m(target, anchor);
@@ -32481,12 +31722,13 @@ function create_default_slot$4(ctx) {
 			insert(target, ol, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(ol, null);
-				}
+				each_blocks[i].m(ol, null);
 			}
 
 			insert(target, t10, anchor);
+			insert(target, p2, anchor);
+			mount_component(t11, p2, null);
+			insert(target, t12, anchor);
 			mount_component(button, target, anchor);
 			current = true;
 		},
@@ -32512,8 +31754,8 @@ function create_default_slot$4(ctx) {
 				check_outros();
 			}
 
-			if (dirty & /*codes*/ 16) {
-				each_value = /*codes*/ ctx[4];
+			if (dirty & /*codes*/ 64) {
+				each_value = /*codes*/ ctx[6];
 				let i;
 
 				for (i = 0; i < each_value.length; i += 1) {
@@ -32535,10 +31777,13 @@ function create_default_slot$4(ctx) {
 				each_blocks.length = each_value.length;
 			}
 
+			const t11_changes = {};
+			if (dirty & /*name*/ 128) t11_changes.values = { name: /*name*/ ctx[7] };
+			t11.$set(t11_changes);
 			const button_changes = {};
 			if (dirty & /*journey*/ 8) button_changes.busy = /*journey*/ ctx[3]?.loading;
 
-			if (dirty & /*$$scope*/ 8192) {
+			if (dirty & /*$$scope*/ 16384) {
 				button_changes.$$scope = { dirty, ctx };
 			}
 
@@ -32551,6 +31796,7 @@ function create_default_slot$4(ctx) {
 			transition_in(t3.$$.fragment, local);
 			transition_in(t6.$$.fragment, local);
 			transition_in(t8.$$.fragment, local);
+			transition_in(t11.$$.fragment, local);
 			transition_in(button.$$.fragment, local);
 			current = true;
 		},
@@ -32560,6 +31806,7 @@ function create_default_slot$4(ctx) {
 			transition_out(t3.$$.fragment, local);
 			transition_out(t6.$$.fragment, local);
 			transition_out(t8.$$.fragment, local);
+			transition_out(t11.$$.fragment, local);
 			transition_out(button.$$.fragment, local);
 			current = false;
 		},
@@ -32581,6 +31828,9 @@ function create_default_slot$4(ctx) {
 			if (detaching) detach(ol);
 			destroy_each(each_blocks, detaching);
 			if (detaching) detach(t10);
+			if (detaching) detach(p2);
+			destroy_component(t11);
+			if (detaching) detach(t12);
 			destroy_component(button, detaching);
 		}
 	};
@@ -32592,14 +31842,14 @@ function create_fragment$7(ctx) {
 	let current;
 
 	function form_1_formEl_binding(value) {
-		/*form_1_formEl_binding*/ ctx[9](value);
+		/*form_1_formEl_binding*/ ctx[10](value);
 	}
 
 	let form_1_props = {
-		ariaDescribedBy: /*formAriaDescriptor*/ ctx[5],
+		ariaDescribedBy: /*formAriaDescriptor*/ ctx[4],
 		id: formElementId$1,
-		needsFocus: /*formNeedsFocus*/ ctx[6],
-		onSubmitWhenValid: /*func*/ ctx[8],
+		needsFocus: /*formNeedsFocus*/ ctx[5],
+		onSubmitWhenValid: /*func*/ ctx[9],
 		$$slots: { default: [create_default_slot$4] },
 		$$scope: { ctx }
 	};
@@ -32621,11 +31871,11 @@ function create_fragment$7(ctx) {
 		},
 		p(ctx, [dirty]) {
 			const form_1_changes = {};
-			if (dirty & /*formAriaDescriptor*/ 32) form_1_changes.ariaDescribedBy = /*formAriaDescriptor*/ ctx[5];
-			if (dirty & /*formNeedsFocus*/ 64) form_1_changes.needsFocus = /*formNeedsFocus*/ ctx[6];
-			if (dirty & /*form*/ 4) form_1_changes.onSubmitWhenValid = /*func*/ ctx[8];
+			if (dirty & /*formAriaDescriptor*/ 16) form_1_changes.ariaDescribedBy = /*formAriaDescriptor*/ ctx[4];
+			if (dirty & /*formNeedsFocus*/ 32) form_1_changes.needsFocus = /*formNeedsFocus*/ ctx[5];
+			if (dirty & /*form*/ 4) form_1_changes.onSubmitWhenValid = /*func*/ ctx[9];
 
-			if (dirty & /*$$scope, journey, codes, form, componentStyle*/ 8222) {
+			if (dirty & /*$$scope, journey, name, codes, form, componentStyle*/ 16590) {
 				form_1_changes.$$scope = { dirty, ctx };
 			}
 
@@ -32662,17 +31912,18 @@ function instance$7($$self, $$props, $$invalidate) {
 	let { formEl = null } = $$props;
 	let { journey } = $$props;
 	let { step } = $$props;
-	let codes = [];
 	let formAriaDescriptor = 'genericStepHeader';
 	let formNeedsFocus = false;
+	let codes = [];
+	let name = 'New Security Key';
 
 	afterUpdate(() => {
 		if (form?.message) {
-			$$invalidate(5, formAriaDescriptor = formFailureMessageId$1);
-			$$invalidate(6, formNeedsFocus = false);
+			$$invalidate(4, formAriaDescriptor = formFailureMessageId$1);
+			$$invalidate(5, formNeedsFocus = false);
 		} else {
-			$$invalidate(5, formAriaDescriptor = formHeaderId$1);
-			$$invalidate(6, formNeedsFocus = true);
+			$$invalidate(4, formAriaDescriptor = formHeaderId$1);
+			$$invalidate(5, formNeedsFocus = true);
 		}
 	});
 
@@ -32688,13 +31939,14 @@ function instance$7($$self, $$props, $$invalidate) {
 		if ('form' in $$props) $$invalidate(2, form = $$props.form);
 		if ('formEl' in $$props) $$invalidate(0, formEl = $$props.formEl);
 		if ('journey' in $$props) $$invalidate(3, journey = $$props.journey);
-		if ('step' in $$props) $$invalidate(7, step = $$props.step);
+		if ('step' in $$props) $$invalidate(8, step = $$props.step);
 	};
 
 	$$self.$$.update = () => {
-		if ($$self.$$.dirty & /*step*/ 128) {
+		if ($$self.$$.dirty & /*step*/ 256) {
 			{
-				$$invalidate(4, codes = FRRecoveryCodes.getCodes(step));
+				$$invalidate(6, codes = p$1.getCodes(step));
+				$$invalidate(7, name = p$1.getDeviceName(step));
 			}
 		}
 	};
@@ -32704,9 +31956,10 @@ function instance$7($$self, $$props, $$invalidate) {
 		componentStyle,
 		form,
 		journey,
-		codes,
 		formAriaDescriptor,
 		formNeedsFocus,
+		codes,
+		name,
 		step,
 		func,
 		form_1_formEl_binding
@@ -32722,12 +31975,12 @@ class Recovery_codes extends SvelteComponent {
 			form: 2,
 			formEl: 0,
 			journey: 3,
-			step: 7
+			step: 8
 		});
 	}
 }
 
-/* src/lib/components/icons/clipboard-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/clipboard-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$6(ctx) {
 	let svg;
@@ -32827,7 +32080,7 @@ class Clipboard_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/mobile-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/mobile-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$5(ctx) {
 	let svg;
@@ -32888,7 +32141,7 @@ class Mobile_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/qr-code.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/qr-code.svelte generated by Svelte v3.55.1 */
 
 function get_if_ctx(ctx) {
 	const child_ctx = ctx.slice();
@@ -33545,9 +32798,7 @@ function create_default_slot$3(ctx) {
 			insert(target, t3, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t4, anchor);
@@ -33918,7 +33169,7 @@ function instance$4($$self, $$props, $$invalidate) {
 				const qrCodeModule = await Promise.resolve().then(function () { return browser; });
 
 				$$invalidate(9, moduleLoaded = true);
-				$$invalidate(12, qrCodeUrl = FRQRCode.getQRCodeData(step).uri);
+				$$invalidate(12, qrCodeUrl = i$2.getQRCodeData(step).uri);
 
 				qrCodeModule.toCanvas(
 					qrCodeCanvas,
@@ -33981,7 +33232,7 @@ function instance$4($$self, $$props, $$invalidate) {
 					$$invalidate(1, metadata.step.derived.stageName = 'QRCode', metadata);
 				}
 
-				const confirmationCallbacks = step.getCallbacksOfType(CallbackType.ConfirmationCallback);
+				const confirmationCallbacks = step.getCallbacksOfType(l.ConfirmationCallback);
 
 				if (confirmationCallbacks.length) {
 					const confirmationCb = confirmationCallbacks[0];
@@ -33989,7 +33240,7 @@ function instance$4($$self, $$props, $$invalidate) {
 				}
 
 				step.callbacks.forEach((callback, idx) => {
-					if (callback.getType() === CallbackType.PollingWaitCallback) {
+					if (callback.getType() === l.PollingWaitCallback) {
 						$$invalidate(10, pollingWaitCb = callback);
 					}
 				});
@@ -34003,11 +33254,11 @@ function instance$4($$self, $$props, $$invalidate) {
  * Lastly, filter out PollingWaitCallback as we'll call that separately.
  */
 				$$invalidate(8, modifiedCallbacks = step.callbacks.filter(callback => {
-					if (callback.getType() === CallbackType.TextOutputCallback) {
+					if (callback.getType() === l.TextOutputCallback) {
 						return false;
-					} else if (callback.getType() === CallbackType.ConfirmationCallback) {
+					} else if (callback.getType() === l.ConfirmationCallback) {
 						return false;
-					} else if (callback.getType() === CallbackType.PollingWaitCallback) {
+					} else if (callback.getType() === l.PollingWaitCallback) {
 						return false;
 					}
 
@@ -34058,7 +33309,7 @@ class Qr_code extends SvelteComponent {
 	}
 }
 
-/* src/lib/components/icons/email-icon.svelte generated by Svelte v3.59.2 */
+/* src/lib/components/icons/email-icon.svelte generated by Svelte v3.55.1 */
 
 function create_fragment$3(ctx) {
 	let svg;
@@ -34119,7 +33370,7 @@ class Email_icon extends SvelteComponent {
 	}
 }
 
-/* src/lib/journey/stages/email-suspend.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/stages/email-suspend.svelte generated by Svelte v3.55.1 */
 
 function get_each_context(ctx, list, i) {
 	const child_ctx = ctx.slice();
@@ -34356,9 +33607,7 @@ function create_default_slot$2(ctx) {
 			insert(target, t2, anchor);
 
 			for (let i = 0; i < each_blocks.length; i += 1) {
-				if (each_blocks[i]) {
-					each_blocks[i].m(target, anchor);
-				}
+				each_blocks[i].m(target, anchor);
 			}
 
 			insert(target, t3, anchor);
@@ -34624,7 +33873,7 @@ function instance$2($$self, $$props, $$invalidate) {
 	$$self.$$.update = () => {
 		if ($$self.$$.dirty & /*step, form*/ 36) {
 			{
-				shouldRedirectFromStep(step) && FRAuth.redirect(step);
+				shouldRedirectFromStep(step) && f$1.redirect(step);
 				$$invalidate(7, formMessageKey = convertStringToKey(form?.message));
 			}
 		}
@@ -34685,23 +33934,23 @@ function mapStepToStage(currentStep) {
             return Login;
     }
     // getWebAuthnStepType will return 0 if not a WebAuthn step
-    if (FRWebAuthn.getWebAuthnStepType(currentStep)) {
+    if (T.getWebAuthnStepType(currentStep)) {
         return Webauthn;
     }
-    if (FRRecoveryCodes.isDisplayStep(currentStep)) {
+    if (p$1.isDisplayStep(currentStep)) {
         return Recovery_codes;
     }
-    if (FRQRCode.isQRCodeStep(currentStep)) {
+    if (i$2.isQRCodeStep(currentStep)) {
         return Qr_code;
     }
-    const suspendedTextOutput = currentStep.getCallbacksOfType(CallbackType.SuspendedTextOutputCallback);
+    const suspendedTextOutput = currentStep.getCallbacksOfType(l.SuspendedTextOutputCallback);
     if (suspendedTextOutput.length > 0) {
         return Email_suspend;
     }
     return Generic;
 }
 
-/* src/lib/journey/journey.svelte generated by Svelte v3.59.2 */
+/* src/lib/journey/journey.svelte generated by Svelte v3.55.1 */
 
 function create_else_block$1(ctx) {
 	let alert;
@@ -34828,7 +34077,7 @@ function create_if_block$1(ctx) {
 
 	function select_block_type_1(ctx, dirty) {
 		if (/*$journeyStore*/ ctx[5] && !/*$journeyStore*/ ctx[5].step) return 0;
-		if (/*$journeyStore*/ ctx[5].step?.type === StepType.Step) return 1;
+		if (/*$journeyStore*/ ctx[5].step?.type === r$a.Step) return 1;
 		return -1;
 	}
 
@@ -35048,7 +34297,7 @@ function create_if_block_2(ctx) {
 				add_flush_callback(() => updating_formEl = false);
 			}
 
-			if (dirty & /*$journeyStore*/ 32 && switch_value !== (switch_value = mapStepToStage(/*$journeyStore*/ ctx[5].step))) {
+			if (switch_value !== (switch_value = mapStepToStage(/*$journeyStore*/ ctx[5].step))) {
 				if (switch_instance) {
 					group_outros();
 					const old_component = switch_instance;
@@ -35270,7 +34519,7 @@ class Journey extends SvelteComponent {
 	}
 }
 
-/* src/lib/widget/index.svelte generated by Svelte v3.59.2 */
+/* src/lib/widget/index.svelte generated by Svelte v3.55.1 */
 
 function create_else_block(ctx) {
 	let div;
@@ -35334,7 +34583,7 @@ function create_else_block(ctx) {
 	};
 }
 
-// (28:0) {#if type === 'modal'}
+// (29:0) {#if type === 'modal'}
 function create_if_block(ctx) {
 	let div;
 	let dialog;
@@ -35404,7 +34653,7 @@ function create_if_block(ctx) {
 	};
 }
 
-// (30:4) <Dialog       bind:dialogEl       bind:this={dialogComp}       dialogId="sampleDialog"       withHeader={$styleStore?.sections?.header}     >
+// (31:4) <Dialog       bind:dialogEl       bind:this={dialogComp}       dialogId="sampleDialog"       withHeader={$styleStore?.sections?.header}     >
 function create_default_slot(ctx) {
 	let journey_1;
 	let updating_formEl;
@@ -35537,6 +34786,7 @@ const journey = api.journey;
 const component = componentApi;
 const request = api.request;
 const user = api.user;
+const protect = api.protect;
 
 function instance($$self, $$props, $$invalidate) {
 	let $styleStore;
@@ -35600,6 +34850,9481 @@ class Widget extends SvelteComponent {
 		init(this, options, instance, create_fragment, safe_not_equal, { type: 0 });
 	}
 }
+
+function commonjsRequire(path) {
+	throw new Error('Could not dynamically require "' + path + '". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.');
+}
+
+if (typeof window < "u") {
+  var M;
+  ((function(s, h) {
+    typeof s.CustomEvent != "function" && (s.CustomEvent = /* @__PURE__ */ function() {
+      return function(r, t) {
+        t = t || { bubbles: !1, cancelable: !1, detail: null };
+        var e = document.createEvent("CustomEvent");
+        return e.initCustomEvent(r, t.bubbles, t.cancelable, t.detail), e;
+      };
+    }());
+  }))(window), function() {
+    var s = "st-ping-div";
+    function h(u) {
+      document.readyState !== "loading" ? u() : document.addEventListener("DOMContentLoaded", u);
+    }
+    function r(u) {
+      h(function() {
+        if (u) {
+          var c = (l = document.getElementById(s)) || ((l = document.createElement("div")).style.border = "none", l.style.position = "absolute", l.style.top = "-999px", l.style.left = "-999px", l.style.width = "0", l.style.height = "0", l.style.visibility = "hidden", l.style.overflow = "hidden", l.id = s, document.body.appendChild(l), l);
+          window._pingOneSignalsToken = getComputedStyle(c, "::after").content.replace(
+            /['"]+/g,
+            ""
+          ), document.dispatchEvent(new CustomEvent("PingOneSignalsTokenReadyEvent"));
+        }
+        var l, d;
+        d = "Finished - " + (u ? "success" : "failure"), window["enable-logs-pingOneSignals"] && console.log(d);
+      });
+    }
+    var t, e, n, i, a = document.querySelector("script[data-pingOneSignalsSkipToken]");
+    if (a && a.getAttribute("data-pingOneSignalsSkipToken") === "true")
+      return window._pingOneSignalsToken = "skipped_token_" + (/* @__PURE__ */ new Date()).getTime(), h(function() {
+        document.dispatchEvent(new CustomEvent("PingOneSignalsTokenSkippedEvent"));
+      });
+    window._pingOneSignalsToken || (window._pingOneSignalsToken = "uninitialized_token_" + (/* @__PURE__ */ new Date()).getTime()), t = window._pingOneSignalsCustomHost || "apps.pingone.com", e = { sdkVersion: "5.3.5w", platform: navigator.platform || "" }, n = encodeURIComponent(
+      function(u) {
+        var c, l, d, p, m, k, x, y = "", C = 0, A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+        for (u = function(P) {
+          P = P.replace(/\r\n/g, `
+`);
+          for (var D = "", j = 0; j < P.length; j++) {
+            var z = P.charCodeAt(j);
+            z < 128 ? D += String.fromCharCode(z) : (127 < z && z < 2048 ? D += String.fromCharCode(z >> 6 | 192) : (D += String.fromCharCode(z >> 12 | 224), D += String.fromCharCode(z >> 6 & 63 | 128)), D += String.fromCharCode(63 & z | 128));
+          }
+          return D;
+        }(u); C < u.length; )
+          p = (c = u.charCodeAt(C++)) >> 2, m = (3 & c) << 4 | (l = u.charCodeAt(C++)) >> 4, k = (15 & l) << 2 | (d = u.charCodeAt(C++)) >> 6, x = 63 & d, isNaN(l) ? k = x = 64 : isNaN(d) && (x = 64), y = y + A.charAt(p) + A.charAt(m) + A.charAt(k) + A.charAt(x);
+        return y;
+      }(
+        function(u, c) {
+          for (var l = [], d = 0; d < u.length; d++) {
+            var p = u.charCodeAt(d) ^ c.charCodeAt(d % c.length);
+            l.push(String.fromCharCode(p));
+          }
+          return l.join("");
+        }(JSON.stringify(e), "dkiBm42")
+      )
+    ), (i = document.createElement("link")).type = "text/css", i.rel = "stylesheet", i.href = "https://" + t + "/signals/sdk/pong.css?body=" + n + "&e=2", (document.head || document.getElementsByTagName("head")[0]).appendChild(i), i.onload = function() {
+      r(!0);
+    }, i.onerror = function() {
+      r(!1);
+    };
+  }(), function(s) {
+    s._POSignalsEntities || (s._POSignalsEntities = {}), s._pingOneSignals && console.warn("PingOne Signals script was imported multiple times");
+  }(window), function(s) {
+    function h(d) {
+      var p = this.constructor;
+      return this.then(
+        function(m) {
+          return p.resolve(d()).then(function() {
+            return m;
+          });
+        },
+        function(m) {
+          return p.resolve(d()).then(function() {
+            return p.reject(m);
+          });
+        }
+      );
+    }
+    var r = setTimeout;
+    function t(d) {
+      return !!(d && d.length !== void 0);
+    }
+    function e() {
+    }
+    function n(d) {
+      if (!(this instanceof n))
+        throw new TypeError("Promises must be constructed via new");
+      if (typeof d != "function")
+        throw new TypeError("not a function");
+      this._state = 0, this._handled = !1, this._value = void 0, this._deferreds = [], l(d, this);
+    }
+    function i(d, p) {
+      for (; d._state === 3; )
+        d = d._value;
+      d._state !== 0 ? (d._handled = !0, n._immediateFn(function() {
+        var m = d._state === 1 ? p.onFulfilled : p.onRejected;
+        if (m !== null) {
+          var k;
+          try {
+            k = m(d._value);
+          } catch (x) {
+            return void u(p.promise, x);
+          }
+          a(p.promise, k);
+        } else
+          (d._state === 1 ? a : u)(p.promise, d._value);
+      })) : d._deferreds.push(p);
+    }
+    function a(d, p) {
+      try {
+        if (p === d)
+          throw new TypeError("A promise cannot be resolved with itself.");
+        if (p && (typeof p == "object" || typeof p == "function")) {
+          var m = p.then;
+          if (p instanceof n)
+            return d._state = 3, d._value = p, void c(d);
+          if (typeof m == "function")
+            return void l(
+              (k = m, x = p, function() {
+                k.apply(x, arguments);
+              }),
+              d
+            );
+        }
+        d._state = 1, d._value = p, c(d);
+      } catch (y) {
+        u(d, y);
+      }
+      var k, x;
+    }
+    function u(d, p) {
+      d._state = 2, d._value = p, c(d);
+    }
+    function c(d) {
+      d._state === 2 && d._deferreds.length === 0 && n._immediateFn(function() {
+        d._handled || n._unhandledRejectionFn(d._value);
+      });
+      for (var p = 0, m = d._deferreds.length; p < m; p++)
+        i(d, d._deferreds[p]);
+      d._deferreds = null;
+    }
+    function l(d, p) {
+      var m = !1;
+      try {
+        d(
+          function(k) {
+            m || (m = !0, a(p, k));
+          },
+          function(k) {
+            m || (m = !0, u(p, k));
+          }
+        );
+      } catch (k) {
+        if (m)
+          return;
+        m = !0, u(p, k);
+      }
+    }
+    n.prototype.catch = function(d) {
+      return this.then(null, d);
+    }, n.prototype.then = function(d, p) {
+      var m = new this.constructor(e);
+      return i(
+        this,
+        new function(k, x, y) {
+          this.onFulfilled = typeof k == "function" ? k : null, this.onRejected = typeof x == "function" ? x : null, this.promise = y;
+        }(d, p, m)
+      ), m;
+    }, n.prototype.finally = h, n.all = function(d) {
+      return new n(function(p, m) {
+        if (!t(d))
+          return m(new TypeError("Promise.all accepts an array"));
+        var k = Array.prototype.slice.call(d);
+        if (k.length === 0)
+          return p([]);
+        var x = k.length;
+        function y(A, P) {
+          try {
+            if (P && (typeof P == "object" || typeof P == "function")) {
+              var D = P.then;
+              if (typeof D == "function")
+                return void D.call(
+                  P,
+                  function(j) {
+                    y(A, j);
+                  },
+                  m
+                );
+            }
+            k[A] = P, --x == 0 && p(k);
+          } catch (j) {
+            m(j);
+          }
+        }
+        for (var C = 0; C < k.length; C++)
+          y(C, k[C]);
+      });
+    }, n.resolve = function(d) {
+      return d && typeof d == "object" && d.constructor === n ? d : new n(function(p) {
+        p(d);
+      });
+    }, n.reject = function(d) {
+      return new n(function(p, m) {
+        m(d);
+      });
+    }, n.race = function(d) {
+      return new n(function(p, m) {
+        if (!t(d))
+          return m(new TypeError("Promise.race accepts an array"));
+        for (var k = 0, x = d.length; k < x; k++)
+          n.resolve(d[k]).then(p, m);
+      });
+    }, n._immediateFn = typeof setImmediate == "function" && function(d) {
+      setImmediate(d);
+    } || function(d) {
+      r(d, 0);
+    }, n._unhandledRejectionFn = function(d) {
+      typeof console < "u" && console && console.warn("Possible Unhandled Promise Rejection:", d);
+    }, typeof s.Promise != "function" ? s.Promise = n : s.Promise.prototype.finally || (s.Promise.prototype.finally = h);
+  }(window), function(s, h) {
+    (M || (M = {})).PromiseQueue = function() {
+      var r = function() {
+      };
+      function t(e, n, i) {
+        this.options = i = i || {}, this.pendingPromises = 0, this.maxPendingPromises = e !== void 0 ? e : 1 / 0, this.maxQueuedPromises = n !== void 0 ? n : 1 / 0, this.queue = [];
+      }
+      return t.prototype.add = function(e) {
+        var n = this;
+        return new Promise(function(i, a, u) {
+          n.queue.length >= n.maxQueuedPromises ? a(new Error("Queue limit reached")) : (n.queue.push({ promiseGenerator: e, resolve: i, reject: a, notify: u || r }), n._dequeue());
+        });
+      }, t.prototype.getPendingLength = function() {
+        return this.pendingPromises;
+      }, t.prototype.getQueueLength = function() {
+        return this.queue.length;
+      }, t.prototype._dequeue = function() {
+        var e = this;
+        if (this.pendingPromises >= this.maxPendingPromises)
+          return !1;
+        var n, i = this.queue.shift();
+        if (!i)
+          return this.options.onEmpty && this.options.onEmpty(), !1;
+        try {
+          this.pendingPromises++, (n = i.promiseGenerator(), n && typeof n.then == "function" ? n : new Promise(function(a) {
+            a(n);
+          })).then(
+            function(a) {
+              e.pendingPromises--, i.resolve(a), e._dequeue();
+            },
+            function(a) {
+              e.pendingPromises--, i.reject(a), e._dequeue();
+            },
+            function(a) {
+              i.notify(a);
+            }
+          );
+        } catch (a) {
+          e.pendingPromises--, i.reject(a), e._dequeue();
+        }
+        return !0;
+      }, t;
+    }();
+  }(), function(s) {
+    var h = "input is invalid type", r = !s.JS_SHA256_NO_ARRAY_BUFFER && typeof ArrayBuffer < "u", t = "0123456789abcdef".split(""), e = [-2147483648, 8388608, 32768, 128], n = [24, 16, 8, 0], i = [
+      1116352408,
+      1899447441,
+      3049323471,
+      3921009573,
+      961987163,
+      1508970993,
+      2453635748,
+      2870763221,
+      3624381080,
+      310598401,
+      607225278,
+      1426881987,
+      1925078388,
+      2162078206,
+      2614888103,
+      3248222580,
+      3835390401,
+      4022224774,
+      264347078,
+      604807628,
+      770255983,
+      1249150122,
+      1555081692,
+      1996064986,
+      2554220882,
+      2821834349,
+      2952996808,
+      3210313671,
+      3336571891,
+      3584528711,
+      113926993,
+      338241895,
+      666307205,
+      773529912,
+      1294757372,
+      1396182291,
+      1695183700,
+      1986661051,
+      2177026350,
+      2456956037,
+      2730485921,
+      2820302411,
+      3259730800,
+      3345764771,
+      3516065817,
+      3600352804,
+      4094571909,
+      275423344,
+      430227734,
+      506948616,
+      659060556,
+      883997877,
+      958139571,
+      1322822218,
+      1537002063,
+      1747873779,
+      1955562222,
+      2024104815,
+      2227730452,
+      2361852424,
+      2428436474,
+      2756734187,
+      3204031479,
+      3329325298
+    ], a = ["hex", "array", "digest", "arrayBuffer"], u = [];
+    !s.JS_SHA256_NO_NODE_JS && Array.isArray || (Array.isArray = function(y) {
+      return Object.prototype.toString.call(y) === "[object Array]";
+    }), !r || !s.JS_SHA256_NO_ARRAY_BUFFER_IS_VIEW && ArrayBuffer.isView || (ArrayBuffer.isView = function(y) {
+      return typeof y == "object" && y.buffer && y.buffer.constructor === ArrayBuffer;
+    });
+    var c = function(y, C) {
+      return function(A) {
+        return new m(C, !0).update(A)[y]();
+      };
+    }, l = function(y) {
+      var C = c("hex", y);
+      C.create = function() {
+        return new m(y);
+      }, C.update = function(D) {
+        return C.create().update(D);
+      };
+      for (var A = 0; A < a.length; ++A) {
+        var P = a[A];
+        C[P] = c(P, y);
+      }
+      return C;
+    }, d = function(y, C) {
+      return function(A, P) {
+        return new k(A, C, !0).update(P)[y]();
+      };
+    }, p = function(y) {
+      var C = d("hex", y);
+      C.create = function(D) {
+        return new k(D, y);
+      }, C.update = function(D, j) {
+        return C.create(D).update(j);
+      };
+      for (var A = 0; A < a.length; ++A) {
+        var P = a[A];
+        C[P] = d(P, y);
+      }
+      return C;
+    };
+    function m(y, C) {
+      C ? (u[0] = u[16] = u[1] = u[2] = u[3] = u[4] = u[5] = u[6] = u[7] = u[8] = u[9] = u[10] = u[11] = u[12] = u[13] = u[14] = u[15] = 0, this.blocks = u) : this.blocks = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], y ? (this.h0 = 3238371032, this.h1 = 914150663, this.h2 = 812702999, this.h3 = 4144912697, this.h4 = 4290775857, this.h5 = 1750603025, this.h6 = 1694076839, this.h7 = 3204075428) : (this.h0 = 1779033703, this.h1 = 3144134277, this.h2 = 1013904242, this.h3 = 2773480762, this.h4 = 1359893119, this.h5 = 2600822924, this.h6 = 528734635, this.h7 = 1541459225), this.block = this.start = this.bytes = this.hBytes = 0, this.finalized = this.hashed = !1, this.first = !0, this.is224 = y;
+    }
+    function k(y, C, A) {
+      var P, D = typeof y;
+      if (D === "string") {
+        var j, z = [], B = y.length, T = 0;
+        for (P = 0; P < B; ++P)
+          (j = y.charCodeAt(P)) < 128 ? z[T++] = j : j < 2048 ? (z[T++] = 192 | j >> 6, z[T++] = 128 | 63 & j) : j < 55296 || j >= 57344 ? (z[T++] = 224 | j >> 12, z[T++] = 128 | j >> 6 & 63, z[T++] = 128 | 63 & j) : (j = 65536 + ((1023 & j) << 10 | 1023 & y.charCodeAt(++P)), z[T++] = 240 | j >> 18, z[T++] = 128 | j >> 12 & 63, z[T++] = 128 | j >> 6 & 63, z[T++] = 128 | 63 & j);
+        y = z;
+      } else {
+        if (D !== "object")
+          throw new Error(h);
+        if (y === null)
+          throw new Error(h);
+        if (r && y.constructor === ArrayBuffer)
+          y = new Uint8Array(y);
+        else if (!(Array.isArray(y) || r && ArrayBuffer.isView(y)))
+          throw new Error(h);
+      }
+      y.length > 64 && (y = new m(C, !0).update(y).array());
+      var L = [], E = [];
+      for (P = 0; P < 64; ++P) {
+        var H = y[P] || 0;
+        L[P] = 92 ^ H, E[P] = 54 ^ H;
+      }
+      m.call(this, C, A), this.update(E), this.oKeyPad = L, this.inner = !0, this.sharedMemory = A;
+    }
+    m.prototype.update = function(y) {
+      if (!this.finalized) {
+        var C, A = typeof y;
+        if (A !== "string") {
+          if (A !== "object")
+            throw new Error(h);
+          if (y === null)
+            throw new Error(h);
+          if (r && y.constructor === ArrayBuffer)
+            y = new Uint8Array(y);
+          else if (!(Array.isArray(y) || r && ArrayBuffer.isView(y)))
+            throw new Error(h);
+          C = !0;
+        }
+        for (var P, D, j = 0, z = y.length, B = this.blocks; j < z; ) {
+          if (this.hashed && (this.hashed = !1, B[0] = this.block, B[16] = B[1] = B[2] = B[3] = B[4] = B[5] = B[6] = B[7] = B[8] = B[9] = B[10] = B[11] = B[12] = B[13] = B[14] = B[15] = 0), C)
+            for (D = this.start; j < z && D < 64; ++j)
+              B[D >> 2] |= y[j] << n[3 & D++];
+          else
+            for (D = this.start; j < z && D < 64; ++j)
+              (P = y.charCodeAt(j)) < 128 ? B[D >> 2] |= P << n[3 & D++] : P < 2048 ? (B[D >> 2] |= (192 | P >> 6) << n[3 & D++], B[D >> 2] |= (128 | 63 & P) << n[3 & D++]) : P < 55296 || P >= 57344 ? (B[D >> 2] |= (224 | P >> 12) << n[3 & D++], B[D >> 2] |= (128 | P >> 6 & 63) << n[3 & D++], B[D >> 2] |= (128 | 63 & P) << n[3 & D++]) : (P = 65536 + ((1023 & P) << 10 | 1023 & y.charCodeAt(++j)), B[D >> 2] |= (240 | P >> 18) << n[3 & D++], B[D >> 2] |= (128 | P >> 12 & 63) << n[3 & D++], B[D >> 2] |= (128 | P >> 6 & 63) << n[3 & D++], B[D >> 2] |= (128 | 63 & P) << n[3 & D++]);
+          this.lastByteIndex = D, this.bytes += D - this.start, D >= 64 ? (this.block = B[16], this.start = D - 64, this.hash(), this.hashed = !0) : this.start = D;
+        }
+        return this.bytes > 4294967295 && (this.hBytes += this.bytes / 4294967296 << 0, this.bytes = this.bytes % 4294967296), this;
+      }
+    }, m.prototype.finalize = function() {
+      if (!this.finalized) {
+        this.finalized = !0;
+        var y = this.blocks, C = this.lastByteIndex;
+        y[16] = this.block, y[C >> 2] |= e[3 & C], this.block = y[16], C >= 56 && (this.hashed || this.hash(), y[0] = this.block, y[16] = y[1] = y[2] = y[3] = y[4] = y[5] = y[6] = y[7] = y[8] = y[9] = y[10] = y[11] = y[12] = y[13] = y[14] = y[15] = 0), y[14] = this.hBytes << 3 | this.bytes >>> 29, y[15] = this.bytes << 3, this.hash();
+      }
+    }, m.prototype.hash = function() {
+      var y, C, A, P, D, j, z, B, T, L = this.h0, E = this.h1, H = this.h2, S = this.h3, U = this.h4, W = this.h5, J = this.h6, Q = this.h7, oe = this.blocks;
+      for (y = 16; y < 64; ++y)
+        C = ((D = oe[y - 15]) >>> 7 | D << 25) ^ (D >>> 18 | D << 14) ^ D >>> 3, A = ((D = oe[y - 2]) >>> 17 | D << 15) ^ (D >>> 19 | D << 13) ^ D >>> 10, oe[y] = oe[y - 16] + C + oe[y - 7] + A << 0;
+      for (T = E & H, y = 0; y < 64; y += 4)
+        this.first ? (this.is224 ? (j = 300032, Q = (D = oe[0] - 1413257819) - 150054599 << 0, S = D + 24177077 << 0) : (j = 704751109, Q = (D = oe[0] - 210244248) - 1521486534 << 0, S = D + 143694565 << 0), this.first = !1) : (C = (L >>> 2 | L << 30) ^ (L >>> 13 | L << 19) ^ (L >>> 22 | L << 10), P = (j = L & E) ^ L & H ^ T, Q = S + (D = Q + (A = (U >>> 6 | U << 26) ^ (U >>> 11 | U << 21) ^ (U >>> 25 | U << 7)) + (U & W ^ ~U & J) + i[y] + oe[y]) << 0, S = D + (C + P) << 0), C = (S >>> 2 | S << 30) ^ (S >>> 13 | S << 19) ^ (S >>> 22 | S << 10), P = (z = S & L) ^ S & E ^ j, J = H + (D = J + (A = (Q >>> 6 | Q << 26) ^ (Q >>> 11 | Q << 21) ^ (Q >>> 25 | Q << 7)) + (Q & U ^ ~Q & W) + i[y + 1] + oe[y + 1]) << 0, C = ((H = D + (C + P) << 0) >>> 2 | H << 30) ^ (H >>> 13 | H << 19) ^ (H >>> 22 | H << 10), P = (B = H & S) ^ H & L ^ z, W = E + (D = W + (A = (J >>> 6 | J << 26) ^ (J >>> 11 | J << 21) ^ (J >>> 25 | J << 7)) + (J & Q ^ ~J & U) + i[y + 2] + oe[y + 2]) << 0, C = ((E = D + (C + P) << 0) >>> 2 | E << 30) ^ (E >>> 13 | E << 19) ^ (E >>> 22 | E << 10), P = (T = E & H) ^ E & S ^ B, U = L + (D = U + (A = (W >>> 6 | W << 26) ^ (W >>> 11 | W << 21) ^ (W >>> 25 | W << 7)) + (W & J ^ ~W & Q) + i[y + 3] + oe[y + 3]) << 0, L = D + (C + P) << 0;
+      this.h0 = this.h0 + L << 0, this.h1 = this.h1 + E << 0, this.h2 = this.h2 + H << 0, this.h3 = this.h3 + S << 0, this.h4 = this.h4 + U << 0, this.h5 = this.h5 + W << 0, this.h6 = this.h6 + J << 0, this.h7 = this.h7 + Q << 0;
+    }, m.prototype.hex = function() {
+      this.finalize();
+      var y = this.h0, C = this.h1, A = this.h2, P = this.h3, D = this.h4, j = this.h5, z = this.h6, B = this.h7, T = t[y >> 28 & 15] + t[y >> 24 & 15] + t[y >> 20 & 15] + t[y >> 16 & 15] + t[y >> 12 & 15] + t[y >> 8 & 15] + t[y >> 4 & 15] + t[15 & y] + t[C >> 28 & 15] + t[C >> 24 & 15] + t[C >> 20 & 15] + t[C >> 16 & 15] + t[C >> 12 & 15] + t[C >> 8 & 15] + t[C >> 4 & 15] + t[15 & C] + t[A >> 28 & 15] + t[A >> 24 & 15] + t[A >> 20 & 15] + t[A >> 16 & 15] + t[A >> 12 & 15] + t[A >> 8 & 15] + t[A >> 4 & 15] + t[15 & A] + t[P >> 28 & 15] + t[P >> 24 & 15] + t[P >> 20 & 15] + t[P >> 16 & 15] + t[P >> 12 & 15] + t[P >> 8 & 15] + t[P >> 4 & 15] + t[15 & P] + t[D >> 28 & 15] + t[D >> 24 & 15] + t[D >> 20 & 15] + t[D >> 16 & 15] + t[D >> 12 & 15] + t[D >> 8 & 15] + t[D >> 4 & 15] + t[15 & D] + t[j >> 28 & 15] + t[j >> 24 & 15] + t[j >> 20 & 15] + t[j >> 16 & 15] + t[j >> 12 & 15] + t[j >> 8 & 15] + t[j >> 4 & 15] + t[15 & j] + t[z >> 28 & 15] + t[z >> 24 & 15] + t[z >> 20 & 15] + t[z >> 16 & 15] + t[z >> 12 & 15] + t[z >> 8 & 15] + t[z >> 4 & 15] + t[15 & z];
+      return this.is224 || (T += t[B >> 28 & 15] + t[B >> 24 & 15] + t[B >> 20 & 15] + t[B >> 16 & 15] + t[B >> 12 & 15] + t[B >> 8 & 15] + t[B >> 4 & 15] + t[15 & B]), T;
+    }, m.prototype.toString = m.prototype.hex, m.prototype.digest = function() {
+      this.finalize();
+      var y = this.h0, C = this.h1, A = this.h2, P = this.h3, D = this.h4, j = this.h5, z = this.h6, B = this.h7, T = [
+        y >> 24 & 255,
+        y >> 16 & 255,
+        y >> 8 & 255,
+        255 & y,
+        C >> 24 & 255,
+        C >> 16 & 255,
+        C >> 8 & 255,
+        255 & C,
+        A >> 24 & 255,
+        A >> 16 & 255,
+        A >> 8 & 255,
+        255 & A,
+        P >> 24 & 255,
+        P >> 16 & 255,
+        P >> 8 & 255,
+        255 & P,
+        D >> 24 & 255,
+        D >> 16 & 255,
+        D >> 8 & 255,
+        255 & D,
+        j >> 24 & 255,
+        j >> 16 & 255,
+        j >> 8 & 255,
+        255 & j,
+        z >> 24 & 255,
+        z >> 16 & 255,
+        z >> 8 & 255,
+        255 & z
+      ];
+      return this.is224 || T.push(B >> 24 & 255, B >> 16 & 255, B >> 8 & 255, 255 & B), T;
+    }, m.prototype.array = m.prototype.digest, m.prototype.arrayBuffer = function() {
+      this.finalize();
+      var y = new ArrayBuffer(this.is224 ? 28 : 32), C = new DataView(y);
+      return C.setUint32(0, this.h0), C.setUint32(4, this.h1), C.setUint32(8, this.h2), C.setUint32(12, this.h3), C.setUint32(16, this.h4), C.setUint32(20, this.h5), C.setUint32(24, this.h6), this.is224 || C.setUint32(28, this.h7), y;
+    }, k.prototype = new m(), k.prototype.finalize = function() {
+      if (m.prototype.finalize.call(this), this.inner) {
+        this.inner = !1;
+        var y = this.array();
+        m.call(this, this.is224, this.sharedMemory), this.update(this.oKeyPad), this.update(y), m.prototype.finalize.call(this);
+      }
+    };
+    var x = l();
+    x.sha256 = x, x.sha224 = l(!0), x.sha256.hmac = p(), x.sha224.hmac = p(!0), s.sha256 = x.sha256, s.sha224 = x.sha224;
+  }(M || (M = {})), (M || (M = {})).FingerprintJS = function(s) {
+    function h(_, O) {
+      _ = [_[0] >>> 16, 65535 & _[0], _[1] >>> 16, 65535 & _[1]], O = [O[0] >>> 16, 65535 & O[0], O[1] >>> 16, 65535 & O[1]];
+      var w = [0, 0, 0, 0];
+      return w[3] += _[3] + O[3], w[2] += w[3] >>> 16, w[3] &= 65535, w[2] += _[2] + O[2], w[1] += w[2] >>> 16, w[2] &= 65535, w[1] += _[1] + O[1], w[0] += w[1] >>> 16, w[1] &= 65535, w[0] += _[0] + O[0], w[0] &= 65535, [w[0] << 16 | w[1], w[2] << 16 | w[3]];
+    }
+    function r(_, O) {
+      _ = [_[0] >>> 16, 65535 & _[0], _[1] >>> 16, 65535 & _[1]], O = [O[0] >>> 16, 65535 & O[0], O[1] >>> 16, 65535 & O[1]];
+      var w = [0, 0, 0, 0];
+      return w[3] += _[3] * O[3], w[2] += w[3] >>> 16, w[3] &= 65535, w[2] += _[2] * O[3], w[1] += w[2] >>> 16, w[2] &= 65535, w[2] += _[3] * O[2], w[1] += w[2] >>> 16, w[2] &= 65535, w[1] += _[1] * O[3], w[0] += w[1] >>> 16, w[1] &= 65535, w[1] += _[2] * O[2], w[0] += w[1] >>> 16, w[1] &= 65535, w[1] += _[3] * O[1], w[0] += w[1] >>> 16, w[1] &= 65535, w[0] += _[0] * O[3] + _[1] * O[2] + _[2] * O[1] + _[3] * O[0], w[0] &= 65535, [w[0] << 16 | w[1], w[2] << 16 | w[3]];
+    }
+    function t(_, O) {
+      return (O %= 64) == 32 ? [_[1], _[0]] : O < 32 ? [_[0] << O | _[1] >>> 32 - O, _[1] << O | _[0] >>> 32 - O] : (O -= 32, [_[1] << O | _[0] >>> 32 - O, _[0] << O | _[1] >>> 32 - O]);
+    }
+    function e(_, O) {
+      return (O %= 64) == 0 ? _ : O < 32 ? [_[0] << O | _[1] >>> 32 - O, _[1] << O] : [_[1] << O - 32, 0];
+    }
+    function n(_, O) {
+      return [_[0] ^ O[0], _[1] ^ O[1]];
+    }
+    function i(_) {
+      return _ = n(
+        _ = r(
+          _ = n(_ = r(_ = n(_, [0, _[0] >>> 1]), [4283543511, 3981806797]), [
+            0,
+            _[0] >>> 1
+          ]),
+          [3301882366, 444984403]
+        ),
+        [0, _[0] >>> 1]
+      );
+    }
+    function a(_, O) {
+      _ = _ || "", O = O || 0;
+      var w, K = _.length % 16, V = _.length - K, o = [0, O], g = [0, O], v = [0, 0], f = [0, 0], b = [2277735313, 289559509], I = [1291169091, 658871167];
+      for (w = 0; w < V; w += 16)
+        v = [
+          255 & _.charCodeAt(w + 4) | (255 & _.charCodeAt(w + 5)) << 8 | (255 & _.charCodeAt(w + 6)) << 16 | (255 & _.charCodeAt(w + 7)) << 24,
+          255 & _.charCodeAt(w) | (255 & _.charCodeAt(w + 1)) << 8 | (255 & _.charCodeAt(w + 2)) << 16 | (255 & _.charCodeAt(w + 3)) << 24
+        ], f = [
+          255 & _.charCodeAt(w + 12) | (255 & _.charCodeAt(w + 13)) << 8 | (255 & _.charCodeAt(w + 14)) << 16 | (255 & _.charCodeAt(w + 15)) << 24,
+          255 & _.charCodeAt(w + 8) | (255 & _.charCodeAt(w + 9)) << 8 | (255 & _.charCodeAt(w + 10)) << 16 | (255 & _.charCodeAt(w + 11)) << 24
+        ], o = h(
+          r(
+            o = h(o = t(o = n(o, v = r(v = t(v = r(v, b), 31), I)), 27), g),
+            [0, 5]
+          ),
+          [0, 1390208809]
+        ), g = h(
+          r(
+            g = h(g = t(g = n(g, f = r(f = t(f = r(f, I), 33), b)), 31), o),
+            [0, 5]
+          ),
+          [0, 944331445]
+        );
+      switch (v = [0, 0], f = [0, 0], K) {
+        case 15:
+          f = n(f, e([0, _.charCodeAt(w + 14)], 48));
+        case 14:
+          f = n(f, e([0, _.charCodeAt(w + 13)], 40));
+        case 13:
+          f = n(f, e([0, _.charCodeAt(w + 12)], 32));
+        case 12:
+          f = n(f, e([0, _.charCodeAt(w + 11)], 24));
+        case 11:
+          f = n(f, e([0, _.charCodeAt(w + 10)], 16));
+        case 10:
+          f = n(f, e([0, _.charCodeAt(w + 9)], 8));
+        case 9:
+          g = n(g, f = r(f = t(f = r(f = n(f, [0, _.charCodeAt(w + 8)]), I), 33), b));
+        case 8:
+          v = n(v, e([0, _.charCodeAt(w + 7)], 56));
+        case 7:
+          v = n(v, e([0, _.charCodeAt(w + 6)], 48));
+        case 6:
+          v = n(v, e([0, _.charCodeAt(w + 5)], 40));
+        case 5:
+          v = n(v, e([0, _.charCodeAt(w + 4)], 32));
+        case 4:
+          v = n(v, e([0, _.charCodeAt(w + 3)], 24));
+        case 3:
+          v = n(v, e([0, _.charCodeAt(w + 2)], 16));
+        case 2:
+          v = n(v, e([0, _.charCodeAt(w + 1)], 8));
+        case 1:
+          o = n(o, v = r(v = t(v = r(v = n(v, [0, _.charCodeAt(w)]), b), 31), I));
+      }
+      return o = n(o, [0, _.length]), g = h(g = n(g, [0, _.length]), o = h(o, g)), o = i(o), g = h(g = i(g), o = h(o, g)), ("00000000" + (o[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (o[1] >>> 0).toString(16)).slice(-8) + ("00000000" + (g[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (g[1] >>> 0).toString(16)).slice(-8);
+    }
+    var u = function() {
+      return (u = Object.assign || function(_) {
+        for (var O, w = 1, K = arguments.length; w < K; w++)
+          for (var V in O = arguments[w])
+            Object.prototype.hasOwnProperty.call(O, V) && (_[V] = O[V]);
+        return _;
+      }).apply(this, arguments);
+    };
+    function c(_, O, w, K) {
+      return new (w || (w = Promise))(function(V, o) {
+        function g(b) {
+          try {
+            f(K.next(b));
+          } catch (I) {
+            o(I);
+          }
+        }
+        function v(b) {
+          try {
+            f(K.throw(b));
+          } catch (I) {
+            o(I);
+          }
+        }
+        function f(b) {
+          var I;
+          b.done ? V(b.value) : (I = b.value, I instanceof w ? I : new w(function(F) {
+            F(I);
+          })).then(g, v);
+        }
+        f((K = K.apply(_, O || [])).next());
+      });
+    }
+    function l(_, O) {
+      var w, K, V, o, g = {
+        label: 0,
+        sent: function() {
+          if (1 & V[0])
+            throw V[1];
+          return V[1];
+        },
+        trys: [],
+        ops: []
+      };
+      return o = { next: v(0), throw: v(1), return: v(2) }, typeof Symbol == "function" && (o[Symbol.iterator] = function() {
+        return this;
+      }), o;
+      function v(f) {
+        return function(b) {
+          return function(I) {
+            if (w)
+              throw new TypeError("Generator is already executing.");
+            for (; g; )
+              try {
+                if (w = 1, K && (V = 2 & I[0] ? K.return : I[0] ? K.throw || ((V = K.return) && V.call(K), 0) : K.next) && !(V = V.call(K, I[1])).done)
+                  return V;
+                switch (K = 0, V && (I = [2 & I[0], V.value]), I[0]) {
+                  case 0:
+                  case 1:
+                    V = I;
+                    break;
+                  case 4:
+                    return g.label++, { value: I[1], done: !1 };
+                  case 5:
+                    g.label++, K = I[1], I = [0];
+                    continue;
+                  case 7:
+                    I = g.ops.pop(), g.trys.pop();
+                    continue;
+                  default:
+                    if (!(V = (V = g.trys).length > 0 && V[V.length - 1]) && (I[0] === 6 || I[0] === 2)) {
+                      g = 0;
+                      continue;
+                    }
+                    if (I[0] === 3 && (!V || I[1] > V[0] && I[1] < V[3])) {
+                      g.label = I[1];
+                      break;
+                    }
+                    if (I[0] === 6 && g.label < V[1]) {
+                      g.label = V[1], V = I;
+                      break;
+                    }
+                    if (V && g.label < V[2]) {
+                      g.label = V[2], g.ops.push(I);
+                      break;
+                    }
+                    V[2] && g.ops.pop(), g.trys.pop();
+                    continue;
+                }
+                I = O.call(_, g);
+              } catch (F) {
+                I = [6, F], K = 0;
+              } finally {
+                w = V = 0;
+              }
+            if (5 & I[0])
+              throw I[1];
+            return { value: I[0] ? I[1] : void 0, done: !0 };
+          }([f, b]);
+        };
+      }
+    }
+    var d = window;
+    function p(_) {
+      return parseInt(_);
+    }
+    function m(_) {
+      return parseFloat(_);
+    }
+    function k(_) {
+      return _.reduce(function(O, w) {
+        return O + (w ? 1 : 0);
+      }, 0);
+    }
+    var x = window, y = navigator, C = document;
+    function A() {
+      return k([
+        "MSCSSMatrix" in x,
+        "msSetImmediate" in x,
+        "msIndexedDB" in x,
+        "msMaxTouchPoints" in y,
+        "msPointerEnabled" in y
+      ]) >= 4;
+    }
+    function P() {
+      return k(["msWriteProfilerMark" in x, "MSStream" in x, "msLaunchUri" in y, "msSaveBlob" in y]) >= 3 && !A();
+    }
+    function D() {
+      return k([
+        "webkitPersistentStorage" in y,
+        "webkitTemporaryStorage" in y,
+        y.vendor.indexOf("Google") === 0,
+        "webkitResolveLocalFileSystemURL" in x,
+        "BatteryManager" in x,
+        "webkitMediaStream" in x,
+        "webkitSpeechGrammar" in x
+      ]) >= 5;
+    }
+    function j() {
+      return k([
+        "ApplePayError" in x,
+        "CSSPrimitiveValue" in x,
+        "Counter" in x,
+        y.vendor.indexOf("Apple") === 0,
+        "getStorageUpdates" in y,
+        "WebKitMediaKeys" in x
+      ]) >= 4;
+    }
+    function z() {
+      return k([
+        "safari" in x,
+        !("DeviceMotionEvent" in x),
+        !("ongestureend" in x),
+        !("standalone" in y)
+      ]) >= 3;
+    }
+    var B = window, T = document;
+    function L(_, O, w) {
+      (function(K) {
+        return K && typeof K.setValueAtTime == "function";
+      })(O) && O.setValueAtTime(w, _.currentTime);
+    }
+    function E(_) {
+      var O = new Error(_);
+      return O.name = _, O;
+    }
+    var H = document, S = "mmMwWLliI0O&1", U = ["monospace", "sans-serif", "serif"], W = [
+      "sans-serif-thin",
+      "ARNO PRO",
+      "Agency FB",
+      "Arabic Typesetting",
+      "Arial Unicode MS",
+      "AvantGarde Bk BT",
+      "BankGothic Md BT",
+      "Batang",
+      "Bitstream Vera Sans Mono",
+      "Calibri",
+      "Century",
+      "Century Gothic",
+      "Clarendon",
+      "EUROSTILE",
+      "Franklin Gothic",
+      "Futura Bk BT",
+      "Futura Md BT",
+      "GOTHAM",
+      "Gill Sans",
+      "HELV",
+      "Haettenschweiler",
+      "Helvetica Neue",
+      "Humanst521 BT",
+      "Leelawadee",
+      "Letter Gothic",
+      "Levenim MT",
+      "Lucida Bright",
+      "Lucida Sans",
+      "Menlo",
+      "MS Mincho",
+      "MS Outlook",
+      "MS Reference Specialty",
+      "MS UI Gothic",
+      "MT Extra",
+      "MYRIAD PRO",
+      "Marlett",
+      "Meiryo UI",
+      "Microsoft Uighur",
+      "Minion Pro",
+      "Monotype Corsiva",
+      "PMingLiU",
+      "Pristina",
+      "SCRIPTINA",
+      "Segoe UI Light",
+      "Serifa",
+      "SimHei",
+      "Small Fonts",
+      "Staccato222 BT",
+      "TRAJAN PRO",
+      "Univers CE 55 Medium",
+      "Vrinda",
+      "ZWAdobeF"
+    ], J = {
+      fontStyle: "normal",
+      fontWeight: "normal",
+      letterSpacing: "normal",
+      lineBreak: "auto",
+      lineHeight: "normal",
+      textTransform: "none",
+      textAlign: "left",
+      textDecoration: "none",
+      textShadow: "none",
+      whiteSpace: "normal",
+      wordBreak: "normal",
+      wordSpacing: "normal",
+      position: "absolute",
+      left: "-9999px",
+      fontSize: "48px"
+    }, Q = navigator, oe = window, q = navigator, fe = window, N = window, G = window, Y = document, te = {
+      osCpu: function() {
+        return navigator.oscpu;
+      },
+      languages: function() {
+        var _ = [], O = q.language || q.userLanguage || q.browserLanguage || q.systemLanguage;
+        if (O !== void 0 && _.push([O]), Array.isArray(q.languages))
+          D() && k([
+            !("MediaSettingsRange" in x),
+            "RTCEncodedAudioFrame" in x,
+            "" + x.Intl == "[object Intl]",
+            "" + x.Reflect == "[object Reflect]"
+          ]) >= 3 || _.push(q.languages);
+        else if (typeof q.languages == "string") {
+          var w = q.languages;
+          w && _.push(w.split(","));
+        }
+        return _;
+      },
+      colorDepth: function() {
+        return window.screen.colorDepth;
+      },
+      deviceMemory: function() {
+        return _ = m(navigator.deviceMemory), O = void 0, typeof _ == "number" && isNaN(_) ? O : _;
+        var _, O;
+      },
+      screenResolution: function() {
+        var _ = [p(fe.screen.width), p(fe.screen.height)];
+        return _.sort().reverse(), _;
+      },
+      availableScreenResolution: function() {
+        if (N.screen.availWidth && N.screen.availHeight) {
+          var _ = [p(N.screen.availWidth), p(N.screen.availHeight)];
+          return _.sort().reverse(), _;
+        }
+      },
+      hardwareConcurrency: function() {
+        try {
+          var _ = p(navigator.hardwareConcurrency);
+          return isNaN(_) ? 1 : _;
+        } catch {
+          return 1;
+        }
+      },
+      timezoneOffset: function() {
+        var _ = (/* @__PURE__ */ new Date()).getFullYear();
+        return Math.max(
+          m(new Date(_, 0, 1).getTimezoneOffset()),
+          m(new Date(_, 6, 1).getTimezoneOffset())
+        );
+      },
+      timezone: function() {
+        var _;
+        if (!((_ = G.Intl) === null || _ === void 0) && _.DateTimeFormat)
+          return new G.Intl.DateTimeFormat().resolvedOptions().timeZone;
+      },
+      sessionStorage: function() {
+        try {
+          return !!window.sessionStorage;
+        } catch {
+          return !0;
+        }
+      },
+      localStorage: function() {
+        try {
+          return !!window.localStorage;
+        } catch {
+          return !0;
+        }
+      },
+      indexedDB: function() {
+        if (!A() && !P())
+          try {
+            return !!window.indexedDB;
+          } catch {
+            return !0;
+          }
+      },
+      openDatabase: function() {
+        return !!window.openDatabase;
+      },
+      cpuClass: function() {
+        return navigator.cpuClass;
+      },
+      platform: function() {
+        return navigator.platform;
+      },
+      plugins: function() {
+        if (A())
+          return [];
+        if (navigator.plugins) {
+          for (var _ = [], O = 0; O < navigator.plugins.length; ++O) {
+            var w = navigator.plugins[O];
+            if (w) {
+              for (var K = [], V = 0; V < w.length; ++V) {
+                var o = w[V];
+                K.push({ type: o.type, suffixes: o.suffixes });
+              }
+              _.push({ name: w.name, description: w.description, mimeTypes: K });
+            }
+          }
+          return _;
+        }
+      },
+      canvas: function() {
+        var _ = function() {
+          var V = document.createElement("canvas");
+          return V.width = 240, V.height = 140, V.style.display = "inline", [V, V.getContext("2d")];
+        }(), O = _[0], w = _[1];
+        if (!function(V, o) {
+          return !(!o || !V.toDataURL);
+        }(O, w))
+          return { winding: !1, data: "" };
+        w.rect(0, 0, 10, 10), w.rect(2, 2, 6, 6);
+        var K = !w.isPointInPath(5, 5, "evenodd");
+        return w.textBaseline = "alphabetic", w.fillStyle = "#f60", w.fillRect(125, 1, 62, 20), w.fillStyle = "#069", w.font = "11pt no-real-font-123", w.fillText("Cwm fjordbank ðŸ˜ƒ gly", 2, 15), w.fillStyle = "rgba(102, 204, 0, 0.2)", w.font = "18pt Arial", w.fillText("Cwm fjordbank ðŸ˜ƒ gly", 4, 45), w.globalCompositeOperation = "multiply", w.fillStyle = "rgb(255,0,255)", w.beginPath(), w.arc(50, 50, 50, 0, 2 * Math.PI, !0), w.closePath(), w.fill(), w.fillStyle = "rgb(0,255,255)", w.beginPath(), w.arc(100, 50, 50, 0, 2 * Math.PI, !0), w.closePath(), w.fill(), w.fillStyle = "rgb(255,255,0)", w.beginPath(), w.arc(75, 100, 50, 0, 2 * Math.PI, !0), w.closePath(), w.fill(), w.fillStyle = "rgb(255,0,255)", w.arc(75, 75, 75, 0, 2 * Math.PI, !0), w.arc(75, 75, 25, 0, 2 * Math.PI, !0), w.fill("evenodd"), {
+          winding: K,
+          data: function(V) {
+            return V.toDataURL();
+          }(O)
+        };
+      },
+      touchSupport: function() {
+        var _, O = 0;
+        Q.maxTouchPoints !== void 0 ? O = p(Q.maxTouchPoints) : Q.msMaxTouchPoints !== void 0 && (O = Q.msMaxTouchPoints);
+        try {
+          document.createEvent("TouchEvent"), _ = !0;
+        } catch {
+          _ = !1;
+        }
+        return { maxTouchPoints: O, touchEvent: _, touchStart: "ontouchstart" in oe };
+      },
+      fonts: function() {
+        var _ = H.body, O = H.createElement("div"), w = H.createElement("div"), K = {}, V = {}, o = function() {
+          var X = H.createElement("span");
+          X.textContent = S;
+          for (var ie = 0, de = Object.keys(J); ie < de.length; ie++) {
+            var pe = de[ie];
+            X.style[pe] = J[pe];
+          }
+          return X;
+        }, g = function(X) {
+          return U.some(function(ie, de) {
+            return X[de].offsetWidth !== K[ie] || X[de].offsetHeight !== V[ie];
+          });
+        }, v = U.map(function(X) {
+          var ie = o();
+          return ie.style.fontFamily = X, O.appendChild(ie), ie;
+        });
+        _.appendChild(O);
+        for (var f = 0, b = U.length; f < b; f++)
+          K[U[f]] = v[f].offsetWidth, V[U[f]] = v[f].offsetHeight;
+        var I = function() {
+          for (var X = {}, ie = function(ge) {
+            X[ge] = U.map(function(ye) {
+              var he = function(be, we) {
+                var me = o();
+                return me.style.fontFamily = "'" + be + "'," + we, me;
+              }(ge, ye);
+              return w.appendChild(he), he;
+            });
+          }, de = 0, pe = W; de < pe.length; de++)
+            ie(pe[de]);
+          return X;
+        }();
+        _.appendChild(w);
+        for (var F = [], R = 0, ne = W.length; R < ne; R++)
+          g(I[W[R]]) && F.push(W[R]);
+        return _.removeChild(w), _.removeChild(O), F;
+      },
+      audio: function() {
+        return c(this, void 0, void 0, function() {
+          var _, O, w, K, V, o;
+          return l(this, function(g) {
+            switch (g.label) {
+              case 0:
+                if (!(_ = B.OfflineAudioContext || B.webkitOfflineAudioContext))
+                  return [2, -2];
+                if (j() && !z() && !(k([
+                  "DOMRectList" in x,
+                  "RTCPeerConnectionIceEvent" in x,
+                  "SVGGeometryElement" in x,
+                  "ontransitioncancel" in x
+                ]) >= 3))
+                  return [2, -1];
+                O = new _(1, 44100, 44100), (w = O.createOscillator()).type = "triangle", L(O, w.frequency, 1e4), K = O.createDynamicsCompressor(), L(O, K.threshold, -50), L(O, K.knee, 40), L(O, K.ratio, 12), L(O, K.reduction, -20), L(O, K.attack, 0), L(O, K.release, 0.25), w.connect(K), K.connect(O.destination), w.start(0), g.label = 1;
+              case 1:
+                return g.trys.push([1, 3, 4, 5]), [
+                  4,
+                  function(v) {
+                    return new Promise(function(f, b) {
+                      v.oncomplete = function(R) {
+                        return f(R.renderedBuffer);
+                      };
+                      var I = 3, F = function() {
+                        switch (v.startRendering(), v.state) {
+                          case "running":
+                            setTimeout(function() {
+                              return b(E("timeout"));
+                            }, 1e3);
+                            break;
+                          case "suspended":
+                            T.hidden || I--, I > 0 ? setTimeout(F, 500) : b(E("suspended"));
+                        }
+                      };
+                      F();
+                    });
+                  }(O)
+                ];
+              case 2:
+                return V = g.sent(), [3, 5];
+              case 3:
+                if ((o = g.sent()).name === "timeout" || o.name === "suspended")
+                  return [2, -3];
+                throw o;
+              case 4:
+                return w.disconnect(), K.disconnect(), [7];
+              case 5:
+                return [
+                  2,
+                  function(v) {
+                    for (var f = 0, b = 4500; b < 5e3; ++b)
+                      f += Math.abs(v[b]);
+                    return f;
+                  }(V.getChannelData(0))
+                ];
+            }
+          });
+        });
+      },
+      pluginsSupport: function() {
+        return navigator.plugins !== void 0;
+      },
+      productSub: function() {
+        return navigator.productSub;
+      },
+      emptyEvalLength: function() {
+        return eval.toString().length;
+      },
+      errorFF: function() {
+        try {
+          throw "a";
+        } catch (_) {
+          try {
+            return _.toSource(), !0;
+          } catch {
+            return !1;
+          }
+        }
+      },
+      vendor: function() {
+        return navigator.vendor;
+      },
+      chrome: function() {
+        return window.chrome !== void 0;
+      },
+      cookiesEnabled: function() {
+        try {
+          Y.cookie = "cookietest=1; SameSite=Strict;";
+          var _ = Y.cookie.indexOf("cookietest=") !== -1;
+          return Y.cookie = "cookietest=1; SameSite=Strict; expires=Thu, 01-Jan-1970 00:00:01 GMT", _;
+        } catch {
+          return !1;
+        }
+      }
+    };
+    function ae(_, O, w) {
+      return c(this, void 0, void 0, function() {
+        var K, V, o, g, v, f, b, I, F;
+        return l(this, function(R) {
+          switch (R.label) {
+            case 0:
+              K = Date.now(), V = {}, o = 0, g = Object.keys(_), R.label = 1;
+            case 1:
+              if (!(o < g.length))
+                return [3, 7];
+              if (v = g[o], function(ne, X) {
+                for (var ie = 0, de = ne.length; ie < de; ++ie)
+                  if (ne[ie] === X)
+                    return !0;
+                return !1;
+              }(w, v))
+                return [3, 6];
+              f = void 0, R.label = 2;
+            case 2:
+              return R.trys.push([2, 4, , 5]), F = {}, [4, _[v](O)];
+            case 3:
+              return F.value = R.sent(), f = F, [3, 5];
+            case 4:
+              return b = R.sent(), f = b && typeof b == "object" && "message" in b ? { error: b } : { error: { message: b } }, [3, 5];
+            case 5:
+              I = Date.now(), V[v] = u(u({}, f), { duration: I - K }), K = I, R.label = 6;
+            case 6:
+              return o++, [3, 1];
+            case 7:
+              return [2, V];
+          }
+        });
+      });
+    }
+    function se(_) {
+      return JSON.stringify(
+        _,
+        function(O, w) {
+          return w instanceof Error ? u(
+            {
+              name: (K = w).name,
+              message: K.message,
+              stack: (V = K.stack) === null || V === void 0 ? void 0 : V.split(`
+`)
+            },
+            K
+          ) : w;
+          var K, V;
+        },
+        2
+      );
+    }
+    function le(_) {
+      return a(
+        function(O) {
+          for (var w = "", K = 0, V = Object.keys(O); K < V.length; K++) {
+            var o = V[K], g = O[o], v = g.error ? "error" : JSON.stringify(g.value);
+            w += (w ? "|" : "") + o.replace(/([:|\\])/g, "\\$1") + ":" + v;
+          }
+          return w;
+        }(_)
+      );
+    }
+    var ee = function() {
+      function _() {
+      }
+      return _.prototype.get = function(O) {
+        return O === void 0 && (O = {}), c(this, void 0, void 0, function() {
+          var w, K;
+          return l(this, function(V) {
+            switch (V.label) {
+              case 0:
+                return [4, ae(te, void 0, [])];
+              case 1:
+                return w = V.sent(), K = /* @__PURE__ */ function(o) {
+                  var g;
+                  return {
+                    components: o,
+                    get visitorId() {
+                      return g === void 0 && (g = le(this.components)), g;
+                    },
+                    set visitorId(v) {
+                      g = v;
+                    }
+                  };
+                }(w), O.debug && console.log(
+                  `Copy the text below to get the debug data:
+
+\`\`\`
+version: 3.0.5
+userAgent: ` + navigator.userAgent + `
+getOptions: ` + JSON.stringify(O, void 0, 2) + `
+visitorId: ` + K.visitorId + `
+components: ` + se(w) + "\n```"
+                ), [2, K];
+            }
+          });
+        });
+      }, _;
+    }();
+    function ue(_) {
+      var O = (_ === void 0 ? {} : _).delayFallback, w = O === void 0 ? 50 : O;
+      return c(this, void 0, void 0, function() {
+        return l(this, function(K) {
+          switch (K.label) {
+            case 0:
+              return [
+                4,
+                (V = w, o = 2 * w, o === void 0 && (o = 1 / 0), new Promise(function(g) {
+                  d.requestIdleCallback ? d.requestIdleCallback(
+                    function() {
+                      return g();
+                    },
+                    { timeout: o }
+                  ) : setTimeout(g, Math.min(V, o));
+                }))
+              ];
+            case 1:
+              return K.sent(), [2, new ee()];
+          }
+          var V, o;
+        });
+      });
+    }
+    var re = { load: ue, hashComponents: le, componentsToDebugString: se }, ce = a;
+    return s.componentsToDebugString = se, s.default = re, s.getComponents = ae, s.hashComponents = le, s.isChromium = D, s.isDesktopSafari = z, s.isEdgeHTML = P, s.isGecko = function() {
+      var _;
+      return k([
+        "buildID" in y,
+        ((_ = C.documentElement) === null || _ === void 0 ? void 0 : _.style) && "MozAppearance" in C.documentElement.style,
+        "MediaRecorderErrorEvent" in x,
+        "mozInnerScreenX" in x,
+        "CSSMozDocumentRule" in x,
+        "CanvasCaptureMediaStream" in x
+      ]) >= 4;
+    }, s.isTrident = A, s.isWebKit = j, s.load = ue, s.murmurX64Hash128 = ce, s;
+  }({}), function(s) {
+    var h, r, t = function(T, L) {
+      var E = typeof Symbol == "function" && T[Symbol.iterator];
+      if (!E)
+        return T;
+      var H, S, U = E.call(T), W = [];
+      try {
+        for (; (L === void 0 || L-- > 0) && !(H = U.next()).done; )
+          W.push(H.value);
+      } catch (J) {
+        S = { error: J };
+      } finally {
+        try {
+          H && !H.done && (E = U.return) && E.call(U);
+        } finally {
+          if (S)
+            throw S.error;
+        }
+      }
+      return W;
+    }, e = function(T, L, E) {
+      if (E || arguments.length === 2)
+        for (var H, S = 0, U = L.length; S < U; S++)
+          !H && S in L || (H || (H = Array.prototype.slice.call(L, 0, S)), H[S] = L[S]);
+      return T.concat(H || Array.prototype.slice.call(L));
+    }, n = /* @__PURE__ */ new WeakMap(), i = /* @__PURE__ */ new WeakMap(), a = /* @__PURE__ */ new WeakMap(), u = /* @__PURE__ */ new WeakMap(), c = /* @__PURE__ */ new WeakMap(), l = {
+      get: function(T, L, E) {
+        if (T instanceof IDBTransaction) {
+          if (L === "done")
+            return i.get(T);
+          if (L === "objectStoreNames")
+            return T.objectStoreNames || a.get(T);
+          if (L === "store")
+            return E.objectStoreNames[1] ? void 0 : E.objectStore(E.objectStoreNames[0]);
+        }
+        return m(T[L]);
+      },
+      set: function(T, L, E) {
+        return T[L] = E, !0;
+      },
+      has: function(T, L) {
+        return T instanceof IDBTransaction && (L === "done" || L === "store") || L in T;
+      }
+    };
+    function d(T) {
+      return T !== IDBDatabase.prototype.transaction || "objectStoreNames" in IDBTransaction.prototype ? (r || (r = [
+        IDBCursor.prototype.advance,
+        IDBCursor.prototype.continue,
+        IDBCursor.prototype.continuePrimaryKey
+      ])).includes(T) ? function() {
+        for (var L = [], E = 0; E < arguments.length; E++)
+          L[E] = arguments[E];
+        return T.apply(k(this), L), m(n.get(this));
+      } : function() {
+        for (var L = [], E = 0; E < arguments.length; E++)
+          L[E] = arguments[E];
+        return m(T.apply(k(this), L));
+      } : function(L) {
+        for (var E = [], H = 1; H < arguments.length; H++)
+          E[H - 1] = arguments[H];
+        var S = T.call.apply(T, e([k(this), L], t(E), !1));
+        return a.set(S, L.sort ? L.sort() : [L]), m(S);
+      };
+    }
+    function p(T) {
+      return typeof T == "function" ? d(T) : (T instanceof IDBTransaction && function(E) {
+        if (!i.has(E)) {
+          var H = new Promise(function(S, U) {
+            var W = function() {
+              E.removeEventListener("complete", J), E.removeEventListener("error", Q), E.removeEventListener("abort", Q);
+            }, J = function() {
+              S(), W();
+            }, Q = function() {
+              U(E.error || new DOMException("AbortError", "AbortError")), W();
+            };
+            E.addEventListener("complete", J), E.addEventListener("error", Q), E.addEventListener("abort", Q);
+          });
+          i.set(E, H);
+        }
+      }(T), L = T, (h || (h = [IDBDatabase, IDBObjectStore, IDBIndex, IDBCursor, IDBTransaction])).some(
+        function(E) {
+          return L instanceof E;
+        }
+      ) ? new Proxy(T, l) : T);
+      var L;
+    }
+    function m(T) {
+      if (T instanceof IDBRequest)
+        return L = T, (E = new Promise(function(S, U) {
+          var W = function() {
+            L.removeEventListener("success", J), L.removeEventListener("error", Q);
+          }, J = function() {
+            S(m(L.result)), W();
+          }, Q = function() {
+            U(L.error), W();
+          };
+          L.addEventListener("success", J), L.addEventListener("error", Q);
+        })).then(function(S) {
+          S instanceof IDBCursor && n.set(S, L);
+        }).catch(function() {
+        }), c.set(E, L), E;
+      var L, E;
+      if (u.has(T))
+        return u.get(T);
+      var H = p(T);
+      return H !== T && (u.set(T, H), c.set(H, T)), H;
+    }
+    var k = function(T) {
+      return c.get(T);
+    }, x = function() {
+      return (x = Object.assign || function(T) {
+        for (var L, E = 1, H = arguments.length; E < H; E++)
+          for (var S in L = arguments[E])
+            Object.prototype.hasOwnProperty.call(L, S) && (T[S] = L[S]);
+        return T;
+      }).apply(this, arguments);
+    }, y = function(T, L, E, H) {
+      return new (E || (E = Promise))(function(S, U) {
+        function W(oe) {
+          try {
+            Q(H.next(oe));
+          } catch (q) {
+            U(q);
+          }
+        }
+        function J(oe) {
+          try {
+            Q(H.throw(oe));
+          } catch (q) {
+            U(q);
+          }
+        }
+        function Q(oe) {
+          var q;
+          oe.done ? S(oe.value) : (q = oe.value, q instanceof E ? q : new E(function(fe) {
+            fe(q);
+          })).then(W, J);
+        }
+        Q((H = H.apply(T, L || [])).next());
+      });
+    }, C = function(T, L) {
+      var E, H, S, U, W = {
+        label: 0,
+        sent: function() {
+          if (1 & S[0])
+            throw S[1];
+          return S[1];
+        },
+        trys: [],
+        ops: []
+      };
+      return U = { next: J(0), throw: J(1), return: J(2) }, typeof Symbol == "function" && (U[Symbol.iterator] = function() {
+        return this;
+      }), U;
+      function J(Q) {
+        return function(oe) {
+          return function(q) {
+            if (E)
+              throw new TypeError("Generator is already executing.");
+            for (; W; )
+              try {
+                if (E = 1, H && (S = 2 & q[0] ? H.return : q[0] ? H.throw || ((S = H.return) && S.call(H), 0) : H.next) && !(S = S.call(H, q[1])).done)
+                  return S;
+                switch (H = 0, S && (q = [2 & q[0], S.value]), q[0]) {
+                  case 0:
+                  case 1:
+                    S = q;
+                    break;
+                  case 4:
+                    return W.label++, { value: q[1], done: !1 };
+                  case 5:
+                    W.label++, H = q[1], q = [0];
+                    continue;
+                  case 7:
+                    q = W.ops.pop(), W.trys.pop();
+                    continue;
+                  default:
+                    if (!((S = (S = W.trys).length > 0 && S[S.length - 1]) || q[0] !== 6 && q[0] !== 2)) {
+                      W = 0;
+                      continue;
+                    }
+                    if (q[0] === 3 && (!S || q[1] > S[0] && q[1] < S[3])) {
+                      W.label = q[1];
+                      break;
+                    }
+                    if (q[0] === 6 && W.label < S[1]) {
+                      W.label = S[1], S = q;
+                      break;
+                    }
+                    if (S && W.label < S[2]) {
+                      W.label = S[2], W.ops.push(q);
+                      break;
+                    }
+                    S[2] && W.ops.pop(), W.trys.pop();
+                    continue;
+                }
+                q = L.call(T, W);
+              } catch (fe) {
+                q = [6, fe], H = 0;
+              } finally {
+                E = S = 0;
+              }
+            if (5 & q[0])
+              throw q[1];
+            return { value: q[0] ? q[1] : void 0, done: !0 };
+          }([Q, oe]);
+        };
+      }
+    }, A = function(T, L) {
+      var E = typeof Symbol == "function" && T[Symbol.iterator];
+      if (!E)
+        return T;
+      var H, S, U = E.call(T), W = [];
+      try {
+        for (; (L === void 0 || L-- > 0) && !(H = U.next()).done; )
+          W.push(H.value);
+      } catch (J) {
+        S = { error: J };
+      } finally {
+        try {
+          H && !H.done && (E = U.return) && E.call(U);
+        } finally {
+          if (S)
+            throw S.error;
+        }
+      }
+      return W;
+    }, P = function(T, L, E) {
+      if (E || arguments.length === 2)
+        for (var H, S = 0, U = L.length; S < U; S++)
+          !H && S in L || (H || (H = Array.prototype.slice.call(L, 0, S)), H[S] = L[S]);
+      return T.concat(H || Array.prototype.slice.call(L));
+    }, D = ["get", "getKey", "getAll", "getAllKeys", "count"], j = ["put", "add", "delete", "clear"], z = /* @__PURE__ */ new Map();
+    function B(T, L) {
+      if (T instanceof IDBDatabase && !(L in T) && typeof L == "string") {
+        if (z.get(L))
+          return z.get(L);
+        var E = L.replace(/FromIndex$/, ""), H = L !== E, S = j.includes(E);
+        if (E in (H ? IDBIndex : IDBObjectStore).prototype && (S || D.includes(E))) {
+          var U = function(W) {
+            for (var J = [], Q = 1; Q < arguments.length; Q++)
+              J[Q - 1] = arguments[Q];
+            return y(this, void 0, void 0, function() {
+              var oe, q, fe;
+              return C(this, function(N) {
+                switch (N.label) {
+                  case 0:
+                    return oe = this.transaction(W, S ? "readwrite" : "readonly"), q = oe.store, H && (q = q.index(J.shift())), [4, Promise.all([(fe = q)[E].apply(fe, P([], A(J), !1)), S && oe.done])];
+                  case 1:
+                    return [2, N.sent()[0]];
+                }
+              });
+            });
+          };
+          return z.set(L, U), U;
+        }
+      }
+    }
+    l = function(T) {
+      return x(x({}, T), {
+        get: function(L, E, H) {
+          return B(L, E) || T.get(L, E, H);
+        },
+        has: function(L, E) {
+          return !!B(L, E) || T.has(L, E);
+        }
+      });
+    }(l), s.deleteDB = function(T, L) {
+      var E = (L === void 0 ? {} : L).blocked, H = indexedDB.deleteDatabase(T);
+      return E && H.addEventListener("blocked", function(S) {
+        return E(S.oldVersion, S);
+      }), m(H).then(function() {
+      });
+    }, s.openDB = function(T, L, E) {
+      var H = E === void 0 ? {} : E, S = H.blocked, U = H.upgrade, W = H.blocking, J = H.terminated, Q = indexedDB.open(T, L), oe = m(Q);
+      return U && Q.addEventListener("upgradeneeded", function(q) {
+        U(m(Q.result), q.oldVersion, q.newVersion, m(Q.transaction), q);
+      }), S && Q.addEventListener("blocked", function(q) {
+        return S(q.oldVersion, q.newVersion, q);
+      }), oe.then(function(q) {
+        J && q.addEventListener("close", function() {
+          return J();
+        }), W && q.addEventListener("versionchange", function(fe) {
+          return W(fe.oldVersion, fe.newVersion, fe);
+        });
+      }).catch(function() {
+      }), oe;
+    }, s.unwrap = k, s.wrap = m;
+  }(M || (M = {})), function(s) {
+    function h(r, t) {
+      var e;
+      t = t || {}, this._id = h._generateUUID(), this._promise = t.promise || Promise, this._frameId = t.frameId || "CrossStorageClient-" + this._id, this._origin = h._getOrigin(r), this._requests = {}, this._connected = !1, this._closed = !1, this._count = 0, this._timeout = t.timeout || 5e3, this._listener = null, this._installListener(), t.frameId && (e = document.getElementById(t.frameId)), e && this._poll(), e = e || this._createFrame(r), this._hub = e.contentWindow;
+    }
+    h.frameStyle = {
+      width: 0,
+      height: 0,
+      border: "none",
+      display: "none",
+      position: "absolute",
+      top: "-999px",
+      left: "-999px"
+    }, h._getOrigin = function(r) {
+      var t;
+      return (t = document.createElement("a")).href = r, t.host || (t = window.location), ((t.protocol && t.protocol !== ":" ? t.protocol : window.location.protocol) + "//" + t.host).replace(/:80$|:443$/, "");
+    }, h._generateUUID = function() {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(r) {
+        var t = 16 * Math.random() | 0;
+        return (r == "x" ? t : 3 & t | 8).toString(16);
+      });
+    }, h.prototype.onConnect = function() {
+      var r = this;
+      return this._connected ? this._promise.resolve() : this._closed ? this._promise.reject(new Error("CrossStorageClient has closed")) : (this._requests.connect || (this._requests.connect = []), new this._promise(function(t, e) {
+        var n = setTimeout(function() {
+          e(new Error("CrossStorageClient could not connect"));
+        }, r._timeout);
+        r._requests.connect.push(function(i) {
+          if (clearTimeout(n), i)
+            return e(i);
+          t();
+        });
+      }));
+    }, h.prototype.set = function(r, t) {
+      return this._request("set", { key: r, value: t });
+    }, h.prototype.getSignedPayload = function(r, t) {
+      return console.log("sending payload: ", r, " deviceId: ", t), this._request("getSignedData", { payload: r, deviceId: t });
+    }, h.prototype.getDeviceDetails = function(r) {
+      return this._request("getDeviceDetails", { deviceName: r });
+    }, h.prototype.setDeviceDetails = function(r, t) {
+      return this._request("setDeviceDetails", { deviceName: r, deviceId: t });
+    }, h.prototype.get = function(r) {
+      var t = Array.prototype.slice.call(arguments);
+      return this._request("get", { keys: t });
+    }, h.prototype.del = function() {
+      var r = Array.prototype.slice.call(arguments);
+      return this._request("del", { keys: r });
+    }, h.prototype.clear = function() {
+      return this._request("clear");
+    }, h.prototype.getKeys = function() {
+      return this._request("getKeys");
+    }, h.prototype.close = function(r) {
+      const t = this._frameId, e = this;
+      this._request("close").catch(function(n) {
+      }).finally(function() {
+        try {
+          var n = document.getElementById(t);
+          n && !r && n.parentNode.removeChild(n), window.removeEventListener ? window.removeEventListener("message", e._listener, !1) : window.detachEvent("onmessage", e._listener), e._connected = !1, e._closed = !0;
+        } catch {
+        }
+      });
+    }, h.prototype._installListener = function() {
+      var r = this;
+      this._listener = function(t) {
+        var e, n, i;
+        if (!r._closed && t.data && typeof t.data == "string" && (t.origin === "null" ? "file://" : t.origin) === r._origin)
+          if (t.data !== "cross-storage:unavailable") {
+            if (t.data.indexOf("cross-storage:") !== -1 && !r._connected) {
+              if (r._connected = !0, !r._requests.connect)
+                return;
+              for (e = 0; e < r._requests.connect.length; e++)
+                r._requests.connect[e](n);
+              delete r._requests.connect;
+            }
+            if (t.data !== "cross-storage:ready") {
+              try {
+                i = JSON.parse(t.data);
+              } catch {
+                return;
+              }
+              i.id && r._requests[i.id] && r._requests[i.id](i.error, i.result);
+            }
+          } else {
+            if (r._closed || r.close(), !r._requests.connect)
+              return;
+            for (n = new Error("Closing client. Could not access localStorage in hub."), e = 0; e < r._requests.connect.length; e++)
+              r._requests.connect[e](n);
+          }
+      }, window.addEventListener ? window.addEventListener("message", this._listener, !1) : window.attachEvent("onmessage", this._listener);
+    }, h.prototype._poll = function() {
+      var r, t, e;
+      e = (r = this)._origin === "file://" ? "*" : r._origin, t = setInterval(function() {
+        if (r._connected)
+          return clearInterval(t);
+        r._hub && r._hub.postMessage("cross-storage:poll", e);
+      }, 1e3);
+    }, h.prototype._createFrame = function(r) {
+      var t, e;
+      for (e in (t = window.document.createElement("iframe")).id = this._frameId, h.frameStyle)
+        h.frameStyle.hasOwnProperty(e) && (t.style[e] = h.frameStyle[e]);
+      return window.document.body.appendChild(t), t.src = r, t;
+    }, h.prototype._request = function(r, t) {
+      var e, n;
+      return this._closed ? this._promise.reject(new Error("CrossStorageClient has closed")) : ((n = this)._count++, e = { id: this._id + ":" + n._count, method: "cross-storage:" + r, params: t }, new this._promise(function(i, a) {
+        var u, c, l;
+        u = setTimeout(function() {
+          n._requests[e.id] && (delete n._requests[e.id], a(new Error("Timeout: could not perform " + e.method)));
+        }, n._timeout), n._requests[e.id] = function(d, p) {
+          if (clearTimeout(u), delete n._requests[e.id], d)
+            return a(new Error(d));
+          i(p);
+        }, Array.prototype.toJSON && (c = Array.prototype.toJSON, Array.prototype.toJSON = null), l = n._origin === "file://" ? "*" : n._origin, n._hub.postMessage(JSON.stringify(e), l), c && (Array.prototype.toJSON = c);
+      }));
+    }, s.CrossStorageClient = h;
+  }(M || (M = {})), function() {
+    typeof Object.assign != "function" && Object.defineProperty(Object, "assign", {
+      value: function(s, h) {
+        if (s == null)
+          throw new TypeError("Cannot convert undefined or null to object");
+        for (var r = Object(s), t = 1; t < arguments.length; t++) {
+          var e = arguments[t];
+          if (e != null)
+            for (var n in e)
+              Object.prototype.hasOwnProperty.call(e, n) && (r[n] = e[n]);
+        }
+        return r;
+      },
+      writable: !0,
+      configurable: !0
+    });
+  }(), Array.from || (Array.from = function() {
+    var s = Object.prototype.toString, h = function(e) {
+      return typeof e == "function" || s.call(e) === "[object Function]";
+    }, r = Math.pow(2, 53) - 1, t = function(e) {
+      var n = function(i) {
+        var a = Number(i);
+        return isNaN(a) ? 0 : a !== 0 && isFinite(a) ? (a > 0 ? 1 : -1) * Math.floor(Math.abs(a)) : a;
+      }(e);
+      return Math.min(Math.max(n, 0), r);
+    };
+    return function(e) {
+      var n = Object(e);
+      if (e == null)
+        throw new TypeError("Array.from requires an array-like object - not null or undefined");
+      var i, a = arguments.length > 1 ? arguments[1] : void 0;
+      if (a !== void 0) {
+        if (!h(a))
+          throw new TypeError(
+            "Array.from: when provided, the second argument must be a function"
+          );
+        arguments.length > 2 && (i = arguments[2]);
+      }
+      for (var u, c = t(n.length), l = h(this) ? Object(new this(c)) : new Array(c), d = 0; d < c; )
+        u = n[d], l[d] = a ? i === void 0 ? a(u, d) : a.call(i, u, d) : u, d += 1;
+      return l.length = c, l;
+    };
+  }()), function() {
+    String.prototype.endsWith || (String.prototype.endsWith = function(s, h) {
+      return (h === void 0 || h > this.length) && (h = this.length), this.substring(h - s.length, h) === s;
+    });
+  }(), function() {
+    Promise.allSettled = Promise.allSettled || function(s) {
+      return Promise.all(
+        s.map(function(h) {
+          return h.then(function(r) {
+            return { status: "fulfilled", value: r };
+          }).catch(function(r) {
+            return { status: "rejected", reason: r };
+          });
+        })
+      );
+    };
+  }(), function(s, h) {
+    var r = "model", t = "name", e = "type", n = "vendor", i = "version", a = "mobile", u = "tablet", c = "smarttv", l = function(P) {
+      for (var D = {}, j = 0; j < P.length; j++)
+        D[P[j].toUpperCase()] = P[j];
+      return D;
+    }, d = function(P, D) {
+      return typeof P == "string" && p(D).indexOf(p(P)) !== -1;
+    }, p = function(P) {
+      return P.toLowerCase();
+    }, m = function(P, D) {
+      if (typeof P == "string")
+        return P = P.replace(/^\s\s*/, "").replace(/\s\s*$/, ""), D === void 0 ? P : P.substring(0, 255);
+    }, k = function(P, D) {
+      for (var j, z, B, T, L, E, H = 0; H < D.length && !L; ) {
+        var S = D[H], U = D[H + 1];
+        for (j = z = 0; j < S.length && !L; )
+          if (L = S[j++].exec(P))
+            for (B = 0; B < U.length; B++)
+              E = L[++z], typeof (T = U[B]) == "object" && T.length > 0 ? T.length === 2 ? typeof T[1] == "function" ? this[T[0]] = T[1].call(this, E) : this[T[0]] = T[1] : T.length === 3 ? typeof T[1] != "function" || T[1].exec && T[1].test ? this[T[0]] = E ? E.replace(T[1], T[2]) : void 0 : this[T[0]] = E ? T[1].call(this, E, T[2]) : void 0 : T.length === 4 && (this[T[0]] = E ? T[3].call(this, E.replace(T[1], T[2])) : void 0) : this[T] = E || void 0;
+        H += 2;
+      }
+    }, x = function(P, D) {
+      for (var j in D)
+        if (typeof D[j] == "object" && D[j].length > 0) {
+          for (var z = 0; z < D[j].length; z++)
+            if (d(D[j][z], P))
+              return j === "?" ? void 0 : j;
+        } else if (d(D[j], P))
+          return j === "?" ? void 0 : j;
+      return P;
+    }, y = {
+      ME: "4.90",
+      "NT 3.11": "NT3.51",
+      "NT 4.0": "NT4.0",
+      2e3: "NT 5.0",
+      XP: ["NT 5.1", "NT 5.2"],
+      Vista: "NT 6.0",
+      7: "NT 6.1",
+      8: "NT 6.2",
+      8.1: "NT 6.3",
+      10: ["NT 6.4", "NT 10.0"],
+      RT: "ARM"
+    }, C = {
+      browser: [
+        [/\b(?:crmo|crios)\/([\w\.]+)/i],
+        [i, [t, "Chrome"]],
+        [/edg(?:e|ios|a)?\/([\w\.]+)/i],
+        [i, [t, "Edge"]],
+        [
+          /(opera mini)\/([-\w\.]+)/i,
+          /(opera [mobiletab]{3,6})\b.+version\/([-\w\.]+)/i,
+          /(opera)(?:.+version\/|[\/ ]+)([\w\.]+)/i
+        ],
+        [t, i],
+        [/opios[\/ ]+([\w\.]+)/i],
+        [i, [t, "Opera Mini"]],
+        [/\bopr\/([\w\.]+)/i],
+        [i, [t, "Opera"]],
+        [
+          /(kindle)\/([\w\.]+)/i,
+          /(lunascape|maxthon|netfront|jasmine|blazer)[\/ ]?([\w\.]*)/i,
+          /(avant |iemobile|slim)(?:browser)?[\/ ]?([\w\.]*)/i,
+          /(ba?idubrowser)[\/ ]?([\w\.]+)/i,
+          /(?:ms|\()(ie) ([\w\.]+)/i,
+          /(flock|rockmelt|midori|epiphany|silk|skyfire|ovibrowser|bolt|iron|vivaldi|iridium|phantomjs|bowser|quark|qupzilla|falkon|rekonq|puffin|brave|whale|qqbrowserlite|qq)\/([-\w\.]+)/i,
+          /(weibo)__([\d\.]+)/i
+        ],
+        [t, i],
+        [/(?:\buc? ?browser|(?:juc.+)ucweb)[\/ ]?([\w\.]+)/i],
+        [i, [t, "UCBrowser"]],
+        [/\bqbcore\/([\w\.]+)/i],
+        [i, [t, "WeChat(Win) Desktop"]],
+        [/micromessenger\/([\w\.]+)/i],
+        [i, [t, "WeChat"]],
+        [/konqueror\/([\w\.]+)/i],
+        [i, [t, "Konqueror"]],
+        [/trident.+rv[: ]([\w\.]{1,9})\b.+like gecko/i],
+        [i, [t, "IE"]],
+        [/yabrowser\/([\w\.]+)/i],
+        [i, [t, "Yandex"]],
+        [/(avast|avg)\/([\w\.]+)/i],
+        [[t, /(.+)/, "$1 Secure Browser"], i],
+        [/\bfocus\/([\w\.]+)/i],
+        [i, [t, "Firefox Focus"]],
+        [/\bopt\/([\w\.]+)/i],
+        [i, [t, "Opera Touch"]],
+        [/coc_coc\w+\/([\w\.]+)/i],
+        [i, [t, "Coc Coc"]],
+        [/dolfin\/([\w\.]+)/i],
+        [i, [t, "Dolphin"]],
+        [/coast\/([\w\.]+)/i],
+        [i, [t, "Opera Coast"]],
+        [/miuibrowser\/([\w\.]+)/i],
+        [i, [t, "MIUI Browser"]],
+        [/fxios\/([-\w\.]+)/i],
+        [i, [t, "Firefox"]],
+        [/\bqihu|(qi?ho?o?|360)browser/i],
+        [[t, "360 Browser"]],
+        [/(oculus|samsung|sailfish)browser\/([\w\.]+)/i],
+        [[t, /(.+)/, "$1 Browser"], i],
+        [/(comodo_dragon)\/([\w\.]+)/i],
+        [[t, /_/g, " "], i],
+        [
+          /(electron)\/([\w\.]+) safari/i,
+          /(tesla)(?: qtcarbrowser|\/(20\d\d\.[-\w\.]+))/i,
+          /m?(qqbrowser|baiduboxapp|2345Explorer)[\/ ]?([\w\.]+)/i
+        ],
+        [t, i],
+        [/(metasr)[\/ ]?([\w\.]+)/i, /(lbbrowser)/i],
+        [t],
+        [/((?:fban\/fbios|fb_iab\/fb4a)(?!.+fbav)|;fbav\/([\w\.]+);)/i],
+        [[t, "Facebook"], i],
+        [
+          /safari (line)\/([\w\.]+)/i,
+          /\b(line)\/([\w\.]+)\/iab/i,
+          /(chromium|instagram)[\/ ]([-\w\.]+)/i
+        ],
+        [t, i],
+        [/\bgsa\/([\w\.]+) .*safari\//i],
+        [i, [t, "GSA"]],
+        [/headlesschrome(?:\/([\w\.]+)| )/i],
+        [i, [t, "Chrome Headless"]],
+        [/ wv\).+(chrome)\/([\w\.]+)/i],
+        [[t, "Chrome WebView"], i],
+        [/droid.+ version\/([\w\.]+)\b.+(?:mobile safari|safari)/i],
+        [i, [t, "Android Browser"]],
+        [/(chrome|omniweb|arora|[tizenoka]{5} ?browser)\/v?([\w\.]+)/i],
+        [t, i],
+        [/version\/([\w\.]+) .*mobile\/\w+ (safari)/i],
+        [i, [t, "Mobile Safari"]],
+        [/version\/([\w\.]+) .*(mobile ?safari|safari)/i],
+        [i, t],
+        [/webkit.+?(mobile ?safari|safari)(\/[\w\.]+)/i],
+        [
+          t,
+          [
+            i,
+            x,
+            {
+              "1.0": "/8",
+              1.2: "/1",
+              1.3: "/3",
+              "2.0": "/412",
+              "2.0.2": "/416",
+              "2.0.3": "/417",
+              "2.0.4": "/419",
+              "?": "/"
+            }
+          ]
+        ],
+        [/(webkit|khtml)\/([\w\.]+)/i],
+        [t, i],
+        [/(navigator|netscape\d?)\/([-\w\.]+)/i],
+        [[t, "Netscape"], i],
+        [/mobile vr; rv:([\w\.]+)\).+firefox/i],
+        [i, [t, "Firefox Reality"]],
+        [
+          /ekiohf.+(flow)\/([\w\.]+)/i,
+          /(swiftfox)/i,
+          /(icedragon|iceweasel|camino|chimera|fennec|maemo browser|minimo|conkeror|klar)[\/ ]?([\w\.\+]+)/i,
+          /(seamonkey|k-meleon|icecat|iceape|firebird|phoenix|palemoon|basilisk|waterfox)\/([-\w\.]+)$/i,
+          /(firefox)\/([\w\.]+)/i,
+          /(mozilla)\/([\w\.]+) .+rv\:.+gecko\/\d+/i,
+          /(polaris|lynx|dillo|icab|doris|amaya|w3m|netsurf|sleipnir|obigo|mosaic|(?:go|ice|up)[\. ]?browser)[-\/ ]?v?([\w\.]+)/i,
+          /(links) \(([\w\.]+)/i
+        ],
+        [t, i]
+      ],
+      cpu: [
+        [/(?:(amd|x(?:(?:86|64)[-_])?|wow|win)64)[;\)]/i],
+        [["architecture", "amd64"]],
+        [/(ia32(?=;))/i],
+        [["architecture", p]],
+        [/((?:i[346]|x)86)[;\)]/i],
+        [["architecture", "ia32"]],
+        [/\b(aarch64|arm(v?8e?l?|_?64))\b/i],
+        [["architecture", "arm64"]],
+        [/\b(arm(?:v[67])?ht?n?[fl]p?)\b/i],
+        [["architecture", "armhf"]],
+        [/windows (ce|mobile); ppc;/i],
+        [["architecture", "arm"]],
+        [/((?:ppc|powerpc)(?:64)?)(?: mac|;|\))/i],
+        [["architecture", /ower/, "", p]],
+        [/(sun4\w)[;\)]/i],
+        [["architecture", "sparc"]],
+        [
+          /((?:avr32|ia64(?=;))|68k(?=\))|\barm(?=v(?:[1-7]|[5-7]1)l?|;|eabi)|(?=atmel )avr|(?:irix|mips|sparc)(?:64)?\b|pa-risc)/i
+        ],
+        [["architecture", p]]
+      ],
+      device: [
+        [/\b(sch-i[89]0\d|shw-m380s|sm-[pt]\w{2,4}|gt-[pn]\d{2,4}|sgh-t8[56]9|nexus 10)/i],
+        [r, [n, "Samsung"], [e, u]],
+        [/\b((?:s[cgp]h|gt|sm)-\w+|galaxy nexus)/i, /samsung[- ]([-\w]+)/i, /sec-(sgh\w+)/i],
+        [r, [n, "Samsung"], [e, a]],
+        [/\((ip(?:hone|od)[\w ]*);/i],
+        [r, [n, "Apple"], [e, a]],
+        [
+          /\((ipad);[-\w\),; ]+apple/i,
+          /applecoremedia\/[\w\.]+ \((ipad)/i,
+          /\b(ipad)\d\d?,\d\d?[;\]].+ios/i
+        ],
+        [r, [n, "Apple"], [e, u]],
+        [/\b((?:ag[rs][23]?|bah2?|sht?|btv)-a?[lw]\d{2})\b(?!.+d\/s)/i],
+        [r, [n, "Huawei"], [e, u]],
+        [
+          /(?:huawei|honor)([-\w ]+)[;\)]/i,
+          /\b(nexus 6p|\w{2,4}-[atu]?[ln][01259x][012359][an]?)\b(?!.+d\/s)/i
+        ],
+        [r, [n, "Huawei"], [e, a]],
+        [
+          /\b(poco[\w ]+)(?: bui|\))/i,
+          /\b; (\w+) build\/hm\1/i,
+          /\b(hm[-_ ]?note?[_ ]?(?:\d\w)?) bui/i,
+          /\b(redmi[\-_ ]?(?:note|k)?[\w_ ]+)(?: bui|\))/i,
+          /\b(mi[-_ ]?(?:a\d|one|one[_ ]plus|note lte|max)?[_ ]?(?:\d?\w?)[_ ]?(?:plus|se|lite)?)(?: bui|\))/i
+        ],
+        [
+          [r, /_/g, " "],
+          [n, "Xiaomi"],
+          [e, a]
+        ],
+        [/\b(mi[-_ ]?(?:pad)(?:[\w_ ]+))(?: bui|\))/i],
+        [
+          [r, /_/g, " "],
+          [n, "Xiaomi"],
+          [e, u]
+        ],
+        [
+          /; (\w+) bui.+ oppo/i,
+          /\b(cph[12]\d{3}|p(?:af|c[al]|d\w|e[ar])[mt]\d0|x9007|a101op)\b/i
+        ],
+        [r, [n, "OPPO"], [e, a]],
+        [/vivo (\w+)(?: bui|\))/i, /\b(v[12]\d{3}\w?[at])(?: bui|;)/i],
+        [r, [n, "Vivo"], [e, a]],
+        [/\b(rmx[12]\d{3})(?: bui|;|\))/i],
+        [r, [n, "Realme"], [e, a]],
+        [
+          /\b(milestone|droid(?:[2-4x]| (?:bionic|x2|pro|razr))?:?( 4g)?)\b[\w ]+build\//i,
+          /\bmot(?:orola)?[- ](\w*)/i,
+          /((?:moto[\w\(\) ]+|xt\d{3,4}|nexus 6)(?= bui|\)))/i
+        ],
+        [r, [n, "Motorola"], [e, a]],
+        [/\b(mz60\d|xoom[2 ]{0,2}) build\//i],
+        [r, [n, "Motorola"], [e, u]],
+        [/((?=lg)?[vl]k\-?\d{3}) bui| 3\.[-\w; ]{10}lg?-([06cv9]{3,4})/i],
+        [r, [n, "LG"], [e, u]],
+        [
+          /(lm(?:-?f100[nv]?|-[\w\.]+)(?= bui|\))|nexus [45])/i,
+          /\blg[-e;\/ ]+((?!browser|netcast|android tv)\w+)/i,
+          /\blg-?([\d\w]+) bui/i
+        ],
+        [r, [n, "LG"], [e, a]],
+        [
+          /(ideatab[-\w ]+)/i,
+          /lenovo ?(s[56]000[-\w]+|tab(?:[\w ]+)|yt[-\d\w]{6}|tb[-\d\w]{6})/i
+        ],
+        [r, [n, "Lenovo"], [e, u]],
+        [/(?:maemo|nokia).*(n900|lumia \d+)/i, /nokia[-_ ]?([-\w\.]*)/i],
+        [
+          [r, /_/g, " "],
+          [n, "Nokia"],
+          [e, a]
+        ],
+        [/(pixel c)\b/i],
+        [r, [n, "Google"], [e, u]],
+        [/droid.+; (pixel[\daxl ]{0,6})(?: bui|\))/i],
+        [r, [n, "Google"], [e, a]],
+        [
+          /droid.+ ([c-g]\d{4}|so[-gl]\w+|xq-a\w[4-7][12])(?= bui|\).+chrome\/(?![1-6]{0,1}\d\.))/i
+        ],
+        [r, [n, "Sony"], [e, a]],
+        [/sony tablet [ps]/i, /\b(?:sony)?sgp\w+(?: bui|\))/i],
+        [
+          [r, "Xperia Tablet"],
+          [n, "Sony"],
+          [e, u]
+        ],
+        [/ (kb2005|in20[12]5|be20[12][59])\b/i, /(?:one)?(?:plus)? (a\d0\d\d)(?: b|\))/i],
+        [r, [n, "OnePlus"], [e, a]],
+        [/(alexa)webm/i, /(kf[a-z]{2}wi)( bui|\))/i, /(kf[a-z]+)( bui|\)).+silk\//i],
+        [r, [n, "Amazon"], [e, u]],
+        [/((?:sd|kf)[0349hijorstuw]+)( bui|\)).+silk\//i],
+        [
+          [r, /(.+)/g, "Fire Phone $1"],
+          [n, "Amazon"],
+          [e, a]
+        ],
+        [/(playbook);[-\w\),; ]+(rim)/i],
+        [r, n, [e, u]],
+        [/\b((?:bb[a-f]|st[hv])100-\d)/i, /\(bb10; (\w+)/i],
+        [r, [n, "BlackBerry"], [e, a]],
+        [/(?:\b|asus_)(transfo[prime ]{4,10} \w+|eeepc|slider \w+|nexus 7|padfone|p00[cj])/i],
+        [r, [n, "ASUS"], [e, u]],
+        [/ (z[bes]6[027][012][km][ls]|zenfone \d\w?)\b/i],
+        [r, [n, "ASUS"], [e, a]],
+        [/(nexus 9)/i],
+        [r, [n, "HTC"], [e, u]],
+        [
+          /(htc)[-;_ ]{1,2}([\w ]+(?=\)| bui)|\w+)/i,
+          /(zte)[- ]([\w ]+?)(?: bui|\/|\))/i,
+          /(alcatel|geeksphone|nexian|panasonic|sony)[-_ ]?([-\w]*)/i
+        ],
+        [n, [r, /_/g, " "], [e, a]],
+        [/droid.+; ([ab][1-7]-?[0178a]\d\d?)/i],
+        [r, [n, "Acer"], [e, u]],
+        [/droid.+; (m[1-5] note) bui/i, /\bmz-([-\w]{2,})/i],
+        [r, [n, "Meizu"], [e, a]],
+        [/\b(sh-?[altvz]?\d\d[a-ekm]?)/i],
+        [r, [n, "Sharp"], [e, a]],
+        [
+          /(blackberry|benq|palm(?=\-)|sonyericsson|acer|asus|dell|meizu|motorola|polytron)[-_ ]?([-\w]*)/i,
+          /(hp) ([\w ]+\w)/i,
+          /(asus)-?(\w+)/i,
+          /(microsoft); (lumia[\w ]+)/i,
+          /(lenovo)[-_ ]?([-\w]+)/i,
+          /(jolla)/i,
+          /(oppo) ?([\w ]+) bui/i
+        ],
+        [n, r, [e, a]],
+        [
+          /(archos) (gamepad2?)/i,
+          /(hp).+(touchpad(?!.+tablet)|tablet)/i,
+          /(kindle)\/([\w\.]+)/i,
+          /(nook)[\w ]+build\/(\w+)/i,
+          /(dell) (strea[kpr\d ]*[\dko])/i,
+          /(le[- ]+pan)[- ]+(\w{1,9}) bui/i,
+          /(trinity)[- ]*(t\d{3}) bui/i,
+          /(gigaset)[- ]+(q\w{1,9}) bui/i,
+          /(vodafone) ([\w ]+)(?:\)| bui)/i
+        ],
+        [n, r, [e, u]],
+        [/(surface duo)/i],
+        [r, [n, "Microsoft"], [e, u]],
+        [/droid [\d\.]+; (fp\du?)(?: b|\))/i],
+        [r, [n, "Fairphone"], [e, a]],
+        [/(u304aa)/i],
+        [r, [n, "AT&T"], [e, a]],
+        [/\bsie-(\w*)/i],
+        [r, [n, "Siemens"], [e, a]],
+        [/\b(rct\w+) b/i],
+        [r, [n, "RCA"], [e, u]],
+        [/\b(venue[\d ]{2,7}) b/i],
+        [r, [n, "Dell"], [e, u]],
+        [/\b(q(?:mv|ta)\w+) b/i],
+        [r, [n, "Verizon"], [e, u]],
+        [/\b(?:barnes[& ]+noble |bn[rt])([\w\+ ]*) b/i],
+        [r, [n, "Barnes & Noble"], [e, u]],
+        [/\b(tm\d{3}\w+) b/i],
+        [r, [n, "NuVision"], [e, u]],
+        [/\b(k88) b/i],
+        [r, [n, "ZTE"], [e, u]],
+        [/\b(nx\d{3}j) b/i],
+        [r, [n, "ZTE"], [e, a]],
+        [/\b(gen\d{3}) b.+49h/i],
+        [r, [n, "Swiss"], [e, a]],
+        [/\b(zur\d{3}) b/i],
+        [r, [n, "Swiss"], [e, u]],
+        [/\b((zeki)?tb.*\b) b/i],
+        [r, [n, "Zeki"], [e, u]],
+        [/\b([yr]\d{2}) b/i, /\b(dragon[- ]+touch |dt)(\w{5}) b/i],
+        [[n, "Dragon Touch"], r, [e, u]],
+        [/\b(ns-?\w{0,9}) b/i],
+        [r, [n, "Insignia"], [e, u]],
+        [/\b((nxa|next)-?\w{0,9}) b/i],
+        [r, [n, "NextBook"], [e, u]],
+        [/\b(xtreme\_)?(v(1[045]|2[015]|[3469]0|7[05])) b/i],
+        [[n, "Voice"], r, [e, a]],
+        [/\b(lvtel\-)?(v1[12]) b/i],
+        [[n, "LvTel"], r, [e, a]],
+        [/\b(ph-1) /i],
+        [r, [n, "Essential"], [e, a]],
+        [/\b(v(100md|700na|7011|917g).*\b) b/i],
+        [r, [n, "Envizen"], [e, u]],
+        [/\b(trio[-\w\. ]+) b/i],
+        [r, [n, "MachSpeed"], [e, u]],
+        [/\btu_(1491) b/i],
+        [r, [n, "Rotor"], [e, u]],
+        [/(shield[\w ]+) b/i],
+        [r, [n, "Nvidia"], [e, u]],
+        [/(sprint) (\w+)/i],
+        [n, r, [e, a]],
+        [/(kin\.[onetw]{3})/i],
+        [
+          [r, /\./g, " "],
+          [n, "Microsoft"],
+          [e, a]
+        ],
+        [/droid.+; (cc6666?|et5[16]|mc[239][23]x?|vc8[03]x?)\)/i],
+        [r, [n, "Zebra"], [e, u]],
+        [/droid.+; (ec30|ps20|tc[2-8]\d[kx])\)/i],
+        [r, [n, "Zebra"], [e, a]],
+        [/(ouya)/i, /(nintendo) ([wids3utch]+)/i],
+        [n, r, [e, "console"]],
+        [/droid.+; (shield) bui/i],
+        [r, [n, "Nvidia"], [e, "console"]],
+        [/(playstation [345portablevi]+)/i],
+        [r, [n, "Sony"], [e, "console"]],
+        [/\b(xbox(?: one)?(?!; xbox))[\); ]/i],
+        [r, [n, "Microsoft"], [e, "console"]],
+        [/smart-tv.+(samsung)/i],
+        [n, [e, c]],
+        [/hbbtv.+maple;(\d+)/i],
+        [
+          [r, /^/, "SmartTV"],
+          [n, "Samsung"],
+          [e, c]
+        ],
+        [/(nux; netcast.+smarttv|lg (netcast\.tv-201\d|android tv))/i],
+        [
+          [n, "LG"],
+          [e, c]
+        ],
+        [/(apple) ?tv/i],
+        [n, [r, "Apple TV"], [e, c]],
+        [/crkey/i],
+        [
+          [r, "Chromecast"],
+          [n, "Google"],
+          [e, c]
+        ],
+        [/droid.+aft(\w)( bui|\))/i],
+        [r, [n, "Amazon"], [e, c]],
+        [/\(dtv[\);].+(aquos)/i],
+        [r, [n, "Sharp"], [e, c]],
+        [
+          /\b(roku)[\dx]*[\)\/]((?:dvp-)?[\d\.]*)/i,
+          /hbbtv\/\d+\.\d+\.\d+ +\([\w ]*; *(\w[^;]*);([^;]*)/i
+        ],
+        [
+          [n, m],
+          [r, m],
+          [e, c]
+        ],
+        [/\b(android tv|smart[- ]?tv|opera tv|tv; rv:)\b/i],
+        [[e, c]],
+        [/((pebble))app/i],
+        [n, r, [e, "wearable"]],
+        [/droid.+; (glass) \d/i],
+        [r, [n, "Google"], [e, "wearable"]],
+        [/droid.+; (wt63?0{2,3})\)/i],
+        [r, [n, "Zebra"], [e, "wearable"]],
+        [/(quest( 2)?)/i],
+        [r, [n, "Facebook"], [e, "wearable"]],
+        [/(tesla)(?: qtcarbrowser|\/[-\w\.]+)/i],
+        [n, [e, "embedded"]],
+        [/droid .+?; ([^;]+?)(?: bui|\) applew).+? mobile safari/i],
+        [r, [e, a]],
+        [/droid .+?; ([^;]+?)(?: bui|\) applew).+?(?! mobile) safari/i],
+        [r, [e, u]],
+        [/\b((tablet|tab)[;\/]|focus\/\d(?!.+mobile))/i],
+        [[e, u]],
+        [/(phone|mobile(?:[;\/]| safari)|pda(?=.+windows ce))/i],
+        [[e, a]],
+        [/(android[-\w\. ]{0,9});.+buil/i],
+        [r, [n, "Generic"]]
+      ],
+      engine: [
+        [/windows.+ edge\/([\w\.]+)/i],
+        [i, [t, "EdgeHTML"]],
+        [/webkit\/537\.36.+chrome\/(?!27)([\w\.]+)/i],
+        [i, [t, "Blink"]],
+        [
+          /(presto)\/([\w\.]+)/i,
+          /(webkit|trident|netfront|netsurf|amaya|lynx|w3m|goanna)\/([\w\.]+)/i,
+          /ekioh(flow)\/([\w\.]+)/i,
+          /(khtml|tasman|links)[\/ ]\(?([\w\.]+)/i,
+          /(icab)[\/ ]([23]\.[\d\.]+)/i
+        ],
+        [t, i],
+        [/rv\:([\w\.]{1,9})\b.+(gecko)/i],
+        [i, t]
+      ],
+      os: [
+        [/microsoft (windows) (vista|xp)/i],
+        [t, i],
+        [
+          /(windows) nt 6\.2; (arm)/i,
+          /(windows (?:phone(?: os)?|mobile))[\/ ]?([\d\.\w ]*)/i,
+          /(windows)[\/ ]?([ntce\d\. ]+\w)(?!.+xbox)/i
+        ],
+        [t, [i, x, y]],
+        [/(win(?=3|9|n)|win 9x )([nt\d\.]+)/i],
+        [
+          [t, "Windows"],
+          [i, x, y]
+        ],
+        [/ip[honead]{2,4}\b(?:.*os ([\w]+) like mac|; opera)/i, /cfnetwork\/.+darwin/i],
+        [
+          [i, /_/g, "."],
+          [t, "iOS"]
+        ],
+        [/(mac os x) ?([\w\. ]*)/i, /(macintosh|mac_powerpc\b)(?!.+haiku)/i],
+        [
+          [t, "Mac OS"],
+          [i, /_/g, "."]
+        ],
+        [/droid ([\w\.]+)\b.+(android[- ]x86)/i],
+        [i, t],
+        [
+          /(android|webos|qnx|bada|rim tablet os|maemo|meego|sailfish)[-\/ ]?([\w\.]*)/i,
+          /(blackberry)\w*\/([\w\.]*)/i,
+          /(tizen|kaios)[\/ ]([\w\.]+)/i,
+          /\((series40);/i
+        ],
+        [t, i],
+        [/\(bb(10);/i],
+        [i, [t, "BlackBerry"]],
+        [/(?:symbian ?os|symbos|s60(?=;)|series60)[-\/ ]?([\w\.]*)/i],
+        [i, [t, "Symbian"]],
+        [/mozilla\/[\d\.]+ \((?:mobile|tablet|tv|mobile; [\w ]+); rv:.+ gecko\/([\w\.]+)/i],
+        [i, [t, "Firefox OS"]],
+        [/web0s;.+rt(tv)/i, /\b(?:hp)?wos(?:browser)?\/([\w\.]+)/i],
+        [i, [t, "webOS"]],
+        [/crkey\/([\d\.]+)/i],
+        [i, [t, "Chromecast"]],
+        [/(cros) [\w]+ ([\w\.]+\w)/i],
+        [[t, "Chromium OS"], i],
+        [
+          /(nintendo|playstation) ([wids345portablevuch]+)/i,
+          /(xbox); +xbox ([^\);]+)/i,
+          /\b(joli|palm)\b ?(?:os)?\/?([\w\.]*)/i,
+          /(mint)[\/\(\) ]?(\w*)/i,
+          /(mageia|vectorlinux)[; ]/i,
+          /([kxln]?ubuntu|debian|suse|opensuse|gentoo|arch(?= linux)|slackware|fedora|mandriva|centos|pclinuxos|red ?hat|zenwalk|linpus|raspbian|plan 9|minix|risc os|contiki|deepin|manjaro|elementary os|sabayon|linspire)(?: gnu\/linux)?(?: enterprise)?(?:[- ]linux)?(?:-gnu)?[-\/ ]?(?!chrom|package)([-\w\.]*)/i,
+          /(hurd|linux) ?([\w\.]*)/i,
+          /(gnu) ?([\w\.]*)/i,
+          /\b([-frentopcghs]{0,5}bsd|dragonfly)[\/ ]?(?!amd|[ix346]{1,2}86)([\w\.]*)/i,
+          /(haiku) (\w+)/i
+        ],
+        [t, i],
+        [/(sunos) ?([\w\.\d]*)/i],
+        [[t, "Solaris"], i],
+        [
+          /((?:open)?solaris)[-\/ ]?([\w\.]*)/i,
+          /(aix) ((\d)(?=\.|\)| )[\w\.])*/i,
+          /\b(beos|os\/2|amigaos|morphos|openvms|fuchsia|hp-ux)/i,
+          /(unix) ?([\w\.]*)/i
+        ],
+        [t, i]
+      ]
+    }, A = function(P, D) {
+      if (typeof P == "object" && (D = P, P = void 0), !(this instanceof A))
+        return new A(P, D).getResult();
+      var j = P || (typeof window < "u" && window.navigator && window.navigator.userAgent ? window.navigator.userAgent : ""), z = D ? function(B, T) {
+        var L = {};
+        for (var E in B)
+          T[E] && T[E].length % 2 == 0 ? L[E] = T[E].concat(B[E]) : L[E] = B[E];
+        return L;
+      }(C, D) : C;
+      return this.getBrowser = function() {
+        var B, T = {};
+        return T.name = void 0, T.version = void 0, k.call(T, j, z.browser), T.major = typeof (B = T.version) == "string" ? B.replace(/[^\d\.]/g, "").split(".")[0] : void 0, T;
+      }, this.getCPU = function() {
+        var B = { architecture: void 0 };
+        return k.call(B, j, z.cpu), B;
+      }, this.getDevice = function() {
+        var B = { vendor: void 0, model: void 0, type: void 0 };
+        return k.call(B, j, z.device), B;
+      }, this.getEngine = function() {
+        var B = { name: void 0, version: void 0 };
+        return k.call(B, j, z.engine), B;
+      }, this.getOS = function() {
+        var B = { name: void 0, version: void 0 };
+        return k.call(B, j, z.os), B;
+      }, this.getResult = function() {
+        return {
+          ua: this.getUA(),
+          browser: this.getBrowser(),
+          engine: this.getEngine(),
+          os: this.getOS(),
+          device: this.getDevice(),
+          cpu: this.getCPU()
+        };
+      }, this.getUA = function() {
+        return j;
+      }, this.setUA = function(B) {
+        return j = typeof B == "string" && B.length > 255 ? m(B, 255) : B, this;
+      }, this.setUA(j), this;
+    };
+    A.VERSION = "1.0.2", A.BROWSER = l([t, i, "major"]), A.CPU = l(["architecture"]), A.DEVICE = l([r, n, e, "console", a, c, u, "wearable", "embedded"]), A.ENGINE = A.OS = l([t, i]), s.UAParser = A;
+  }(M || (M = {})), (M || (M = {})).pako = function s(h, r, t) {
+    function e(a, u) {
+      if (!r[a]) {
+        if (!h[a]) {
+          var c = typeof commonjsRequire == "function" && commonjsRequire;
+          if (!u && c)
+            return c(a, !0);
+          if (n)
+            return n(a, !0);
+          var l = new Error("Cannot find module '" + a + "'");
+          throw l.code = "MODULE_NOT_FOUND", l;
+        }
+        var d = r[a] = { exports: {} };
+        h[a][0].call(
+          d.exports,
+          function(p) {
+            var m = h[a][1][p];
+            return e(m || p);
+          },
+          d,
+          d.exports,
+          s,
+          h,
+          r,
+          t
+        );
+      }
+      return r[a].exports;
+    }
+    for (var n = typeof commonjsRequire == "function" && commonjsRequire, i = 0; i < t.length; i++)
+      e(t[i]);
+    return e;
+  }(
+    {
+      1: [
+        function(s, h, r) {
+          function t(a, u) {
+            return Object.prototype.hasOwnProperty.call(a, u);
+          }
+          var e = typeof Uint8Array < "u" && typeof Uint16Array < "u" && typeof Int32Array < "u";
+          r.assign = function(a) {
+            for (var u = Array.prototype.slice.call(arguments, 1); u.length; ) {
+              var c = u.shift();
+              if (c) {
+                if (typeof c != "object")
+                  throw new TypeError(c + "must be non-object");
+                for (var l in c)
+                  t(c, l) && (a[l] = c[l]);
+              }
+            }
+            return a;
+          }, r.shrinkBuf = function(a, u) {
+            return a.length === u ? a : a.subarray ? a.subarray(0, u) : (a.length = u, a);
+          };
+          var n = {
+            arraySet: function(a, u, c, l, d) {
+              if (u.subarray && a.subarray)
+                a.set(u.subarray(c, c + l), d);
+              else
+                for (var p = 0; p < l; p++)
+                  a[d + p] = u[c + p];
+            },
+            flattenChunks: function(a) {
+              var u, c, l, d, p, m;
+              for (l = 0, u = 0, c = a.length; u < c; u++)
+                l += a[u].length;
+              for (m = new Uint8Array(l), d = 0, u = 0, c = a.length; u < c; u++)
+                p = a[u], m.set(p, d), d += p.length;
+              return m;
+            }
+          }, i = {
+            arraySet: function(a, u, c, l, d) {
+              for (var p = 0; p < l; p++)
+                a[d + p] = u[c + p];
+            },
+            flattenChunks: function(a) {
+              return [].concat.apply([], a);
+            }
+          };
+          r.setTyped = function(a) {
+            a ? (r.Buf8 = Uint8Array, r.Buf16 = Uint16Array, r.Buf32 = Int32Array, r.assign(r, n)) : (r.Buf8 = Array, r.Buf16 = Array, r.Buf32 = Array, r.assign(r, i));
+          }, r.setTyped(e);
+        },
+        {}
+      ],
+      2: [
+        function(s, h, r) {
+          function t(c, l) {
+            if (l < 65537 && (c.subarray && i || !c.subarray && n))
+              return String.fromCharCode.apply(null, e.shrinkBuf(c, l));
+            for (var d = "", p = 0; p < l; p++)
+              d += String.fromCharCode(c[p]);
+            return d;
+          }
+          var e = s("./common"), n = !0, i = !0;
+          try {
+            String.fromCharCode.apply(null, [0]);
+          } catch {
+            n = !1;
+          }
+          try {
+            String.fromCharCode.apply(null, new Uint8Array(1));
+          } catch {
+            i = !1;
+          }
+          for (var a = new e.Buf8(256), u = 0; u < 256; u++)
+            a[u] = u >= 252 ? 6 : u >= 248 ? 5 : u >= 240 ? 4 : u >= 224 ? 3 : u >= 192 ? 2 : 1;
+          a[254] = a[254] = 1, r.string2buf = function(c) {
+            var l, d, p, m, k, x = c.length, y = 0;
+            for (m = 0; m < x; m++)
+              (64512 & (d = c.charCodeAt(m))) == 55296 && m + 1 < x && (64512 & (p = c.charCodeAt(m + 1))) == 56320 && (d = 65536 + (d - 55296 << 10) + (p - 56320), m++), y += d < 128 ? 1 : d < 2048 ? 2 : d < 65536 ? 3 : 4;
+            for (l = new e.Buf8(y), k = 0, m = 0; k < y; m++)
+              (64512 & (d = c.charCodeAt(m))) == 55296 && m + 1 < x && (64512 & (p = c.charCodeAt(m + 1))) == 56320 && (d = 65536 + (d - 55296 << 10) + (p - 56320), m++), d < 128 ? l[k++] = d : d < 2048 ? (l[k++] = 192 | d >>> 6, l[k++] = 128 | 63 & d) : d < 65536 ? (l[k++] = 224 | d >>> 12, l[k++] = 128 | d >>> 6 & 63, l[k++] = 128 | 63 & d) : (l[k++] = 240 | d >>> 18, l[k++] = 128 | d >>> 12 & 63, l[k++] = 128 | d >>> 6 & 63, l[k++] = 128 | 63 & d);
+            return l;
+          }, r.buf2binstring = function(c) {
+            return t(c, c.length);
+          }, r.binstring2buf = function(c) {
+            for (var l = new e.Buf8(c.length), d = 0, p = l.length; d < p; d++)
+              l[d] = c.charCodeAt(d);
+            return l;
+          }, r.buf2string = function(c, l) {
+            var d, p, m, k, x = l || c.length, y = new Array(2 * x);
+            for (p = 0, d = 0; d < x; )
+              if ((m = c[d++]) < 128)
+                y[p++] = m;
+              else if ((k = a[m]) > 4)
+                y[p++] = 65533, d += k - 1;
+              else {
+                for (m &= k === 2 ? 31 : k === 3 ? 15 : 7; k > 1 && d < x; )
+                  m = m << 6 | 63 & c[d++], k--;
+                k > 1 ? y[p++] = 65533 : m < 65536 ? y[p++] = m : (m -= 65536, y[p++] = 55296 | m >> 10 & 1023, y[p++] = 56320 | 1023 & m);
+              }
+            return t(y, p);
+          }, r.utf8border = function(c, l) {
+            var d;
+            for ((l = l || c.length) > c.length && (l = c.length), d = l - 1; d >= 0 && (192 & c[d]) == 128; )
+              d--;
+            return d < 0 || d === 0 ? l : d + a[c[d]] > l ? d : l;
+          };
+        },
+        { "./common": 1 }
+      ],
+      3: [
+        function(s, h, r) {
+          h.exports = function(t, e, n, i) {
+            for (var a = 65535 & t | 0, u = t >>> 16 & 65535 | 0, c = 0; n !== 0; ) {
+              n -= c = n > 2e3 ? 2e3 : n;
+              do
+                u = u + (a = a + e[i++] | 0) | 0;
+              while (--c);
+              a %= 65521, u %= 65521;
+            }
+            return a | u << 16 | 0;
+          };
+        },
+        {}
+      ],
+      4: [
+        function(s, h, r) {
+          var t = function() {
+            for (var e, n = [], i = 0; i < 256; i++) {
+              e = i;
+              for (var a = 0; a < 8; a++)
+                e = 1 & e ? 3988292384 ^ e >>> 1 : e >>> 1;
+              n[i] = e;
+            }
+            return n;
+          }();
+          h.exports = function(e, n, i, a) {
+            var u = t, c = a + i;
+            e ^= -1;
+            for (var l = a; l < c; l++)
+              e = e >>> 8 ^ u[255 & (e ^ n[l])];
+            return -1 ^ e;
+          };
+        },
+        {}
+      ],
+      5: [
+        function(s, h, r) {
+          function t(o, g) {
+            return o.msg = H[g], g;
+          }
+          function e(o) {
+            return (o << 1) - (o > 4 ? 9 : 0);
+          }
+          function n(o) {
+            for (var g = o.length; --g >= 0; )
+              o[g] = 0;
+          }
+          function i(o) {
+            var g = o.state, v = g.pending;
+            v > o.avail_out && (v = o.avail_out), v !== 0 && (B.arraySet(o.output, g.pending_buf, g.pending_out, v, o.next_out), o.next_out += v, g.pending_out += v, o.total_out += v, o.avail_out -= v, g.pending -= v, g.pending === 0 && (g.pending_out = 0));
+          }
+          function a(o, g) {
+            T._tr_flush_block(
+              o,
+              o.block_start >= 0 ? o.block_start : -1,
+              o.strstart - o.block_start,
+              g
+            ), o.block_start = o.strstart, i(o.strm);
+          }
+          function u(o, g) {
+            o.pending_buf[o.pending++] = g;
+          }
+          function c(o, g) {
+            o.pending_buf[o.pending++] = g >>> 8 & 255, o.pending_buf[o.pending++] = 255 & g;
+          }
+          function l(o, g, v, f) {
+            var b = o.avail_in;
+            return b > f && (b = f), b === 0 ? 0 : (o.avail_in -= b, B.arraySet(g, o.input, o.next_in, b, v), o.state.wrap === 1 ? o.adler = L(o.adler, g, b, v) : o.state.wrap === 2 && (o.adler = E(o.adler, g, b, v)), o.next_in += b, o.total_in += b, b);
+          }
+          function d(o, g) {
+            var v, f, b = o.max_chain_length, I = o.strstart, F = o.prev_length, R = o.nice_match, ne = o.strstart > o.w_size - re ? o.strstart - (o.w_size - re) : 0, X = o.window, ie = o.w_mask, de = o.prev, pe = o.strstart + ue, ge = X[I + F - 1], ye = X[I + F];
+            o.prev_length >= o.good_match && (b >>= 2), R > o.lookahead && (R = o.lookahead);
+            do
+              if (X[(v = g) + F] === ye && X[v + F - 1] === ge && X[v] === X[I] && X[++v] === X[I + 1]) {
+                I += 2, v++;
+                do
+                  ;
+                while (X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && X[++I] === X[++v] && I < pe);
+                if (f = ue - (pe - I), I = pe - ue, f > F) {
+                  if (o.match_start = g, F = f, f >= R)
+                    break;
+                  ge = X[I + F - 1], ye = X[I + F];
+                }
+              }
+            while ((g = de[g & ie]) > ne && --b != 0);
+            return F <= o.lookahead ? F : o.lookahead;
+          }
+          function p(o) {
+            var g, v, f, b, I, F = o.w_size;
+            do {
+              if (b = o.window_size - o.lookahead - o.strstart, o.strstart >= F + (F - re)) {
+                B.arraySet(o.window, o.window, F, F, 0), o.match_start -= F, o.strstart -= F, o.block_start -= F, g = v = o.hash_size;
+                do
+                  f = o.head[--g], o.head[g] = f >= F ? f - F : 0;
+                while (--v);
+                g = v = F;
+                do
+                  f = o.prev[--g], o.prev[g] = f >= F ? f - F : 0;
+                while (--v);
+                b += F;
+              }
+              if (o.strm.avail_in === 0)
+                break;
+              if (v = l(o.strm, o.window, o.strstart + o.lookahead, b), o.lookahead += v, o.lookahead + o.insert >= ee)
+                for (I = o.strstart - o.insert, o.ins_h = o.window[I], o.ins_h = (o.ins_h << o.hash_shift ^ o.window[I + 1]) & o.hash_mask; o.insert && (o.ins_h = (o.ins_h << o.hash_shift ^ o.window[I + ee - 1]) & o.hash_mask, o.prev[I & o.w_mask] = o.head[o.ins_h], o.head[o.ins_h] = I, I++, o.insert--, !(o.lookahead + o.insert < ee)); )
+                  ;
+            } while (o.lookahead < re && o.strm.avail_in !== 0);
+          }
+          function m(o, g) {
+            for (var v, f; ; ) {
+              if (o.lookahead < re) {
+                if (p(o), o.lookahead < re && g === S)
+                  return O;
+                if (o.lookahead === 0)
+                  break;
+              }
+              if (v = 0, o.lookahead >= ee && (o.ins_h = (o.ins_h << o.hash_shift ^ o.window[o.strstart + ee - 1]) & o.hash_mask, v = o.prev[o.strstart & o.w_mask] = o.head[o.ins_h], o.head[o.ins_h] = o.strstart), v !== 0 && o.strstart - v <= o.w_size - re && (o.match_length = d(o, v)), o.match_length >= ee)
+                if (f = T._tr_tally(o, o.strstart - o.match_start, o.match_length - ee), o.lookahead -= o.match_length, o.match_length <= o.max_lazy_match && o.lookahead >= ee) {
+                  o.match_length--;
+                  do
+                    o.strstart++, o.ins_h = (o.ins_h << o.hash_shift ^ o.window[o.strstart + ee - 1]) & o.hash_mask, v = o.prev[o.strstart & o.w_mask] = o.head[o.ins_h], o.head[o.ins_h] = o.strstart;
+                  while (--o.match_length != 0);
+                  o.strstart++;
+                } else
+                  o.strstart += o.match_length, o.match_length = 0, o.ins_h = o.window[o.strstart], o.ins_h = (o.ins_h << o.hash_shift ^ o.window[o.strstart + 1]) & o.hash_mask;
+              else
+                f = T._tr_tally(o, 0, o.window[o.strstart]), o.lookahead--, o.strstart++;
+              if (f && (a(o, !1), o.strm.avail_out === 0))
+                return O;
+            }
+            return o.insert = o.strstart < ee - 1 ? o.strstart : ee - 1, g === U ? (a(o, !0), o.strm.avail_out === 0 ? K : V) : o.last_lit && (a(o, !1), o.strm.avail_out === 0) ? O : w;
+          }
+          function k(o, g) {
+            for (var v, f, b; ; ) {
+              if (o.lookahead < re) {
+                if (p(o), o.lookahead < re && g === S)
+                  return O;
+                if (o.lookahead === 0)
+                  break;
+              }
+              if (v = 0, o.lookahead >= ee && (o.ins_h = (o.ins_h << o.hash_shift ^ o.window[o.strstart + ee - 1]) & o.hash_mask, v = o.prev[o.strstart & o.w_mask] = o.head[o.ins_h], o.head[o.ins_h] = o.strstart), o.prev_length = o.match_length, o.prev_match = o.match_start, o.match_length = ee - 1, v !== 0 && o.prev_length < o.max_lazy_match && o.strstart - v <= o.w_size - re && (o.match_length = d(o, v), o.match_length <= 5 && (o.strategy === oe || o.match_length === ee && o.strstart - o.match_start > 4096) && (o.match_length = ee - 1)), o.prev_length >= ee && o.match_length <= o.prev_length) {
+                b = o.strstart + o.lookahead - ee, f = T._tr_tally(o, o.strstart - 1 - o.prev_match, o.prev_length - ee), o.lookahead -= o.prev_length - 1, o.prev_length -= 2;
+                do
+                  ++o.strstart <= b && (o.ins_h = (o.ins_h << o.hash_shift ^ o.window[o.strstart + ee - 1]) & o.hash_mask, v = o.prev[o.strstart & o.w_mask] = o.head[o.ins_h], o.head[o.ins_h] = o.strstart);
+                while (--o.prev_length != 0);
+                if (o.match_available = 0, o.match_length = ee - 1, o.strstart++, f && (a(o, !1), o.strm.avail_out === 0))
+                  return O;
+              } else if (o.match_available) {
+                if ((f = T._tr_tally(o, 0, o.window[o.strstart - 1])) && a(o, !1), o.strstart++, o.lookahead--, o.strm.avail_out === 0)
+                  return O;
+              } else
+                o.match_available = 1, o.strstart++, o.lookahead--;
+            }
+            return o.match_available && (f = T._tr_tally(o, 0, o.window[o.strstart - 1]), o.match_available = 0), o.insert = o.strstart < ee - 1 ? o.strstart : ee - 1, g === U ? (a(o, !0), o.strm.avail_out === 0 ? K : V) : o.last_lit && (a(o, !1), o.strm.avail_out === 0) ? O : w;
+          }
+          function x(o, g) {
+            for (var v, f, b, I, F = o.window; ; ) {
+              if (o.lookahead <= ue) {
+                if (p(o), o.lookahead <= ue && g === S)
+                  return O;
+                if (o.lookahead === 0)
+                  break;
+              }
+              if (o.match_length = 0, o.lookahead >= ee && o.strstart > 0 && (b = o.strstart - 1, (f = F[b]) === F[++b] && f === F[++b] && f === F[++b])) {
+                I = o.strstart + ue;
+                do
+                  ;
+                while (f === F[++b] && f === F[++b] && f === F[++b] && f === F[++b] && f === F[++b] && f === F[++b] && f === F[++b] && f === F[++b] && b < I);
+                o.match_length = ue - (I - b), o.match_length > o.lookahead && (o.match_length = o.lookahead);
+              }
+              if (o.match_length >= ee ? (v = T._tr_tally(o, 1, o.match_length - ee), o.lookahead -= o.match_length, o.strstart += o.match_length, o.match_length = 0) : (v = T._tr_tally(o, 0, o.window[o.strstart]), o.lookahead--, o.strstart++), v && (a(o, !1), o.strm.avail_out === 0))
+                return O;
+            }
+            return o.insert = 0, g === U ? (a(o, !0), o.strm.avail_out === 0 ? K : V) : o.last_lit && (a(o, !1), o.strm.avail_out === 0) ? O : w;
+          }
+          function y(o, g) {
+            for (var v; ; ) {
+              if (o.lookahead === 0 && (p(o), o.lookahead === 0)) {
+                if (g === S)
+                  return O;
+                break;
+              }
+              if (o.match_length = 0, v = T._tr_tally(o, 0, o.window[o.strstart]), o.lookahead--, o.strstart++, v && (a(o, !1), o.strm.avail_out === 0))
+                return O;
+            }
+            return o.insert = 0, g === U ? (a(o, !0), o.strm.avail_out === 0 ? K : V) : o.last_lit && (a(o, !1), o.strm.avail_out === 0) ? O : w;
+          }
+          function C(o, g, v, f, b) {
+            this.good_length = o, this.max_lazy = g, this.nice_length = v, this.max_chain = f, this.func = b;
+          }
+          function A() {
+            this.strm = null, this.status = 0, this.pending_buf = null, this.pending_buf_size = 0, this.pending_out = 0, this.pending = 0, this.wrap = 0, this.gzhead = null, this.gzindex = 0, this.method = N, this.last_flush = -1, this.w_size = 0, this.w_bits = 0, this.w_mask = 0, this.window = null, this.window_size = 0, this.prev = null, this.head = null, this.ins_h = 0, this.hash_size = 0, this.hash_bits = 0, this.hash_mask = 0, this.hash_shift = 0, this.block_start = 0, this.match_length = 0, this.prev_match = 0, this.match_available = 0, this.strstart = 0, this.match_start = 0, this.lookahead = 0, this.prev_length = 0, this.max_chain_length = 0, this.max_lazy_match = 0, this.level = 0, this.strategy = 0, this.good_match = 0, this.nice_match = 0, this.dyn_ltree = new B.Buf16(2 * se), this.dyn_dtree = new B.Buf16(2 * (2 * te + 1)), this.bl_tree = new B.Buf16(2 * (2 * ae + 1)), n(this.dyn_ltree), n(this.dyn_dtree), n(this.bl_tree), this.l_desc = null, this.d_desc = null, this.bl_desc = null, this.bl_count = new B.Buf16(le + 1), this.heap = new B.Buf16(2 * Y + 1), n(this.heap), this.heap_len = 0, this.heap_max = 0, this.depth = new B.Buf16(2 * Y + 1), n(this.depth), this.l_buf = 0, this.lit_bufsize = 0, this.last_lit = 0, this.d_buf = 0, this.opt_len = 0, this.static_len = 0, this.matches = 0, this.insert = 0, this.bi_buf = 0, this.bi_valid = 0;
+          }
+          function P(o) {
+            var g;
+            return o && o.state ? (o.total_in = o.total_out = 0, o.data_type = fe, (g = o.state).pending = 0, g.pending_out = 0, g.wrap < 0 && (g.wrap = -g.wrap), g.status = g.wrap ? ce : _, o.adler = g.wrap === 2 ? 0 : 1, g.last_flush = S, T._tr_init(g), W) : t(o, J);
+          }
+          function D(o) {
+            var g = P(o);
+            return g === W && function(v) {
+              v.window_size = 2 * v.w_size, n(v.head), v.max_lazy_match = z[v.level].max_lazy, v.good_match = z[v.level].good_length, v.nice_match = z[v.level].nice_length, v.max_chain_length = z[v.level].max_chain, v.strstart = 0, v.block_start = 0, v.lookahead = 0, v.insert = 0, v.match_length = v.prev_length = ee - 1, v.match_available = 0, v.ins_h = 0;
+            }(o.state), g;
+          }
+          function j(o, g, v, f, b, I) {
+            if (!o)
+              return J;
+            var F = 1;
+            if (g === Q && (g = 6), f < 0 ? (F = 0, f = -f) : f > 15 && (F = 2, f -= 16), b < 1 || b > G || v !== N || f < 8 || f > 15 || g < 0 || g > 9 || I < 0 || I > q)
+              return t(o, J);
+            f === 8 && (f = 9);
+            var R = new A();
+            return o.state = R, R.strm = o, R.wrap = F, R.gzhead = null, R.w_bits = f, R.w_size = 1 << R.w_bits, R.w_mask = R.w_size - 1, R.hash_bits = b + 7, R.hash_size = 1 << R.hash_bits, R.hash_mask = R.hash_size - 1, R.hash_shift = ~~((R.hash_bits + ee - 1) / ee), R.window = new B.Buf8(2 * R.w_size), R.head = new B.Buf16(R.hash_size), R.prev = new B.Buf16(R.w_size), R.lit_bufsize = 1 << b + 6, R.pending_buf_size = 4 * R.lit_bufsize, R.pending_buf = new B.Buf8(R.pending_buf_size), R.d_buf = 1 * R.lit_bufsize, R.l_buf = 3 * R.lit_bufsize, R.level = g, R.strategy = I, R.method = v, D(o);
+          }
+          var z, B = s("../utils/common"), T = s("./trees"), L = s("./adler32"), E = s("./crc32"), H = s("./messages"), S = 0, U = 4, W = 0, J = -2, Q = -1, oe = 1, q = 4, fe = 2, N = 8, G = 9, Y = 286, te = 30, ae = 19, se = 2 * Y + 1, le = 15, ee = 3, ue = 258, re = ue + ee + 1, ce = 42, _ = 113, O = 1, w = 2, K = 3, V = 4;
+          z = [
+            new C(0, 0, 0, 0, function(o, g) {
+              var v = 65535;
+              for (v > o.pending_buf_size - 5 && (v = o.pending_buf_size - 5); ; ) {
+                if (o.lookahead <= 1) {
+                  if (p(o), o.lookahead === 0 && g === S)
+                    return O;
+                  if (o.lookahead === 0)
+                    break;
+                }
+                o.strstart += o.lookahead, o.lookahead = 0;
+                var f = o.block_start + v;
+                if ((o.strstart === 0 || o.strstart >= f) && (o.lookahead = o.strstart - f, o.strstart = f, a(o, !1), o.strm.avail_out === 0) || o.strstart - o.block_start >= o.w_size - re && (a(o, !1), o.strm.avail_out === 0))
+                  return O;
+              }
+              return o.insert = 0, g === U ? (a(o, !0), o.strm.avail_out === 0 ? K : V) : (o.strstart > o.block_start && (a(o, !1), o.strm.avail_out), O);
+            }),
+            new C(4, 4, 8, 4, m),
+            new C(4, 5, 16, 8, m),
+            new C(4, 6, 32, 32, m),
+            new C(4, 4, 16, 16, k),
+            new C(8, 16, 32, 32, k),
+            new C(8, 16, 128, 128, k),
+            new C(8, 32, 128, 256, k),
+            new C(32, 128, 258, 1024, k),
+            new C(32, 258, 258, 4096, k)
+          ], r.deflateInit = function(o, g) {
+            return j(o, g, N, 15, 8, 0);
+          }, r.deflateInit2 = j, r.deflateReset = D, r.deflateResetKeep = P, r.deflateSetHeader = function(o, g) {
+            return o && o.state ? o.state.wrap !== 2 ? J : (o.state.gzhead = g, W) : J;
+          }, r.deflate = function(o, g) {
+            var v, f, b, I;
+            if (!o || !o.state || g > 5 || g < 0)
+              return o ? t(o, J) : J;
+            if (f = o.state, !o.output || !o.input && o.avail_in !== 0 || f.status === 666 && g !== U)
+              return t(o, o.avail_out === 0 ? -5 : J);
+            if (f.strm = o, v = f.last_flush, f.last_flush = g, f.status === ce)
+              if (f.wrap === 2)
+                o.adler = 0, u(f, 31), u(f, 139), u(f, 8), f.gzhead ? (u(
+                  f,
+                  (f.gzhead.text ? 1 : 0) + (f.gzhead.hcrc ? 2 : 0) + (f.gzhead.extra ? 4 : 0) + (f.gzhead.name ? 8 : 0) + (f.gzhead.comment ? 16 : 0)
+                ), u(f, 255 & f.gzhead.time), u(f, f.gzhead.time >> 8 & 255), u(f, f.gzhead.time >> 16 & 255), u(f, f.gzhead.time >> 24 & 255), u(f, f.level === 9 ? 2 : f.strategy >= 2 || f.level < 2 ? 4 : 0), u(f, 255 & f.gzhead.os), f.gzhead.extra && f.gzhead.extra.length && (u(f, 255 & f.gzhead.extra.length), u(f, f.gzhead.extra.length >> 8 & 255)), f.gzhead.hcrc && (o.adler = E(o.adler, f.pending_buf, f.pending, 0)), f.gzindex = 0, f.status = 69) : (u(f, 0), u(f, 0), u(f, 0), u(f, 0), u(f, 0), u(f, f.level === 9 ? 2 : f.strategy >= 2 || f.level < 2 ? 4 : 0), u(f, 3), f.status = _);
+              else {
+                var F = N + (f.w_bits - 8 << 4) << 8;
+                F |= (f.strategy >= 2 || f.level < 2 ? 0 : f.level < 6 ? 1 : f.level === 6 ? 2 : 3) << 6, f.strstart !== 0 && (F |= 32), F += 31 - F % 31, f.status = _, c(f, F), f.strstart !== 0 && (c(f, o.adler >>> 16), c(f, 65535 & o.adler)), o.adler = 1;
+              }
+            if (f.status === 69)
+              if (f.gzhead.extra) {
+                for (b = f.pending; f.gzindex < (65535 & f.gzhead.extra.length) && (f.pending !== f.pending_buf_size || (f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), i(o), b = f.pending, f.pending !== f.pending_buf_size)); )
+                  u(f, 255 & f.gzhead.extra[f.gzindex]), f.gzindex++;
+                f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), f.gzindex === f.gzhead.extra.length && (f.gzindex = 0, f.status = 73);
+              } else
+                f.status = 73;
+            if (f.status === 73)
+              if (f.gzhead.name) {
+                b = f.pending;
+                do {
+                  if (f.pending === f.pending_buf_size && (f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), i(o), b = f.pending, f.pending === f.pending_buf_size)) {
+                    I = 1;
+                    break;
+                  }
+                  I = f.gzindex < f.gzhead.name.length ? 255 & f.gzhead.name.charCodeAt(f.gzindex++) : 0, u(f, I);
+                } while (I !== 0);
+                f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), I === 0 && (f.gzindex = 0, f.status = 91);
+              } else
+                f.status = 91;
+            if (f.status === 91)
+              if (f.gzhead.comment) {
+                b = f.pending;
+                do {
+                  if (f.pending === f.pending_buf_size && (f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), i(o), b = f.pending, f.pending === f.pending_buf_size)) {
+                    I = 1;
+                    break;
+                  }
+                  I = f.gzindex < f.gzhead.comment.length ? 255 & f.gzhead.comment.charCodeAt(f.gzindex++) : 0, u(f, I);
+                } while (I !== 0);
+                f.gzhead.hcrc && f.pending > b && (o.adler = E(o.adler, f.pending_buf, f.pending - b, b)), I === 0 && (f.status = 103);
+              } else
+                f.status = 103;
+            if (f.status === 103 && (f.gzhead.hcrc ? (f.pending + 2 > f.pending_buf_size && i(o), f.pending + 2 <= f.pending_buf_size && (u(f, 255 & o.adler), u(f, o.adler >> 8 & 255), o.adler = 0, f.status = _)) : f.status = _), f.pending !== 0) {
+              if (i(o), o.avail_out === 0)
+                return f.last_flush = -1, W;
+            } else if (o.avail_in === 0 && e(g) <= e(v) && g !== U)
+              return t(o, -5);
+            if (f.status === 666 && o.avail_in !== 0)
+              return t(o, -5);
+            if (o.avail_in !== 0 || f.lookahead !== 0 || g !== S && f.status !== 666) {
+              var R = f.strategy === 2 ? y(f, g) : f.strategy === 3 ? x(f, g) : z[f.level].func(f, g);
+              if (R !== K && R !== V || (f.status = 666), R === O || R === K)
+                return o.avail_out === 0 && (f.last_flush = -1), W;
+              if (R === w && (g === 1 ? T._tr_align(f) : g !== 5 && (T._tr_stored_block(f, 0, 0, !1), g === 3 && (n(f.head), f.lookahead === 0 && (f.strstart = 0, f.block_start = 0, f.insert = 0))), i(o), o.avail_out === 0))
+                return f.last_flush = -1, W;
+            }
+            return g !== U ? W : f.wrap <= 0 ? 1 : (f.wrap === 2 ? (u(f, 255 & o.adler), u(f, o.adler >> 8 & 255), u(f, o.adler >> 16 & 255), u(f, o.adler >> 24 & 255), u(f, 255 & o.total_in), u(f, o.total_in >> 8 & 255), u(f, o.total_in >> 16 & 255), u(f, o.total_in >> 24 & 255)) : (c(f, o.adler >>> 16), c(f, 65535 & o.adler)), i(o), f.wrap > 0 && (f.wrap = -f.wrap), f.pending !== 0 ? W : 1);
+          }, r.deflateEnd = function(o) {
+            var g;
+            return o && o.state ? (g = o.state.status) !== ce && g !== 69 && g !== 73 && g !== 91 && g !== 103 && g !== _ && g !== 666 ? t(o, J) : (o.state = null, g === _ ? t(o, -3) : W) : J;
+          }, r.deflateSetDictionary = function(o, g) {
+            var v, f, b, I, F, R, ne, X, ie = g.length;
+            if (!o || !o.state || (v = o.state, (I = v.wrap) === 2 || I === 1 && v.status !== ce || v.lookahead))
+              return J;
+            for (I === 1 && (o.adler = L(o.adler, g, ie, 0)), v.wrap = 0, ie >= v.w_size && (I === 0 && (n(v.head), v.strstart = 0, v.block_start = 0, v.insert = 0), X = new B.Buf8(v.w_size), B.arraySet(X, g, ie - v.w_size, v.w_size, 0), g = X, ie = v.w_size), F = o.avail_in, R = o.next_in, ne = o.input, o.avail_in = ie, o.next_in = 0, o.input = g, p(v); v.lookahead >= ee; ) {
+              f = v.strstart, b = v.lookahead - (ee - 1);
+              do
+                v.ins_h = (v.ins_h << v.hash_shift ^ v.window[f + ee - 1]) & v.hash_mask, v.prev[f & v.w_mask] = v.head[v.ins_h], v.head[v.ins_h] = f, f++;
+              while (--b);
+              v.strstart = f, v.lookahead = ee - 1, p(v);
+            }
+            return v.strstart += v.lookahead, v.block_start = v.strstart, v.insert = v.lookahead, v.lookahead = 0, v.match_length = v.prev_length = ee - 1, v.match_available = 0, o.next_in = R, o.input = ne, o.avail_in = F, v.wrap = I, W;
+          }, r.deflateInfo = "pako deflate (from Nodeca project)";
+        },
+        { "../utils/common": 1, "./adler32": 3, "./crc32": 4, "./messages": 6, "./trees": 7 }
+      ],
+      6: [
+        function(s, h, r) {
+          h.exports = {
+            2: "need dictionary",
+            1: "stream end",
+            0: "",
+            "-1": "file error",
+            "-2": "stream error",
+            "-3": "data error",
+            "-4": "insufficient memory",
+            "-5": "buffer error",
+            "-6": "incompatible version"
+          };
+        },
+        {}
+      ],
+      7: [
+        function(s, h, r) {
+          function t(o) {
+            for (var g = o.length; --g >= 0; )
+              o[g] = 0;
+          }
+          function e(o, g, v, f, b) {
+            this.static_tree = o, this.extra_bits = g, this.extra_base = v, this.elems = f, this.max_length = b, this.has_stree = o && o.length;
+          }
+          function n(o, g) {
+            this.dyn_tree = o, this.max_code = 0, this.stat_desc = g;
+          }
+          function i(o) {
+            return o < 256 ? ue[o] : ue[256 + (o >>> 7)];
+          }
+          function a(o, g) {
+            o.pending_buf[o.pending++] = 255 & g, o.pending_buf[o.pending++] = g >>> 8 & 255;
+          }
+          function u(o, g, v) {
+            o.bi_valid > Q - v ? (o.bi_buf |= g << o.bi_valid & 65535, a(o, o.bi_buf), o.bi_buf = g >> Q - o.bi_valid, o.bi_valid += v - Q) : (o.bi_buf |= g << o.bi_valid & 65535, o.bi_valid += v);
+          }
+          function c(o, g, v) {
+            u(o, v[2 * g], v[2 * g + 1]);
+          }
+          function l(o, g) {
+            var v = 0;
+            do
+              v |= 1 & o, o >>>= 1, v <<= 1;
+            while (--g > 0);
+            return v >>> 1;
+          }
+          function d(o, g, v) {
+            var f, b, I = new Array(J + 1), F = 0;
+            for (f = 1; f <= J; f++)
+              I[f] = F = F + v[f - 1] << 1;
+            for (b = 0; b <= g; b++) {
+              var R = o[2 * b + 1];
+              R !== 0 && (o[2 * b] = l(I[R]++, R));
+            }
+          }
+          function p(o) {
+            var g;
+            for (g = 0; g < H; g++)
+              o.dyn_ltree[2 * g] = 0;
+            for (g = 0; g < S; g++)
+              o.dyn_dtree[2 * g] = 0;
+            for (g = 0; g < U; g++)
+              o.bl_tree[2 * g] = 0;
+            o.dyn_ltree[2 * q] = 1, o.opt_len = o.static_len = 0, o.last_lit = o.matches = 0;
+          }
+          function m(o) {
+            o.bi_valid > 8 ? a(o, o.bi_buf) : o.bi_valid > 0 && (o.pending_buf[o.pending++] = o.bi_buf), o.bi_buf = 0, o.bi_valid = 0;
+          }
+          function k(o, g, v, f) {
+            var b = 2 * g, I = 2 * v;
+            return o[b] < o[I] || o[b] === o[I] && f[g] <= f[v];
+          }
+          function x(o, g, v) {
+            for (var f = o.heap[v], b = v << 1; b <= o.heap_len && (b < o.heap_len && k(g, o.heap[b + 1], o.heap[b], o.depth) && b++, !k(g, f, o.heap[b], o.depth)); )
+              o.heap[v] = o.heap[b], v = b, b <<= 1;
+            o.heap[v] = f;
+          }
+          function y(o, g, v) {
+            var f, b, I, F, R = 0;
+            if (o.last_lit !== 0)
+              do
+                f = o.pending_buf[o.d_buf + 2 * R] << 8 | o.pending_buf[o.d_buf + 2 * R + 1], b = o.pending_buf[o.l_buf + R], R++, f === 0 ? c(o, b, g) : (c(o, (I = re[b]) + E + 1, g), (F = Y[I]) !== 0 && u(o, b -= ce[I], F), c(o, I = i(--f), v), (F = te[I]) !== 0 && u(o, f -= _[I], F));
+              while (R < o.last_lit);
+            c(o, q, g);
+          }
+          function C(o, g) {
+            var v, f, b, I = g.dyn_tree, F = g.stat_desc.static_tree, R = g.stat_desc.has_stree, ne = g.stat_desc.elems, X = -1;
+            for (o.heap_len = 0, o.heap_max = W, v = 0; v < ne; v++)
+              I[2 * v] !== 0 ? (o.heap[++o.heap_len] = X = v, o.depth[v] = 0) : I[2 * v + 1] = 0;
+            for (; o.heap_len < 2; )
+              I[2 * (b = o.heap[++o.heap_len] = X < 2 ? ++X : 0)] = 1, o.depth[b] = 0, o.opt_len--, R && (o.static_len -= F[2 * b + 1]);
+            for (g.max_code = X, v = o.heap_len >> 1; v >= 1; v--)
+              x(o, I, v);
+            b = ne;
+            do
+              v = o.heap[1], o.heap[1] = o.heap[o.heap_len--], x(o, I, 1), f = o.heap[1], o.heap[--o.heap_max] = v, o.heap[--o.heap_max] = f, I[2 * b] = I[2 * v] + I[2 * f], o.depth[b] = (o.depth[v] >= o.depth[f] ? o.depth[v] : o.depth[f]) + 1, I[2 * v + 1] = I[2 * f + 1] = b, o.heap[1] = b++, x(o, I, 1);
+            while (o.heap_len >= 2);
+            o.heap[--o.heap_max] = o.heap[1], function(ie, de) {
+              var pe, ge, ye, he, be, we, me = de.dyn_tree, Ae = de.max_code, Ie = de.stat_desc.static_tree, Oe = de.stat_desc.has_stree, Pe = de.stat_desc.extra_bits, Te = de.stat_desc.extra_base, Ee = de.stat_desc.max_length, Se = 0;
+              for (he = 0; he <= J; he++)
+                ie.bl_count[he] = 0;
+              for (me[2 * ie.heap[ie.heap_max] + 1] = 0, pe = ie.heap_max + 1; pe < W; pe++)
+                (he = me[2 * me[2 * (ge = ie.heap[pe]) + 1] + 1] + 1) > Ee && (he = Ee, Se++), me[2 * ge + 1] = he, ge > Ae || (ie.bl_count[he]++, be = 0, ge >= Te && (be = Pe[ge - Te]), we = me[2 * ge], ie.opt_len += we * (he + be), Oe && (ie.static_len += we * (Ie[2 * ge + 1] + be)));
+              if (Se !== 0) {
+                do {
+                  for (he = Ee - 1; ie.bl_count[he] === 0; )
+                    he--;
+                  ie.bl_count[he]--, ie.bl_count[he + 1] += 2, ie.bl_count[Ee]--, Se -= 2;
+                } while (Se > 0);
+                for (he = Ee; he !== 0; he--)
+                  for (ge = ie.bl_count[he]; ge !== 0; )
+                    (ye = ie.heap[--pe]) > Ae || (me[2 * ye + 1] !== he && (ie.opt_len += (he - me[2 * ye + 1]) * me[2 * ye], me[2 * ye + 1] = he), ge--);
+              }
+            }(o, g), d(I, X, o.bl_count);
+          }
+          function A(o, g, v) {
+            var f, b, I = -1, F = g[1], R = 0, ne = 7, X = 4;
+            for (F === 0 && (ne = 138, X = 3), g[2 * (v + 1) + 1] = 65535, f = 0; f <= v; f++)
+              b = F, F = g[2 * (f + 1) + 1], ++R < ne && b === F || (R < X ? o.bl_tree[2 * b] += R : b !== 0 ? (b !== I && o.bl_tree[2 * b]++, o.bl_tree[2 * fe]++) : R <= 10 ? o.bl_tree[2 * N]++ : o.bl_tree[2 * G]++, R = 0, I = b, F === 0 ? (ne = 138, X = 3) : b === F ? (ne = 6, X = 3) : (ne = 7, X = 4));
+          }
+          function P(o, g, v) {
+            var f, b, I = -1, F = g[1], R = 0, ne = 7, X = 4;
+            for (F === 0 && (ne = 138, X = 3), f = 0; f <= v; f++)
+              if (b = F, F = g[2 * (f + 1) + 1], !(++R < ne && b === F)) {
+                if (R < X)
+                  do
+                    c(o, b, o.bl_tree);
+                  while (--R != 0);
+                else
+                  b !== 0 ? (b !== I && (c(o, b, o.bl_tree), R--), c(o, fe, o.bl_tree), u(o, R - 3, 2)) : R <= 10 ? (c(o, N, o.bl_tree), u(o, R - 3, 3)) : (c(o, G, o.bl_tree), u(o, R - 11, 7));
+                R = 0, I = b, F === 0 ? (ne = 138, X = 3) : b === F ? (ne = 6, X = 3) : (ne = 7, X = 4);
+              }
+          }
+          function D(o, g, v, f) {
+            u(o, (T << 1) + (f ? 1 : 0), 3), function(b, I, F, R) {
+              m(b), R && (a(b, F), a(b, ~F)), j.arraySet(b.pending_buf, b.window, I, F, b.pending), b.pending += F;
+            }(o, g, v, !0);
+          }
+          var j = s("../utils/common"), z = 0, B = 1, T = 0, L = 29, E = 256, H = E + 1 + L, S = 30, U = 19, W = 2 * H + 1, J = 15, Q = 16, oe = 7, q = 256, fe = 16, N = 17, G = 18, Y = [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+            3,
+            4,
+            4,
+            4,
+            4,
+            5,
+            5,
+            5,
+            5,
+            0
+          ], te = [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            2,
+            2,
+            3,
+            3,
+            4,
+            4,
+            5,
+            5,
+            6,
+            6,
+            7,
+            7,
+            8,
+            8,
+            9,
+            9,
+            10,
+            10,
+            11,
+            11,
+            12,
+            12,
+            13,
+            13
+          ], ae = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7], se = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15], le = new Array(2 * (H + 2));
+          t(le);
+          var ee = new Array(2 * S);
+          t(ee);
+          var ue = new Array(512);
+          t(ue);
+          var re = new Array(256);
+          t(re);
+          var ce = new Array(L);
+          t(ce);
+          var _ = new Array(S);
+          t(_);
+          var O, w, K, V = !1;
+          r._tr_init = function(o) {
+            V || (function() {
+              var g, v, f, b, I, F = new Array(J + 1);
+              for (f = 0, b = 0; b < L - 1; b++)
+                for (ce[b] = f, g = 0; g < 1 << Y[b]; g++)
+                  re[f++] = b;
+              for (re[f - 1] = b, I = 0, b = 0; b < 16; b++)
+                for (_[b] = I, g = 0; g < 1 << te[b]; g++)
+                  ue[I++] = b;
+              for (I >>= 7; b < S; b++)
+                for (_[b] = I << 7, g = 0; g < 1 << te[b] - 7; g++)
+                  ue[256 + I++] = b;
+              for (v = 0; v <= J; v++)
+                F[v] = 0;
+              for (g = 0; g <= 143; )
+                le[2 * g + 1] = 8, g++, F[8]++;
+              for (; g <= 255; )
+                le[2 * g + 1] = 9, g++, F[9]++;
+              for (; g <= 279; )
+                le[2 * g + 1] = 7, g++, F[7]++;
+              for (; g <= 287; )
+                le[2 * g + 1] = 8, g++, F[8]++;
+              for (d(le, H + 1, F), g = 0; g < S; g++)
+                ee[2 * g + 1] = 5, ee[2 * g] = l(g, 5);
+              O = new e(le, Y, E + 1, H, J), w = new e(ee, te, 0, S, J), K = new e(new Array(0), ae, 0, U, oe);
+            }(), V = !0), o.l_desc = new n(o.dyn_ltree, O), o.d_desc = new n(o.dyn_dtree, w), o.bl_desc = new n(o.bl_tree, K), o.bi_buf = 0, o.bi_valid = 0, p(o);
+          }, r._tr_stored_block = D, r._tr_flush_block = function(o, g, v, f) {
+            var b, I, F = 0;
+            o.level > 0 ? (o.strm.data_type === 2 && (o.strm.data_type = function(R) {
+              var ne, X = 4093624447;
+              for (ne = 0; ne <= 31; ne++, X >>>= 1)
+                if (1 & X && R.dyn_ltree[2 * ne] !== 0)
+                  return z;
+              if (R.dyn_ltree[18] !== 0 || R.dyn_ltree[20] !== 0 || R.dyn_ltree[26] !== 0)
+                return B;
+              for (ne = 32; ne < E; ne++)
+                if (R.dyn_ltree[2 * ne] !== 0)
+                  return B;
+              return z;
+            }(o)), C(o, o.l_desc), C(o, o.d_desc), F = function(R) {
+              var ne;
+              for (A(R, R.dyn_ltree, R.l_desc.max_code), A(R, R.dyn_dtree, R.d_desc.max_code), C(R, R.bl_desc), ne = U - 1; ne >= 3 && R.bl_tree[2 * se[ne] + 1] === 0; ne--)
+                ;
+              return R.opt_len += 3 * (ne + 1) + 5 + 5 + 4, ne;
+            }(o), b = o.opt_len + 3 + 7 >>> 3, (I = o.static_len + 3 + 7 >>> 3) <= b && (b = I)) : b = I = v + 5, v + 4 <= b && g !== -1 ? D(o, g, v, f) : o.strategy === 4 || I === b ? (u(o, 2 + (f ? 1 : 0), 3), y(o, le, ee)) : (u(o, 4 + (f ? 1 : 0), 3), function(R, ne, X, ie) {
+              var de;
+              for (u(R, ne - 257, 5), u(R, X - 1, 5), u(R, ie - 4, 4), de = 0; de < ie; de++)
+                u(R, R.bl_tree[2 * se[de] + 1], 3);
+              P(R, R.dyn_ltree, ne - 1), P(R, R.dyn_dtree, X - 1);
+            }(o, o.l_desc.max_code + 1, o.d_desc.max_code + 1, F + 1), y(o, o.dyn_ltree, o.dyn_dtree)), p(o), f && m(o);
+          }, r._tr_tally = function(o, g, v) {
+            return o.pending_buf[o.d_buf + 2 * o.last_lit] = g >>> 8 & 255, o.pending_buf[o.d_buf + 2 * o.last_lit + 1] = 255 & g, o.pending_buf[o.l_buf + o.last_lit] = 255 & v, o.last_lit++, g === 0 ? o.dyn_ltree[2 * v]++ : (o.matches++, g--, o.dyn_ltree[2 * (re[v] + E + 1)]++, o.dyn_dtree[2 * i(g)]++), o.last_lit === o.lit_bufsize - 1;
+          }, r._tr_align = function(o) {
+            u(o, 2, 3), c(o, q, le), function(g) {
+              g.bi_valid === 16 ? (a(g, g.bi_buf), g.bi_buf = 0, g.bi_valid = 0) : g.bi_valid >= 8 && (g.pending_buf[g.pending++] = 255 & g.bi_buf, g.bi_buf >>= 8, g.bi_valid -= 8);
+            }(o);
+          };
+        },
+        { "../utils/common": 1 }
+      ],
+      8: [
+        function(s, h, r) {
+          h.exports = function() {
+            this.input = null, this.next_in = 0, this.avail_in = 0, this.total_in = 0, this.output = null, this.next_out = 0, this.avail_out = 0, this.total_out = 0, this.msg = "", this.state = null, this.data_type = 2, this.adler = 0;
+          };
+        },
+        {}
+      ],
+      "/lib/deflate.js": [
+        function(s, h, r) {
+          function t(x) {
+            if (!(this instanceof t))
+              return new t(x);
+            this.options = i.assign(
+              {
+                level: p,
+                method: k,
+                chunkSize: 16384,
+                windowBits: 15,
+                memLevel: 8,
+                strategy: m,
+                to: ""
+              },
+              x || {}
+            );
+            var y = this.options;
+            y.raw && y.windowBits > 0 ? y.windowBits = -y.windowBits : y.gzip && y.windowBits > 0 && y.windowBits < 16 && (y.windowBits += 16), this.err = 0, this.msg = "", this.ended = !1, this.chunks = [], this.strm = new c(), this.strm.avail_out = 0;
+            var C = n.deflateInit2(
+              this.strm,
+              y.level,
+              y.method,
+              y.windowBits,
+              y.memLevel,
+              y.strategy
+            );
+            if (C !== d)
+              throw new Error(u[C]);
+            if (y.header && n.deflateSetHeader(this.strm, y.header), y.dictionary) {
+              var A;
+              if (A = typeof y.dictionary == "string" ? a.string2buf(y.dictionary) : l.call(y.dictionary) === "[object ArrayBuffer]" ? new Uint8Array(y.dictionary) : y.dictionary, (C = n.deflateSetDictionary(this.strm, A)) !== d)
+                throw new Error(u[C]);
+              this._dict_set = !0;
+            }
+          }
+          function e(x, y) {
+            var C = new t(y);
+            if (C.push(x, !0), C.err)
+              throw C.msg || u[C.err];
+            return C.result;
+          }
+          var n = s("./zlib/deflate"), i = s("./utils/common"), a = s("./utils/strings"), u = s("./zlib/messages"), c = s("./zlib/zstream"), l = Object.prototype.toString, d = 0, p = -1, m = 0, k = 8;
+          t.prototype.push = function(x, y) {
+            var C, A, P = this.strm, D = this.options.chunkSize;
+            if (this.ended)
+              return !1;
+            A = y === ~~y ? y : y === !0 ? 4 : 0, typeof x == "string" ? P.input = a.string2buf(x) : l.call(x) === "[object ArrayBuffer]" ? P.input = new Uint8Array(x) : P.input = x, P.next_in = 0, P.avail_in = P.input.length;
+            do {
+              if (P.avail_out === 0 && (P.output = new i.Buf8(D), P.next_out = 0, P.avail_out = D), (C = n.deflate(P, A)) !== 1 && C !== d)
+                return this.onEnd(C), this.ended = !0, !1;
+              P.avail_out !== 0 && (P.avail_in !== 0 || A !== 4 && A !== 2) || (this.options.to === "string" ? this.onData(a.buf2binstring(i.shrinkBuf(P.output, P.next_out))) : this.onData(i.shrinkBuf(P.output, P.next_out)));
+            } while ((P.avail_in > 0 || P.avail_out === 0) && C !== 1);
+            return A === 4 ? (C = n.deflateEnd(this.strm), this.onEnd(C), this.ended = !0, C === d) : A !== 2 || (this.onEnd(d), P.avail_out = 0, !0);
+          }, t.prototype.onData = function(x) {
+            this.chunks.push(x);
+          }, t.prototype.onEnd = function(x) {
+            x === d && (this.options.to === "string" ? this.result = this.chunks.join("") : this.result = i.flattenChunks(this.chunks)), this.chunks = [], this.err = x, this.msg = this.strm.msg;
+          }, r.Deflate = t, r.deflate = e, r.deflateRaw = function(x, y) {
+            return (y = y || {}).raw = !0, e(x, y);
+          }, r.gzip = function(x, y) {
+            return (y = y || {}).gzip = !0, e(x, y);
+          };
+        },
+        {
+          "./utils/common": 1,
+          "./utils/strings": 2,
+          "./zlib/deflate": 5,
+          "./zlib/messages": 6,
+          "./zlib/zstream": 8
+        }
+      ]
+    },
+    {},
+    []
+  )("/lib/deflate.js"), (M || (M = {})).evaluateModernizr = function() {
+    (function(s, h, r, t) {
+      function e(N, G) {
+        return typeof N === G;
+      }
+      function n() {
+        return typeof r.createElement != "function" ? r.createElement(arguments[0]) : j ? r.createElementNS.call(r, "http://www.w3.org/2000/svg", arguments[0]) : r.createElement.apply(r, arguments);
+      }
+      function i(N, G) {
+        return !!~("" + N).indexOf(G);
+      }
+      function a(N, G, Y, te) {
+        var ae, se, le, ee, ue = "modernizr", re = n("div"), ce = function() {
+          var _ = r.body;
+          return _ || ((_ = n(j ? "svg" : "body")).fake = !0), _;
+        }();
+        if (parseInt(Y, 10))
+          for (; Y--; )
+            (le = n("div")).id = te ? te[Y] : ue + (Y + 1), re.appendChild(le);
+        return (ae = n("style")).type = "text/css", ae.id = "s" + ue, (ce.fake ? ce : re).appendChild(ae), ce.appendChild(re), ae.styleSheet ? ae.styleSheet.cssText = N : ae.appendChild(r.createTextNode(N)), re.id = ue, ce.fake && (ce.style.background = "", ce.style.overflow = "hidden", ee = D.style.overflow, D.style.overflow = "hidden", D.appendChild(ce)), se = G(re, N), ce.fake ? (ce.parentNode.removeChild(ce), D.style.overflow = ee, D.offsetHeight) : re.parentNode.removeChild(re), !!se;
+      }
+      function u(N) {
+        return N.replace(/([A-Z])/g, function(G, Y) {
+          return "-" + Y.toLowerCase();
+        }).replace(/^ms-/, "-ms-");
+      }
+      function c(N, G, Y) {
+        var te;
+        if ("getComputedStyle" in h) {
+          te = getComputedStyle.call(h, N, G);
+          var ae = h.console;
+          te !== null ? Y && (te = te.getPropertyValue(Y)) : ae && ae[ae.error ? "error" : "log"].call(
+            ae,
+            "getComputedStyle returning null, its possible modernizr test results are inaccurate"
+          );
+        } else
+          te = !G && N.currentStyle && N.currentStyle[Y];
+        return te;
+      }
+      function l(N, G) {
+        var Y = N.length;
+        if ("CSS" in h && "supports" in h.CSS) {
+          for (; Y--; )
+            if (h.CSS.supports(u(N[Y]), G))
+              return !0;
+          return !1;
+        }
+        if ("CSSSupportsRule" in h) {
+          for (var te = []; Y--; )
+            te.push("(" + u(N[Y]) + ":" + G + ")");
+          return a(
+            "@supports (" + (te = te.join(" or ")) + ") { #modernizr { position: absolute; } }",
+            function(ae) {
+              return c(ae, null, "position") === "absolute";
+            }
+          );
+        }
+        return t;
+      }
+      function d(N) {
+        return N.replace(/([a-z])-([a-z])/g, function(G, Y, te) {
+          return Y + te.toUpperCase();
+        }).replace(/^-/, "");
+      }
+      function p(N, G, Y, te) {
+        function ae() {
+          le && (delete E.style, delete E.modElem);
+        }
+        if (te = !e(te, "undefined") && te, !e(Y, "undefined")) {
+          var se = l(N, Y);
+          if (!e(se, "undefined"))
+            return se;
+        }
+        for (var le, ee, ue, re, ce, _ = ["modernizr", "tspan", "samp"]; !E.style && _.length; )
+          le = !0, E.modElem = n(_.shift()), E.style = E.modElem.style;
+        for (ue = N.length, ee = 0; ee < ue; ee++)
+          if (re = N[ee], ce = E.style[re], i(re, "-") && (re = d(re)), E.style[re] !== t) {
+            if (te || e(Y, "undefined"))
+              return ae(), G !== "pfx" || re;
+            try {
+              E.style[re] = Y;
+            } catch {
+            }
+            if (E.style[re] !== ce)
+              return ae(), G !== "pfx" || re;
+          }
+        return ae(), !1;
+      }
+      function m(N, G) {
+        return function() {
+          return N.apply(G, arguments);
+        };
+      }
+      function k(N, G, Y, te, ae) {
+        var se = N.charAt(0).toUpperCase() + N.slice(1), le = (N + " " + T.join(se + " ") + se).split(" ");
+        return e(G, "string") || e(G, "undefined") ? p(le, G, te, ae) : function(ee, ue, re) {
+          var ce;
+          for (var _ in ee)
+            if (ee[_] in ue)
+              return re === !1 ? ee[_] : e(ce = ue[ee[_]], "function") ? m(ce, re || ue) : ce;
+          return !1;
+        }(le = (N + " " + H.join(se + " ") + se).split(" "), G, Y);
+      }
+      function x(N, G, Y) {
+        return k(N, t, t, G, Y);
+      }
+      var y = [], C = {
+        _version: "3.11.1",
+        _config: { classPrefix: "", enableClasses: !0, enableJSClass: !0, usePrefixes: !0 },
+        _q: [],
+        on: function(N, G) {
+          var Y = this;
+          setTimeout(function() {
+            G(Y[N]);
+          }, 0);
+        },
+        addTest: function(N, G, Y) {
+          y.push({ name: N, fn: G, options: Y });
+        },
+        addAsyncTest: function(N) {
+          y.push({ name: null, fn: N });
+        }
+      }, A = function() {
+      };
+      A.prototype = C, A = new A();
+      var P = [], D = r.documentElement, j = D.nodeName.toLowerCase() === "svg", z = function() {
+        var N = !("onblur" in D);
+        return function(G, Y) {
+          var te;
+          return !!G && (Y && typeof Y != "string" || (Y = n(Y || "div")), !(te = (G = "on" + G) in Y) && N && (Y.setAttribute || (Y = n("div")), Y.setAttribute(G, ""), te = typeof Y[G] == "function", Y[G] !== t && (Y[G] = t), Y.removeAttribute(G)), te);
+        };
+      }();
+      C.hasEvent = z, A.addTest("ambientlight", z("devicelight", h)), A.addTest("applicationcache", "applicationCache" in h), function() {
+        var N = n("audio");
+        A.addTest("audio", function() {
+          var G = !1;
+          try {
+            (G = !!N.canPlayType) && (G = new Boolean(G));
+          } catch {
+          }
+          return G;
+        });
+        try {
+          N.canPlayType && (A.addTest(
+            "audio.ogg",
+            N.canPlayType('audio/ogg; codecs="vorbis"').replace(/^no$/, "")
+          ), A.addTest(
+            "audio.mp3",
+            N.canPlayType('audio/mpeg; codecs="mp3"').replace(/^no$/, "")
+          ), A.addTest(
+            "audio.opus",
+            N.canPlayType('audio/ogg; codecs="opus"') || N.canPlayType('audio/webm; codecs="opus"').replace(/^no$/, "")
+          ), A.addTest("audio.wav", N.canPlayType('audio/wav; codecs="1"').replace(/^no$/, "")), A.addTest(
+            "audio.m4a",
+            (N.canPlayType("audio/x-m4a;") || N.canPlayType("audio/aac;")).replace(
+              /^no$/,
+              ""
+            )
+          ));
+        } catch {
+        }
+      }();
+      var B = "Moz O ms Webkit", T = C._config.usePrefixes ? B.split(" ") : [];
+      C._cssomPrefixes = T;
+      var L = { elem: n("modernizr") };
+      A._q.push(function() {
+        delete L.elem;
+      });
+      var E = { style: L.elem.style };
+      A._q.unshift(function() {
+        delete E.style;
+      });
+      var H = C._config.usePrefixes ? B.toLowerCase().split(" ") : [];
+      C._domPrefixes = H, C.testAllProps = k;
+      var S = function(N) {
+        var G, Y = Q.length, te = h.CSSRule;
+        if (te === void 0)
+          return t;
+        if (!N)
+          return !1;
+        if ((G = (N = N.replace(/^@/, "")).replace(/-/g, "_").toUpperCase() + "_RULE") in te)
+          return "@" + N;
+        for (var ae = 0; ae < Y; ae++) {
+          var se = Q[ae];
+          if (se.toUpperCase() + "_" + G in te)
+            return "@-" + se.toLowerCase() + "-" + N;
+        }
+        return !1;
+      };
+      C.atRule = S;
+      var U = C.prefixed = function(N, G, Y) {
+        return N.indexOf("@") === 0 ? S(N) : (N.indexOf("-") !== -1 && (N = d(N)), G ? k(N, G, Y) : k(N, "pfx"));
+      };
+      A.addTest("batteryapi", !!U("battery", navigator) || !!U("getBattery", navigator), {
+        aliases: ["battery-api"]
+      }), A.addTest(
+        "blobconstructor",
+        function() {
+          try {
+            return !!new Blob();
+          } catch {
+            return !1;
+          }
+        },
+        { aliases: ["blob-constructor"] }
+      ), A.addTest("contextmenu", "contextMenu" in D && "HTMLMenuItemElement" in h), A.addTest("cors", "XMLHttpRequest" in h && "withCredentials" in new XMLHttpRequest());
+      var W = U("crypto", h);
+      A.addTest("crypto", !!U("subtle", W)), A.addTest("customelements", "customElements" in h), A.addTest("customprotocolhandler", function() {
+        if (!navigator.registerProtocolHandler)
+          return !1;
+        try {
+          navigator.registerProtocolHandler("thisShouldFail");
+        } catch (N) {
+          return N instanceof TypeError;
+        }
+        return !1;
+      }), A.addTest("customevent", "CustomEvent" in h && typeof h.CustomEvent == "function"), A.addTest("dart", !!U("startDart", navigator)), A.addTest(
+        "dataview",
+        typeof DataView < "u" && "getFloat64" in DataView.prototype
+      ), A.addTest("eventlistener", "addEventListener" in h), A.addTest("forcetouch", function() {
+        return !!z(U("mouseforcewillbegin", h, !1), h) && MouseEvent.WEBKIT_FORCE_AT_MOUSE_DOWN && MouseEvent.WEBKIT_FORCE_AT_FORCE_MOUSE_DOWN;
+      }), A.addTest("fullscreen", !(!U("exitFullscreen", r, !1) && !U("cancelFullScreen", r, !1))), A.addTest("gamepads", !!U("getGamepads", navigator)), A.addTest("geolocation", "geolocation" in navigator), A.addTest("ie8compat", !h.addEventListener && !!r.documentMode && r.documentMode === 7), A.addTest("intl", !!U("Intl", h)), A.addTest("json", "JSON" in h && "parse" in JSON && "stringify" in JSON), C.testAllProps = x, A.addTest("ligatures", x("fontFeatureSettings", '"liga" 1')), A.addTest("messagechannel", "MessageChannel" in h), A.addTest("notification", function() {
+        if (!h.Notification || !h.Notification.requestPermission)
+          return !1;
+        if (h.Notification.permission === "granted")
+          return !0;
+        try {
+          new h.Notification("");
+        } catch (N) {
+          if (N.name === "TypeError")
+            return !1;
+        }
+        return !0;
+      }), A.addTest("pagevisibility", !!U("hidden", r, !1)), A.addTest("performance", !!U("performance", h));
+      var J = [""].concat(H);
+      C._domPrefixesAll = J, A.addTest("pointerevents", function() {
+        for (var N = 0, G = J.length; N < G; N++)
+          if (z(J[N] + "pointerdown"))
+            return !0;
+        return !1;
+      }), A.addTest("pointerlock", !!U("exitPointerLock", r)), A.addTest("queryselector", "querySelector" in r && "querySelectorAll" in r), A.addTest("quotamanagement", function() {
+        var N = U("temporaryStorage", navigator), G = U("persistentStorage", navigator);
+        return !(!N || !G);
+      }), A.addTest("requestanimationframe", !!U("requestAnimationFrame", h), { aliases: ["raf"] }), A.addTest("serviceworker", "serviceWorker" in navigator);
+      var Q = C._config.usePrefixes ? " -webkit- -moz- -o- -ms- ".split(" ") : ["", ""];
+      C._prefixes = Q;
+      var oe = function() {
+        var N = h.matchMedia || h.msMatchMedia;
+        return N ? function(G) {
+          var Y = N(G);
+          return Y && Y.matches || !1;
+        } : function(G) {
+          var Y = !1;
+          return a("@media " + G + " { #modernizr { position: absolute; } }", function(te) {
+            Y = c(te, null, "position") === "absolute";
+          }), Y;
+        };
+      }();
+      C.mq = oe, A.addTest("touchevents", function() {
+        if ("ontouchstart" in h || h.TouchEvent || h.DocumentTouch && r instanceof DocumentTouch)
+          return !0;
+        var N = ["(", Q.join("touch-enabled),("), "heartz", ")"].join("");
+        return oe(N);
+      }), A.addTest("typedarrays", "ArrayBuffer" in h), A.addTest("vibrate", !!U("vibrate", navigator)), function() {
+        var N = n("video");
+        A.addTest("video", function() {
+          var G = !1;
+          try {
+            (G = !!N.canPlayType) && (G = new Boolean(G));
+          } catch {
+          }
+          return G;
+        });
+        try {
+          N.canPlayType && (A.addTest(
+            "video.ogg",
+            N.canPlayType('video/ogg; codecs="theora"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.h264",
+            N.canPlayType('video/mp4; codecs="avc1.42E01E"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.h265",
+            N.canPlayType('video/mp4; codecs="hev1"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.webm",
+            N.canPlayType('video/webm; codecs="vp8, vorbis"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.vp9",
+            N.canPlayType('video/webm; codecs="vp9"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.hls",
+            N.canPlayType('application/x-mpegURL; codecs="avc1.42E01E"').replace(/^no$/, "")
+          ), A.addTest(
+            "video.av1",
+            N.canPlayType('video/mp4; codecs="av01"').replace(/^no$/, "")
+          ));
+        } catch {
+        }
+      }(), A.addTest("webgl", function() {
+        return "WebGLRenderingContext" in h;
+      });
+      var q = !1;
+      try {
+        q = "WebSocket" in h && h.WebSocket.CLOSING === 2;
+      } catch {
+      }
+      A.addTest("websockets", q), A.addTest("xdomainrequest", "XDomainRequest" in h), A.addTest("matchmedia", !!U("matchMedia", h)), function() {
+        var N, G, Y, te, ae, se;
+        for (var le in y)
+          if (y.hasOwnProperty(le)) {
+            if (N = [], (G = y[le]).name && (N.push(G.name.toLowerCase()), G.options && G.options.aliases && G.options.aliases.length))
+              for (Y = 0; Y < G.options.aliases.length; Y++)
+                N.push(G.options.aliases[Y].toLowerCase());
+            for (te = e(G.fn, "function") ? G.fn() : G.fn, ae = 0; ae < N.length; ae++)
+              (se = N[ae].split(".")).length === 1 ? A[se[0]] = te : (A[se[0]] && (!A[se[0]] || A[se[0]] instanceof Boolean) || (A[se[0]] = new Boolean(A[se[0]])), A[se[0]][se[1]] = te), P.push((te ? "" : "no-") + se.join("-"));
+          }
+      }(), delete C.addTest, delete C.addAsyncTest;
+      for (var fe = 0; fe < A._q.length; fe++)
+        A._q[fe]();
+      s.Modernizr = A;
+    })(M || (M = {}), window, document);
+  };
+  var Z = function(s, h, r, t) {
+    return new (r || (r = Promise))(function(e, n) {
+      function i(c) {
+        try {
+          u(t.next(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function a(c) {
+        try {
+          u(t.throw(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function u(c) {
+        var l;
+        c.done ? e(c.value) : (l = c.value, l instanceof r ? l : new r(function(d) {
+          d(l);
+        })).then(i, a);
+      }
+      u((t = t.apply(s, h || [])).next());
+    });
+  }, $ = function(s, h) {
+    var r, t, e, n, i = {
+      label: 0,
+      sent: function() {
+        if (1 & e[0])
+          throw e[1];
+        return e[1];
+      },
+      trys: [],
+      ops: []
+    };
+    return n = { next: a(0), throw: a(1), return: a(2) }, typeof Symbol == "function" && (n[Symbol.iterator] = function() {
+      return this;
+    }), n;
+    function a(u) {
+      return function(c) {
+        return function(l) {
+          if (r)
+            throw new TypeError("Generator is already executing.");
+          for (; i; )
+            try {
+              if (r = 1, t && (e = 2 & l[0] ? t.return : l[0] ? t.throw || ((e = t.return) && e.call(t), 0) : t.next) && !(e = e.call(t, l[1])).done)
+                return e;
+              switch (t = 0, e && (l = [2 & l[0], e.value]), l[0]) {
+                case 0:
+                case 1:
+                  e = l;
+                  break;
+                case 4:
+                  return i.label++, { value: l[1], done: !1 };
+                case 5:
+                  i.label++, t = l[1], l = [0];
+                  continue;
+                case 7:
+                  l = i.ops.pop(), i.trys.pop();
+                  continue;
+                default:
+                  if (!(e = (e = i.trys).length > 0 && e[e.length - 1]) && (l[0] === 6 || l[0] === 2)) {
+                    i = 0;
+                    continue;
+                  }
+                  if (l[0] === 3 && (!e || l[1] > e[0] && l[1] < e[3])) {
+                    i.label = l[1];
+                    break;
+                  }
+                  if (l[0] === 6 && i.label < e[1]) {
+                    i.label = e[1], e = l;
+                    break;
+                  }
+                  if (e && i.label < e[2]) {
+                    i.label = e[2], i.ops.push(l);
+                    break;
+                  }
+                  e[2] && i.ops.pop(), i.trys.pop();
+                  continue;
+              }
+              l = h.call(s, i);
+            } catch (d) {
+              l = [6, d], t = 0;
+            } finally {
+              r = e = 0;
+            }
+          if (5 & l[0])
+            throw l[1];
+          return { value: l[0] ? l[1] : void 0, done: !0 };
+        }([u, c]);
+      };
+    }
+  }, ve = function() {
+    return (ve = Object.assign || function(s) {
+      for (var h, r = 1, t = arguments.length; r < t; r++)
+        for (var e in h = arguments[r])
+          Object.prototype.hasOwnProperty.call(h, e) && (s[e] = h[e]);
+      return s;
+    }).apply(this, arguments);
+  };
+  ((function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+          this._isIphoneOrIPad = !1, (navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPod/i)) && (this._isIphoneOrIPad = !0), this.initUAParser();
+        }
+        return Object.defineProperty(t.prototype, "userAgentData", {
+          get: function() {
+            return this._userAgentData;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "deviceType", {
+          get: function() {
+            return this._deviceType || (h.Util.isMobile ? this._deviceType = this.mobileType || this.desktopType || t.UNKNOWN_DEVICE_TYPE : this._deviceType = this.desktopType || this.mobileType || t.UNKNOWN_DEVICE_TYPE), this._deviceType;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "isIphoneOrIPad", {
+          get: function() {
+            return this._isIphoneOrIPad;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "browserName", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.browser && this._userAgentData.browser.name ? this._userAgentData.browser.name.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "browserVersion", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.browser && this._userAgentData.browser.version ? this._userAgentData.browser.version.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "osName", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.os && this._userAgentData.os.name ? this._userAgentData.os.name.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "osVersion", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.os && this._userAgentData.os.version ? this._userAgentData.os.version.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "deviceCategory", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.device ? this._userAgentData.device.type : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "engineName", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.engine && this._userAgentData.engine.name ? this._userAgentData.engine.name.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "engineVersion", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.engine && this._userAgentData.engine.version ? this._userAgentData.engine.version.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "cpuArchitecture", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.cpu && this._userAgentData.cpu.architecture ? this._userAgentData.cpu.architecture.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "deviceModel", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.device && this._userAgentData.device.model ? this._userAgentData.device.model.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "deviceVendor", {
+          get: function() {
+            return this._userAgentData && this._userAgentData.device && this._userAgentData.device.vendor ? this._userAgentData.device.vendor.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "desktopType", {
+          get: function() {
+            var e = this.browserName;
+            this.browserVersion && (e = e + "(" + this.browserVersion + ")");
+            var n = this.osName;
+            this.osVersion && (n = n + "(" + this.osVersion + ")");
+            var i = e && n ? e + "-" + n : e || n;
+            return i ? i.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "mobileType", {
+          get: function() {
+            var e = this.deviceModel, n = this.deviceVendor, i = e && n ? e + " " + n : e || n;
+            return i ? i.trim() : "";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t.prototype.initUAParser = function() {
+          try {
+            var e = new s.UAParser();
+            e.setUA(navigator.userAgent), this._userAgentData = e.getResult();
+          } catch (n) {
+            h.Logger.warn("UAParser failure", n);
+          }
+        }, t.UNKNOWN_DEVICE_TYPE = "unknown", t;
+      }();
+      h.BrowserInfo = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }))(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return Object.defineProperty(t, "CLIENT_VERSION", {
+          get: function() {
+            return "5.3.5w";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "SALT", {
+          get: function() {
+            return "ST8irbd3bB";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "TAB_UUID_KEY", {
+          get: function() {
+            return "pos_tid";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "OPS_KEY", {
+          get: function() {
+            return "pos_ops";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "DEVICE_ID_KEY", {
+          get: function() {
+            return "SecuredTouchDeviceId";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "LAST_DEVICE_KEY_RESYNC", {
+          get: function() {
+            return "DeviceRefreshDate";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "CAPTURED_KEYBOARD_INTERACTIONS", {
+          get: function() {
+            return "pos_cki";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "CAPTURED_MOUSE_INTERACTIONS", {
+          get: function() {
+            return "pos_cmi";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "CAPTURED_GESTURES", {
+          get: function() {
+            return "pos_cg";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "CAPTURED_INDIRECT", {
+          get: function() {
+            return "pos_cie";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "CAPTURED_TAGS", {
+          get: function() {
+            return "pos_ct";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "KEYBOARD_INTERACTIONS_COUNT", {
+          get: function() {
+            return "pos_kic";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "MOUSE_INTERACTIONS_COUNT", {
+          get: function() {
+            return "pos_mic";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "GESTURES_COUNT", {
+          get: function() {
+            return "pos_gc";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "EVENT_COUNTERS", {
+          get: function() {
+            return "pos_ec";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t;
+      }();
+      h.Constants = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t(e, n, i) {
+          if (e === void 0 && (e = "RSA-PSS"), n === void 0 && (n = ["sign", "verify"]), i === void 0 && (i = "SHA-256"), this.signingKeyType = e, this.keyUsage = n, this.algorithm = i, this._crypto = window.crypto || window.msCrypto, !this._crypto || !this._crypto.subtle)
+            throw new Error("Cryptography API not supported in this browser");
+        }
+        return t.prototype.generateKeys = function() {
+          return Z(this, void 0, void 0, function() {
+            return $(this, function(e) {
+              return [
+                2,
+                this._crypto.subtle.generateKey(
+                  {
+                    name: this.signingKeyType,
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: { name: this.algorithm }
+                  },
+                  !1,
+                  this.keyUsage
+                )
+              ];
+            });
+          });
+        }, t.prototype.exportPublicKey = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a;
+            return $(this, function(u) {
+              switch (u.label) {
+                case 0:
+                  return [4, this._crypto.subtle.exportKey("spki", e.publicKey)];
+                case 1:
+                  return n = u.sent(), i = h.Util.ab2str(n), a = btoa(i), h.Logger.debug("Exported base64 pub key: ", a), [2, a];
+              }
+            });
+          });
+        }, t.prototype.exportPrivateKey = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a, u;
+            return $(this, function(c) {
+              switch (c.label) {
+                case 0:
+                  return [4, this._crypto.subtle.exportKey("pkcs8", e.privateKey)];
+                case 1:
+                  return n = c.sent(), i = h.Util.ab2str(n), a = btoa(i), u = `-----BEGIN PRIVATE KEY-----
+` + a + `
+-----END PRIVATE KEY-----`, h.Logger.debug("Exported base64 pem:", u), [2, u];
+              }
+            });
+          });
+        }, t.prototype.signChallenge = function(e, n, i) {
+          return i === void 0 && (i = 0), Z(this, void 0, void 0, function() {
+            var a, u, c;
+            return $(this, function(l) {
+              switch (l.label) {
+                case 0:
+                  return a = h.Util.string2buf(e), [
+                    4,
+                    this._crypto.subtle.sign(
+                      { name: this.signingKeyType, saltLength: i, hash: this.algorithm },
+                      n,
+                      a
+                    )
+                  ];
+                case 1:
+                  return u = l.sent(), c = btoa(String.fromCharCode.apply(null, new Uint8Array(u))), h.Logger.debug("Signed challenge: ", c), [2, c];
+              }
+            });
+          });
+        }, t;
+      }();
+      h.CryptoOperator = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return Object.defineProperty(t, "isLogEnabled", {
+          get: function() {
+            return this._isLogEnabled || window["enable-logs-pingOneSignals"];
+          },
+          set: function(e) {
+            this._isLogEnabled = e;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t.debug = function(e) {
+          for (var n = [], i = 1; i < arguments.length; i++)
+            n[i - 1] = arguments[i];
+          e = t.TAG + " " + e, t.isLogEnabled && (n && n.length > 0 ? console.debug ? console.debug(e, n) : console.log(e, n) : console.debug ? console.debug(e) : console.log(e));
+        }, t.error = function(e) {
+          for (var n = [], i = 1; i < arguments.length; i++)
+            n[i - 1] = arguments[i];
+          e = t.TAG + " " + e, t.isLogEnabled && (n && n.length > 0 ? console.error(e, n) : console.error(e));
+        }, t.warn = function(e) {
+          for (var n = [], i = 1; i < arguments.length; i++)
+            n[i - 1] = arguments[i];
+          e = t.TAG + " " + e, t.isLogEnabled && (n && n.length > 0 ? console.warn(e, n) : console.warn(e));
+        }, t.info = function(e) {
+          for (var n = [], i = 1; i < arguments.length; i++)
+            n[i - 1] = arguments[i];
+          e = t.TAG + " " + e, t.isLogEnabled && (n && n.length > 0 ? console.info(e, n) : console.info(e));
+        }, t.TAG = "[SignalsSDK]", t;
+      }();
+      h.Logger = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return Object.defineProperty(t, "INITIALIZATION_ERROR", {
+          get: function() {
+            return "INITIALIZATION_ERROR";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t, "UNEXPECTED_ERROR", {
+          get: function() {
+            return "UNEXPECTED_ERROR";
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t;
+      }();
+      h.POErrorCodes = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return Object.defineProperty(t, "isMobile", {
+          get: function() {
+            var e, n = !1;
+            return e = navigator.userAgent || navigator.vendor || window.opera, (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(
+              e
+            ) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(
+              e.substr(0, 4)
+            )) && (n = !0), n;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t.newGuid = function() {
+          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(e) {
+            var n = 16 * Math.random() | 0;
+            return (e === "x" ? n : 3 & n | 8).toString(16);
+          });
+        }, t.ieFix = function() {
+          (navigator.userAgent.indexOf("MSIE") != -1 ? /MSIE (\d+\.\d+);/ : /Trident.*rv[ :]*(\d+\.\d+)/).test(navigator.userAgent) && (document.body.setAttribute("style", "-ms-touch-action:none;"), document.body.style.touchAction = "none", document.body.style.msTouchAction = "none");
+        }, t.now = function() {
+          var e = window.performance || {};
+          return e.now = e.now || e.webkitNow || e.msNow || e.oNow || e.mozNow || function() {
+            return (/* @__PURE__ */ new Date()).getTime();
+          }, e.now();
+        }, t.base64Uint8Array = function(e) {
+          var n, i = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", a = e.length, u = "";
+          for (n = 0; n < a; n += 3)
+            u += i[e[n] >> 2], u += i[(3 & e[n]) << 4 | e[n + 1] >> 4], u += i[(15 & e[n + 1]) << 2 | e[n + 2] >> 6], u += i[63 & e[n + 2]];
+          return a % 3 == 2 ? u = u.substring(0, u.length - 1) + "=" : a % 3 == 1 && (u = u.substring(0, u.length - 2) + "=="), u;
+        }, t.string2buf = function(e) {
+          if (typeof TextEncoder == "function" && TextEncoder.prototype.encode)
+            return new TextEncoder().encode(e);
+          var n, i, a, u, c, l = e.length, d = 0;
+          for (u = 0; u < l; u++)
+            (64512 & (i = e.charCodeAt(u))) == 55296 && u + 1 < l && (64512 & (a = e.charCodeAt(u + 1))) == 56320 && (i = 65536 + (i - 55296 << 10) + (a - 56320), u++), d += i < 128 ? 1 : i < 2048 ? 2 : i < 65536 ? 3 : 4;
+          for (n = new Uint8Array(d), c = 0, u = 0; c < d; u++)
+            (64512 & (i = e.charCodeAt(u))) == 55296 && u + 1 < l && (64512 & (a = e.charCodeAt(u + 1))) == 56320 && (i = 65536 + (i - 55296 << 10) + (a - 56320), u++), i < 128 ? n[c++] = i : i < 2048 ? (n[c++] = 192 | i >>> 6, n[c++] = 128 | 63 & i) : i < 65536 ? (n[c++] = 224 | i >>> 12, n[c++] = 128 | i >>> 6 & 63, n[c++] = 128 | 63 & i) : (n[c++] = 240 | i >>> 18, n[c++] = 128 | i >>> 12 & 63, n[c++] = 128 | i >>> 6 & 63, n[c++] = 128 | 63 & i);
+          return n;
+        }, t.utf8Encode = function(e) {
+          e = e.replace(/\r\n/g, `
+`);
+          for (var n = "", i = 0; i < e.length; i++) {
+            var a = e.charCodeAt(i);
+            a < 128 ? n += String.fromCharCode(a) : a > 127 && a < 2048 ? (n += String.fromCharCode(a >> 6 | 192), n += String.fromCharCode(63 & a | 128)) : (n += String.fromCharCode(a >> 12 | 224), n += String.fromCharCode(a >> 6 & 63 | 128), n += String.fromCharCode(63 & a | 128));
+          }
+          return n;
+        }, t.hash = function(e) {
+          var n = t.hashCache.get(e);
+          return n || (n = s.sha256(e + h.Constants.SALT), t.hashCache.set(e, n)), n;
+        }, t.hashMini = function(e) {
+          var n, i, a = "" + JSON.stringify(e), u = 2166136261;
+          for (n = 0, i = a.length; n < i; n++)
+            u = Math.imul(31, u) + a.charCodeAt(n) | 0;
+          return ("0000000" + (u >>> 0).toString(16)).substr(-8);
+        }, t.hashCode = function(e) {
+          var n = 0, i = e ? e.length : 0, a = 0;
+          if (i > 0)
+            for (; a < i; )
+              n = (n << 5) - n + e.charCodeAt(a++) | 0;
+          return n;
+        }, t.mod = function(e, n) {
+          return (t.hashCode(e) % n + n) % n;
+        }, t.isEmail = function(e) {
+          try {
+            return e && /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(
+              e.toLowerCase()
+            );
+          } catch (n) {
+            return h.Logger.warn("isEmail function failed to parse string", n), !1;
+          }
+        }, t.getEmailDomain = function(e) {
+          return t.isEmail(e) ? e.substring(e.lastIndexOf("@") + 1) : "";
+        }, t.extendPrimitiveValues = function(e, n, i) {
+          for (var a = t.allKeys(n), u = 0; u < a.length; )
+            t.isObject(n[a[u]]) || i && (!i || e[a[u]] !== void 0) || (e[a[u]] = n[a[u]]), u++;
+          return e;
+        }, t.flatten = function(e) {
+          var n = {};
+          return t.dive("", e, n), n;
+        }, t.isFunction = function(e) {
+          return e && typeof e == "function";
+        }, t.isPassiveSupported = function() {
+          var e = !1, n = function() {
+          };
+          try {
+            var i = {
+              get passive() {
+                return e = !0, !0;
+              }
+            };
+            window.addEventListener("test", n, i), window.removeEventListener("test", n, !1);
+          } catch {
+            e = !1;
+          }
+          return e;
+        }, t.getAttribute = function(e, n) {
+          try {
+            if (e && typeof e.getAttribute == "function")
+              return e.getAttribute(n) || "";
+          } catch {
+          }
+          return "";
+        }, t.createInvisibleElement = function(e) {
+          try {
+            var n = document.createElement(e);
+            return n.style.display = "none", n.style.border = "none", n.style.position = "absolute", n.style.top = "-999px", n.style.left = "-999px", n.style.width = "0", n.style.height = "0", n.style.visibility = "hidden", n;
+          } catch (i) {
+            return h.Logger.warn("Failed to create element", i), null;
+          }
+        }, t.values = function(e) {
+          for (var n = t.allKeys(e), i = n.length, a = Array(i), u = 0; u < i; u++)
+            a[u] = e[n[u]];
+          return a;
+        }, t.getValuesOfMap = function(e) {
+          if (this.isFunction(e.values))
+            return Array.from(e.values());
+          var n = [];
+          return e.forEach(function(i) {
+            return n.push(i);
+          }), n;
+        }, t.typesCounter = function(e) {
+          for (var n = {}, i = 0, a = e; i < a.length; i++) {
+            var u = a[i];
+            n[u.type] = (n[u.type] || 0) + 1;
+          }
+          return n;
+        }, t.modifiersKeys = function(e) {
+          var n = [];
+          return e.getModifierState && [
+            "Alt",
+            "AltGraph",
+            "CapsLock",
+            "Control",
+            "Fn",
+            "FnLock",
+            "Hyper",
+            "Meta",
+            "NumLock",
+            "OS",
+            "ScrollLock",
+            "Shift",
+            "Super",
+            "Symbol",
+            "SymbolLock"
+          ].forEach(function(i) {
+            e.getModifierState(i.toString()) && n.push(i);
+          }), n;
+        }, t.getElementText = function(e) {
+          var n, i;
+          return e instanceof HTMLInputElement ? ["checkbox", "radio"].indexOf(e.type) >= 0 ? "" + e.checked : e.value : e instanceof HTMLSelectElement ? (i = (n = e.selectedOptions) === null || n === void 0 ? void 0 : n[0]) === null || i === void 0 ? void 0 : i.innerText : e.innerText;
+        }, t.getSrcElement = function(e) {
+          return e.srcElement || e.target;
+        }, t.getObjectType = function(e) {
+          try {
+            var n = /function (.{1,})\(/.exec(e.constructor.toString());
+            return n && n.length > 1 ? n[1] : "";
+          } catch {
+            return "";
+          }
+        }, t.isSelectorMatches = function(e, n, i) {
+          try {
+            var a = Element.prototype, u = a.matches || a.webkitMatchesSelector || a.mozMatchesSelector || a.msMatchesSelector, c = 0;
+            do {
+              if (u.call(e, n))
+                return e;
+              e = e.parentElement || e.parentNode;
+            } while (e !== null && e.nodeType === 1 && c++ < i);
+            return null;
+          } catch {
+            return null;
+          }
+        }, t.anySelectorMatches = function(e, n, i) {
+          try {
+            for (var a = 0, u = n; a < u.length; a++) {
+              var c = u[a];
+              if (this.isSelectorMatches(e, c, i))
+                return !0;
+            }
+          } catch (l) {
+            h.Logger.warn(l);
+          }
+          return !1;
+        }, t.isArray = function(e) {
+          return Array.isArray ? Array.isArray(e) : Object.prototype.toString.call(e) === "[object Array]";
+        }, t.safeJsonParse = function(e) {
+          var n = null;
+          try {
+            e && (n = JSON.parse(e));
+          } catch (i) {
+            h.Logger.warn("Failed to parse object " + i), n = null;
+          }
+          return n;
+        }, t.getElementSelectionStart = function(e) {
+          var n;
+          try {
+            n = e.selectionStart;
+          } catch {
+            n = "";
+          }
+          return n;
+        }, t.getElementSelectionEnd = function(e) {
+          var n;
+          try {
+            n = e.selectionEnd;
+          } catch {
+            n = "";
+          }
+          return n;
+        }, t.isClickableInput = function(e) {
+          return e && [
+            "button",
+            "checkbox",
+            "color",
+            "radio",
+            "range",
+            "image",
+            "submit",
+            "file",
+            "reset"
+          ].indexOf(e.type) >= 0;
+        }, t.isTextInput = function(e) {
+          return e && [
+            "date",
+            "datetime-local",
+            "email",
+            "month",
+            "number",
+            "password",
+            "search",
+            "tel",
+            "text",
+            "time",
+            "url",
+            "week",
+            "datetime"
+          ].indexOf(e.type) >= 0;
+        }, t.getDeviceOrientation = function() {
+          var e = screen.orientation || screen.mozOrientation || {}, n = screen.msOrientation || e.type, i = e.angle;
+          return {
+            orientation: n == null ? void 0 : n.toString(),
+            angle: i == null ? void 0 : i.toString()
+          };
+        }, t.getDevToolsState = function() {
+          var e, n, i = window.outerWidth - window.innerWidth > 160, a = window.outerHeight - window.innerHeight > 160, u = i ? "vertical" : "horizontal";
+          return a && i || !(!((n = (e = window.Firebug) === null || e === void 0 ? void 0 : e.chrome) === null || n === void 0) && n.isInitialized || i || a) ? { open: !1, orientation: void 0 } : { open: !0, orientation: u };
+        }, t.getCookie = function(e) {
+          var n = document.cookie.match("(^|;) ?" + e + "=([^;]*)(;|$)");
+          return n ? n[2] : null;
+        }, t.setCookie = function(e, n, i) {
+          var a = /* @__PURE__ */ new Date();
+          a.setTime(a.getTime() + 1e3 * i), document.cookie = e + "=" + n + ";path=/;secure;SameSite=None;expires=" + a.toUTCString();
+        }, t.deleteCookie = function(e) {
+          t.setCookie(e, "", -1);
+        }, t.delay = function(e) {
+          return new Promise(function(n) {
+            return setTimeout(n, e);
+          });
+        }, t.getHostnameFromRegex = function(e) {
+          if (e) {
+            var n = e.match(/^https?\:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+            return n && n[1];
+          }
+          return null;
+        }, t.inIframe = function() {
+          try {
+            return window.self !== window.top;
+          } catch {
+            return !0;
+          }
+        }, t.promiseTimeout = function(e, n) {
+          var i = new Promise(function(a, u) {
+            var c = setTimeout(function() {
+              clearTimeout(c), u(new Error("Timed out in " + e + "ms."));
+            }, e);
+          });
+          return Promise.race([n, i]);
+        }, t.getProperty = function(e, n) {
+          return n.split(".").reduce(function(i, a) {
+            return i ? i[a] : null;
+          }, e);
+        }, t.filterReduce = function(e, n) {
+          return Object.keys(e).filter(function(i) {
+            return n(e[i]);
+          }).reduce(function(i, a) {
+            var u;
+            return ve(ve({}, i), ((u = {})[a] = e[a], u));
+          }, {});
+        }, t.dive = function(e, n, i) {
+          for (var a in n)
+            if (n.hasOwnProperty(a)) {
+              var u = a, c = n[a];
+              e.length > 0 && (u = e + "." + a), t.isObject(c) ? t.dive(u, c, i) : i[u] = c;
+            }
+        }, t.isObject = function(e) {
+          var n = typeof e;
+          return n === "function" || n === "object" && !!e;
+        }, t.allKeys = function(e) {
+          if (!t.isObject(e))
+            return [];
+          var n = [];
+          for (var i in e)
+            n.push(i);
+          return n;
+        }, t.encryptionString = function(e, n) {
+          for (var i = [], a = 0; a < e.length; a++) {
+            var u = e.charCodeAt(a) ^ n.charCodeAt(a % n.length);
+            i.push(String.fromCharCode(u));
+          }
+          return i.join("");
+        }, t.encryptionBytes = function(e, n) {
+          for (var i = new Uint8Array(e.length), a = 0; a < e.length; a++)
+            i[a] = e[a] ^ n.charCodeAt(a % n.length);
+          return i;
+        }, t.parseJwt = function(e) {
+          var n = e.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"), i = decodeURIComponent(
+            window.atob(n).split("").map(function(a) {
+              return "%" + ("00" + a.charCodeAt(0).toString(16)).slice(-2);
+            }).join("")
+          );
+          return JSON.parse(i);
+        }, t.calculateMeanTimeDeltasBetweenEvents = function(e) {
+          var n = 0;
+          if ((e == null ? void 0 : e.length) > 1) {
+            for (var i = e[0].epochTs, a = 1; a < e.length; a++)
+              n += e[a].epochTs - i, i = e[a].epochTs;
+            n /= e.length - 1;
+          }
+          return n;
+        }, t.sortEventsByTimestamp = function(e) {
+          return e.sort(function(n, i) {
+            return n.eventTs > i.eventTs ? 1 : n.eventTs < i.eventTs ? -1 : n.epochTs > i.epochTs ? 1 : n.epochTs < i.epochTs ? -1 : n.type === "click" ? 1 : -1;
+          });
+        }, t.distanceBetweenPoints = function(e, n) {
+          return Math.sqrt(Math.pow(e.getX() - n.getX(), 2) + Math.pow(e.getY() - n.getY(), 2));
+        }, t.calculateMeanDistanceBetweenPoints = function(e) {
+          var n = 0;
+          if ((e == null ? void 0 : e.length) > 1) {
+            for (var i = 1; i < e.length; i++)
+              n += t.distanceBetweenPoints(e[i - 1], e[i]);
+            n /= e.length - 1;
+          }
+          return n;
+        }, t.filterArrayByLength = function(e, n) {
+          return e.length <= n ? e : e.slice(0, n).concat(e[e.length - 1]);
+        }, t.keepFirstEventsWithDistance = function(e) {
+          var n = e.events, i = e.threshold, a = e.min, u = e.max;
+          if (n.length <= a)
+            return n;
+          var c, l = n[0];
+          for (c = 1; c < n.length && c < u && !(Math.max(Math.abs(n[c].getX() - l.getX()), Math.abs(n[c].getY() - l.getY())) >= i); c++)
+            ;
+          return n.slice(0, Math.max(c + 1, a));
+        }, t.ab2str = function(e) {
+          return String.fromCharCode.apply(null, new Uint8Array(e));
+        }, t.str2ab = function(e) {
+          for (var n = new ArrayBuffer(e.length), i = new Uint8Array(n), a = 0, u = e.length; a < u; a++)
+            i[a] = e.charCodeAt(a);
+          return n;
+        }, t.hashCache = /* @__PURE__ */ new Map(), t.keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=", t;
+      }();
+      h.Util = r;
+    })(s._POSignalsUtils || (s._POSignalsUtils = {}));
+  }(M || (M = {})), Z = function(s, h, r, t) {
+    return new (r || (r = Promise))(function(e, n) {
+      function i(c) {
+        try {
+          u(t.next(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function a(c) {
+        try {
+          u(t.throw(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function u(c) {
+        var l;
+        c.done ? e(c.value) : (l = c.value, l instanceof r ? l : new r(function(d) {
+          d(l);
+        })).then(i, a);
+      }
+      u((t = t.apply(s, h || [])).next());
+    });
+  }, $ = function(s, h) {
+    var r, t, e, n, i = {
+      label: 0,
+      sent: function() {
+        if (1 & e[0])
+          throw e[1];
+        return e[1];
+      },
+      trys: [],
+      ops: []
+    };
+    return n = { next: a(0), throw: a(1), return: a(2) }, typeof Symbol == "function" && (n[Symbol.iterator] = function() {
+      return this;
+    }), n;
+    function a(u) {
+      return function(c) {
+        return function(l) {
+          if (r)
+            throw new TypeError("Generator is already executing.");
+          for (; i; )
+            try {
+              if (r = 1, t && (e = 2 & l[0] ? t.return : l[0] ? t.throw || ((e = t.return) && e.call(t), 0) : t.next) && !(e = e.call(t, l[1])).done)
+                return e;
+              switch (t = 0, e && (l = [2 & l[0], e.value]), l[0]) {
+                case 0:
+                case 1:
+                  e = l;
+                  break;
+                case 4:
+                  return i.label++, { value: l[1], done: !1 };
+                case 5:
+                  i.label++, t = l[1], l = [0];
+                  continue;
+                case 7:
+                  l = i.ops.pop(), i.trys.pop();
+                  continue;
+                default:
+                  if (!(e = (e = i.trys).length > 0 && e[e.length - 1]) && (l[0] === 6 || l[0] === 2)) {
+                    i = 0;
+                    continue;
+                  }
+                  if (l[0] === 3 && (!e || l[1] > e[0] && l[1] < e[3])) {
+                    i.label = l[1];
+                    break;
+                  }
+                  if (l[0] === 6 && i.label < e[1]) {
+                    i.label = e[1], e = l;
+                    break;
+                  }
+                  if (e && i.label < e[2]) {
+                    i.label = e[2], i.ops.push(l);
+                    break;
+                  }
+                  e[2] && i.ops.pop(), i.trys.pop();
+                  continue;
+              }
+              l = h.call(s, i);
+            } catch (d) {
+              l = [6, d], t = 0;
+            } finally {
+              r = e = 0;
+            }
+          if (5 & l[0])
+            throw l[1];
+          return { value: l[0] ? l[1] : void 0, done: !0 };
+        }([u, c]);
+      };
+    }
+  }, function(s) {
+    var h = s.openDB;
+    (function(r) {
+      var t = function() {
+        function e() {
+        }
+        return e.initDB = function() {
+          return Z(this, void 0, void 0, function() {
+            var n, i = this;
+            return $(this, function(a) {
+              if (!(window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB))
+                throw new Error("IndexedDB is not supported");
+              return n = new e(), [
+                2,
+                new Promise(function(u) {
+                  return Z(i, void 0, void 0, function() {
+                    var c;
+                    return $(this, function(l) {
+                      switch (l.label) {
+                        case 0:
+                          return c = n, [
+                            4,
+                            h(this._PingDBName, e._version, {
+                              upgrade: function(d, p, m, k, x) {
+                                d.createObjectStore(e._storeDefaultName);
+                              }
+                            })
+                          ];
+                        case 1:
+                          return c.indexedDatabase = l.sent(), u(n), [2];
+                      }
+                    });
+                  });
+                })
+              ];
+            });
+          });
+        }, e.prototype.close = function() {
+          this.indexedDatabase.close();
+        }, e.prototype.getValue = function(n) {
+          return this.indexedDatabase.get(e._storeDefaultName, n);
+        }, e.prototype.setValue = function(n, i) {
+          return this.indexedDatabase.put(e._storeDefaultName, i, n);
+        }, e._PingDBName = "Ping", e._version = 1, e._storeDefaultName = "PING_ONE", e;
+      }();
+      r.IndexedDBStorage = t;
+    })(s._POSignalsStorage || (s._POSignalsStorage = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function e(n, i) {
+          this.crossStorageClient = new s.CrossStorageClient(n, i);
+        }
+        return e.prototype.get = function(n) {
+          var i = s._POSignalsUtils.Util.hash(n);
+          return this.crossStorageClient.get(i);
+        }, e.prototype.del = function(n) {
+          return this.crossStorageClient.del(s._POSignalsUtils.Util.hash(n));
+        }, e.prototype.set = function(n, i, a) {
+          return this.crossStorageClient.set(s._POSignalsUtils.Util.hash(n), i, a);
+        }, e.prototype.onConnect = function() {
+          return this.crossStorageClient.onConnect();
+        }, e.prototype.close = function(n) {
+          return this.crossStorageClient.close(n);
+        }, e.prototype.getSignedPayload = function(n, i) {
+          return this.crossStorageClient.getSignedPayload(n, i);
+        }, e.prototype.getDeviceDetails = function(n) {
+          var i = s._POSignalsUtils.Util.hash(n);
+          return this.crossStorageClient.getDeviceDetails(i);
+        }, e.prototype.setDeviceDetails = function(n, i) {
+          var a = s._POSignalsUtils.Util.hash(n);
+          return this.crossStorageClient.setDeviceDetails(a, i);
+        }, e;
+      }();
+      h.CrossStorage = r;
+      var t = function() {
+        function e(n) {
+          this.storage = n;
+        }
+        return e.prototype.get = function(n) {
+          return Promise.resolve(this.storage.getItem(n));
+        }, e.prototype.del = function(n) {
+          return this.storage.removeItem(n), Promise.resolve();
+        }, e.prototype.set = function(n, i) {
+          return this.storage.setItem(n, i), Promise.resolve();
+        }, e.prototype.onConnect = function() {
+          return Promise.resolve();
+        }, e.prototype.close = function(n) {
+          return Promise.resolve();
+        }, e.prototype.getSignedPayload = function(n, i) {
+          return Promise.resolve([]);
+        }, e.prototype.getDeviceDetails = function(n) {
+          return Promise.resolve([]);
+        }, e.prototype.setDeviceDetails = function(n, i) {
+          return Promise.resolve([]);
+        }, e;
+      }();
+      h.CrossStorageFallback = t;
+    })(s._POSignalsStorage || (s._POSignalsStorage = {}));
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t, e, n) {
+        this.deviceId = t, this.dbStorage = e, this.cryptoHandler = n;
+      }
+      return r.prototype.getExportedPublicKey = function() {
+        return Z(this, void 0, void 0, function() {
+          var t;
+          return $(this, function(e) {
+            switch (e.label) {
+              case 0:
+                return [4, this.getDeviceKeys()];
+              case 1:
+                return (t = e.sent()) ? [2, this.cryptoHandler.exportPublicKey(t)] : [2];
+            }
+          });
+        });
+      }, r.prototype.setDeviceKeys = function(t) {
+        return Z(this, void 0, void 0, function() {
+          var e;
+          return $(this, function(n) {
+            switch (n.label) {
+              case 0:
+                return [4, this.dbStorage.setValue(this.deviceId, t)];
+              case 1:
+                return e = n.sent(), this.cachedDeviceKey = t, [2, e];
+            }
+          });
+        });
+      }, r.prototype.associateDeviceKeys = function() {
+        return Z(this, void 0, void 0, function() {
+          var t;
+          return $(this, function(e) {
+            switch (e.label) {
+              case 0:
+                return [4, this.cryptoHandler.generateKeys()];
+              case 1:
+                return t = e.sent(), s._POSignalsUtils.Logger.info("Associating new device domain keys"), [4, this.setDeviceKeys(t)];
+              case 2:
+                return e.sent(), [2, t];
+            }
+          });
+        });
+      }, r.prototype.signDeviceWithKeys = function(t) {
+        return Z(this, void 0, void 0, function() {
+          var e, n, i;
+          return $(this, function(a) {
+            switch (a.label) {
+              case 0:
+                return n = (e = this.cryptoHandler).signChallenge, i = [t], [4, this.getDeviceKeys()];
+              case 1:
+                return [2, n.apply(e, i.concat([a.sent().privateKey, r._default_salt]))];
+            }
+          });
+        });
+      }, r.prototype.getDeviceKeys = function() {
+        return Z(this, void 0, void 0, function() {
+          var t;
+          return $(this, function(e) {
+            switch (e.label) {
+              case 0:
+                return this.cachedDeviceKey ? [3, 2] : (t = this, [4, this.dbStorage.getValue(this.deviceId)]);
+              case 1:
+                t.cachedDeviceKey = e.sent(), e.label = 2;
+              case 2:
+                return [2, this.cachedDeviceKey];
+            }
+          });
+        });
+      }, r._default_salt = 32, r;
+    }();
+    s.DeviceKeys = h;
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+          this._disabledStorage = [], this.assertionValues = [
+            "BROWSER_ENGINE_VERSION",
+            "NAVIGATOR_LANGUAGE",
+            "OS_NAME",
+            "OS_VERSION",
+            "NAVIGATOR_USER_AGENT",
+            "FINGER_PRINT",
+            "RESOLUTION",
+            "PUSH_NOTIFICATIONS_SUPPORTED",
+            "COOKIES_ENABLED",
+            "IS_INCOGNITO",
+            "IS_PRIVATE_MODE"
+          ];
+          try {
+            window.sessionStorage.setItem("_st_storage_enabled_check", "test"), window.sessionStorage.removeItem("_st_storage_enabled_check"), this.signalsSessionStorage = window.sessionStorage;
+          } catch {
+            s._POSignalsUtils.Logger.warn("session storage disabled"), this._disabledStorage.push("sessionStorage"), this.signalsSessionStorage = new h.StorageFallback();
+          }
+          try {
+            window.localStorage.setItem("_st_storage_enabled_check", "test"), window.localStorage.removeItem("_st_storage_enabled_check"), this.signalsLocalStorage = new h.StorageWrapper(window.localStorage);
+          } catch {
+            s._POSignalsUtils.Logger.warn("local storage disabled"), this._disabledStorage.push("localStorage"), this.signalsLocalStorage = new h.StorageWrapper(new h.StorageFallback()), this.crossStorage = new h.CrossStorageFallback(this.signalsLocalStorage);
+          }
+        }
+        return t.prototype.setStorageConfig = function(e) {
+          this.disableHub = e.disableHub, this.hubUrl = e.hubUrl, this.universalTrustEnabled = this.isUniversalTrustEnabled(
+            e.universalDeviceIdentification
+          ), this.devEnv = e.devEnv;
+        }, Object.defineProperty(t, "instance", {
+          get: function() {
+            return t._instance || (t._instance = new t()), t._instance;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "tabUUID", {
+          get: function() {
+            var e = this.signalsSessionStorage.getItem(
+              s._POSignalsUtils.Constants.TAB_UUID_KEY
+            );
+            return e || (e = s._POSignalsUtils.Util.newGuid(), this.signalsSessionStorage.setItem(
+              s._POSignalsUtils.Constants.TAB_UUID_KEY,
+              e
+            )), e;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "ops", {
+          get: function() {
+            var e = Number(
+              this.signalsSessionStorage.getItem(s._POSignalsUtils.Constants.OPS_KEY)
+            );
+            return isNaN(e) ? null : e;
+          },
+          set: function(e) {
+            e ? this.signalsSessionStorage.setItem(
+              s._POSignalsUtils.Constants.OPS_KEY,
+              e.toString()
+            ) : this.signalsSessionStorage.removeItem(s._POSignalsUtils.Constants.OPS_KEY);
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "disabledStorage", {
+          get: function() {
+            return this._disabledStorage;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "sessionStorage", {
+          get: function() {
+            return this.signalsSessionStorage;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), Object.defineProperty(t.prototype, "localStorage", {
+          get: function() {
+            return this.signalsLocalStorage;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t.prototype.initDeviceIdentity = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n, i;
+            return $(this, function(a) {
+              switch (a.label) {
+                case 0:
+                  return (n = this.signalsLocalStorage.getItem(
+                    s._POSignalsUtils.Constants.DEVICE_ID_KEY
+                  )) && (this.cachedDeviceId = n), this.universalTrustEnabled ? (this.deviceTrust = { attestation: {}, dtts: (/* @__PURE__ */ new Date()).getTime() }, this.disableHub && (this.deviceTrust.hubDisabled = !0), i = this, [4, h.IndexedDBStorage.initDB()]) : [3, 3];
+                case 1:
+                  return i.indexedDBStorage = a.sent(), [4, this.loadLocalDeviceTrust()];
+                case 2:
+                  e = a.sent(), a.label = 3;
+                case 3:
+                  return this.disableHub || n && !this.shouldFallbackToP1Key(e) ? [3, 5] : [4, this.fallbackToCrossStorage(this.hubUrl)];
+                case 4:
+                  return a.sent(), [3, 6];
+                case 5:
+                  this.crossStorage = new h.CrossStorageFallback(this.signalsLocalStorage), a.label = 6;
+                case 6:
+                  return this.getDeviceId() ? [3, 8] : [4, this.associateDeviceDetails(this.disableHub)];
+                case 7:
+                  a.sent(), a.label = 8;
+                case 8:
+                  return !this.universalTrustEnabled || this.getDeviceId() && e ? [3, 10] : [4, this.createDomainKeys(this.disableHub)];
+                case 9:
+                  a.sent(), a.label = 10;
+                case 10:
+                  return [2, this.getDeviceId()];
+              }
+            });
+          });
+        }, t.prototype.shouldFallbackToP1Key = function(e) {
+          return this.universalTrustEnabled && !this.disableHub && (!e || this.isRefreshRequired(this.deviceKeyRsyncIntervals));
+        }, t.prototype.isRefreshRequired = function(e) {
+          if (e === void 0 && (e = 3), !this.deviceTrust.dtts)
+            return !0;
+          var n = this.signalsLocalStorage.getItem(
+            s._POSignalsUtils.Constants.LAST_DEVICE_KEY_RESYNC
+          );
+          if (!n || isNaN(parseInt(n)))
+            return !0;
+          var i = this.deviceTrust.dtts - n > 864e5 * e;
+          return i && s._POSignalsUtils.Logger.debug("Refresh required"), i;
+        }, t.prototype.loadLocalDeviceTrust = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n;
+            return $(this, function(i) {
+              switch (i.label) {
+                case 0:
+                  return i.trys.push([0, 4, , 5]), this.cachedDeviceId ? this.cachedDeviceId ? (this.domainDeviceKeys = new s.DeviceKeys(
+                    this.getDeviceId(),
+                    this.indexedDBStorage,
+                    new s._POSignalsUtils.CryptoOperator()
+                  ), [4, this.domainDeviceKeys.getDeviceKeys()]) : [3, 3] : (s._POSignalsUtils.Logger.debug(
+                    "No device id found on customer domain"
+                  ), [2, !1]);
+                case 1:
+                  return i.sent() ? (e = this.deviceTrust.attestation, [4, this.domainDeviceKeys.getExportedPublicKey()]) : (s._POSignalsUtils.Logger.debug(
+                    "No device keys found on customer domain"
+                  ), [2, !1]);
+                case 2:
+                  return e.deviceKey = i.sent(), this.crossStorage = new h.CrossStorageFallback(this.signalsLocalStorage), [2, !0];
+                case 3:
+                  return [3, 5];
+                case 4:
+                  return n = i.sent(), s._POSignalsUtils.Logger.error("Domain PKI initialization failed", n), [2, !1];
+                case 5:
+                  return [2];
+              }
+            });
+          });
+        }, t.prototype.createDomainKeys = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i;
+            return $(this, function(a) {
+              switch (a.label) {
+                case 0:
+                  return a.trys.push([0, 3, , 4]), !e && this._disabledStorage.lastIndexOf("hub") > -1 ? (s._POSignalsUtils.Logger.debug(
+                    "Hub unavailable - skipping domain trust creation"
+                  ), [2]) : (this.domainDeviceKeys = new s.DeviceKeys(
+                    this.getDeviceId(),
+                    this.indexedDBStorage,
+                    new s._POSignalsUtils.CryptoOperator()
+                  ), [4, this.domainDeviceKeys.associateDeviceKeys()]);
+                case 1:
+                  return a.sent(), n = this.deviceTrust.attestation, [4, this.domainDeviceKeys.getExportedPublicKey()];
+                case 2:
+                  return n.deviceKey = a.sent(), [3, 4];
+                case 3:
+                  return i = a.sent(), s._POSignalsUtils.Logger.error("Domain PKI initialization failed", i), [3, 4];
+                case 4:
+                  return [2];
+              }
+            });
+          });
+        }, t.prototype.getDeviceId = function() {
+          return this.cachedDeviceId;
+        }, t.prototype.associateDeviceDetails = function(e) {
+          var n, i;
+          return Z(this, void 0, void 0, function() {
+            var a;
+            return $(this, function(u) {
+              switch (u.label) {
+                case 0:
+                  return s._POSignalsUtils.Logger.debug("Associating fresh device details"), this.cachedDeviceId = "Id-" + s._POSignalsUtils.Util.newGuid(), this.signalsLocalStorage.setItem(
+                    s._POSignalsUtils.Constants.DEVICE_ID_KEY,
+                    this.cachedDeviceId
+                  ), e ? [3, 4] : this.universalTrustEnabled ? (a = this.deviceTrust.attestation, [
+                    4,
+                    this.crossStorage.setDeviceDetails(
+                      s._POSignalsUtils.Constants.DEVICE_ID_KEY,
+                      this.cachedDeviceId
+                    )
+                  ]) : [3, 2];
+                case 1:
+                  return a.fallbackDeviceKey = u.sent()[0], [3, 4];
+                case 2:
+                  return [
+                    4,
+                    this.crossStorage.set(
+                      s._POSignalsUtils.Constants.DEVICE_ID_KEY,
+                      this.cachedDeviceId
+                    )
+                  ];
+                case 3:
+                  u.sent(), u.label = 4;
+                case 4:
+                  return s._POSignalsUtils.Logger.debug(
+                    "PingOne Signals deviceId: " + this.cachedDeviceId
+                  ), [
+                    2,
+                    [
+                      this.cachedDeviceId,
+                      (i = (n = this.deviceTrust) === null || n === void 0 ? void 0 : n.attestation) === null || i === void 0 ? void 0 : i.fallbackDeviceKey
+                    ]
+                  ];
+              }
+            });
+          });
+        }, t.prototype.addAssertion = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a, u, c, l, d;
+            return $(this, function(p) {
+              switch (p.label) {
+                case 0:
+                  if (p.trys.push([0, 5, 6, 7]), !this.universalTrustEnabled || !this.deviceTrust.attestation.deviceKey && !this.deviceTrust.attestation.fallbackDeviceKey)
+                    return [2];
+                  for (n = (n = e.deviceId).concat("-" + e.deviceType), i = 0, a = this.assertionValues; i < a.length; i++)
+                    u = a[i], e[u] != null && e[u] != null && (n = n.concat("-" + e[u]));
+                  return n = n.concat("-" + this.deviceTrust.dtts), s._POSignalsUtils.Logger.debug("Device identityContract " + n), this.deviceTrust.attestation.fallbackDeviceKey && this.crossStorage ? (c = this.deviceTrust.attestation, [4, this.crossStorage.getSignedPayload(n, this.getDeviceId())]) : [3, 2];
+                case 1:
+                  return c.deviceToken = p.sent()[1], this.signalsLocalStorage.setItem(
+                    s._POSignalsUtils.Constants.LAST_DEVICE_KEY_RESYNC,
+                    (/* @__PURE__ */ new Date()).getTime()
+                  ), [3, 4];
+                case 2:
+                  return l = this.deviceTrust.attestation, [4, this.domainDeviceKeys.signDeviceWithKeys(n)];
+                case 3:
+                  l.deviceToken = p.sent(), p.label = 4;
+                case 4:
+                  return [3, 7];
+                case 5:
+                  return d = p.sent(), s._POSignalsUtils.Logger.warn("Device attestation failed:", d), [3, 7];
+                case 6:
+                  return this.universalTrustEnabled && s._POSignalsUtils.Logger.info(
+                    "Device attestation " + JSON.stringify(this.deviceTrust, null, 2)
+                  ), [7];
+                case 7:
+                  return [2];
+              }
+            });
+          });
+        }, t.prototype.closeTrustStore = function() {
+          try {
+            this.crossStorage.close(this.devEnv), this.indexedDBStorage && this.indexedDBStorage.close();
+          } catch (e) {
+            s._POSignalsUtils.Logger.info("Unable to close trust store:", e);
+          }
+        }, t.prototype.fallbackToCrossStorage = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n;
+            return $(this, function(i) {
+              switch (i.label) {
+                case 0:
+                  s._POSignalsUtils.Logger.debug(
+                    "PingOne Signals cross storage is required, initializing"
+                  ), i.label = 1;
+                case 1:
+                  return i.trys.push([1, 3, , 4]), [4, this.initCrossStorage(e)];
+                case 2:
+                  return i.sent(), s._POSignalsUtils.Logger.info("PingOne Signals cross storage initiated"), [3, 4];
+                case 3:
+                  return n = i.sent(), s._POSignalsUtils.Logger.warn(
+                    "PingOne Signals Session crossStorage failed to connect " + n
+                  ), this._disabledStorage.push("hub"), this.crossStorage = new h.CrossStorageFallback(this.signalsLocalStorage), [3, 4];
+                case 4:
+                  return [2];
+              }
+            });
+          });
+        }, t.prototype.initCrossStorage = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a, u, c;
+            return $(this, function(l) {
+              switch (l.label) {
+                case 0:
+                  return n = this.universalTrustEnabled ? "1.0.7" : "1.0.1", i = "https://apps.pingone.com/signals/web-sdk/hub-" + n + "/hub.html", (a = ((e == null ? void 0 : e.trim()) || i).replace(
+                    /\/$/,
+                    ""
+                  )).endsWith("html") || (a += "/hub.html"), this.crossStorage = new h.CrossStorage(a, { timeout: 2e3 }), [4, this.crossStorage.onConnect()];
+                case 1:
+                  return l.sent(), this.universalTrustEnabled ? [
+                    4,
+                    this.crossStorage.getDeviceDetails(
+                      s._POSignalsUtils.Constants.DEVICE_ID_KEY
+                    )
+                  ] : [3, 3];
+                case 2:
+                  return u = l.sent(), this.cachedDeviceId = u[0], [3, 5];
+                case 3:
+                  return c = this, [4, this.crossStorage.get(s._POSignalsUtils.Constants.DEVICE_ID_KEY)];
+                case 4:
+                  c.cachedDeviceId = l.sent(), l.label = 5;
+                case 5:
+                  return this.cachedDeviceId ? this.signalsLocalStorage.setItem(
+                    s._POSignalsUtils.Constants.DEVICE_ID_KEY,
+                    this.cachedDeviceId
+                  ) : s._POSignalsUtils.Logger.info("no device id from hub"), this.universalTrustEnabled && (u && u[1] ? (this.deviceTrust.attestation.fallbackDeviceKey = u[1], s._POSignalsUtils.Logger.info(
+                    "Using fallback device keys from hub " + this.deviceTrust.attestation.fallbackDeviceKey
+                  )) : s._POSignalsUtils.Logger.info("failed to use any device keys")), [2];
+              }
+            });
+          });
+        }, t.prototype.isUniversalTrustEnabled = function(e) {
+          return e != null && (typeof e == "boolean" ? e : typeof e == "string" && e.toLowerCase() === "true");
+        }, t;
+      }();
+      h.SessionStorage = r;
+    })(s._POSignalsStorage || (s._POSignalsStorage = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function e(n) {
+          this.storage = n;
+        }
+        return e.prototype.getItem = function(n) {
+          var i = s._POSignalsUtils.Util.hash(n), a = this.storage.getItem(i);
+          return a || (a = this.storage.getItem(n)) && (this.storage.setItem(i, a), this.storage.removeItem(n)), a;
+        }, e.prototype.removeItem = function(n) {
+          return this.storage.removeItem(s._POSignalsUtils.Util.hash(n));
+        }, e.prototype.setItem = function(n, i) {
+          return this.storage.setItem(s._POSignalsUtils.Util.hash(n), i);
+        }, e;
+      }();
+      h.StorageWrapper = r;
+      var t = function() {
+        function e() {
+          this.internalStorageMap = /* @__PURE__ */ new Map();
+        }
+        return e.prototype.getItem = function(n) {
+          return this.internalStorageMap.get(n);
+        }, e.prototype.removeItem = function(n) {
+          this.internalStorageMap.delete(n);
+        }, e.prototype.setItem = function(n, i) {
+          this.internalStorageMap.set(n, i);
+        }, e;
+      }();
+      h.StorageFallback = t;
+    })(s._POSignalsStorage || (s._POSignalsStorage = {}));
+  }(M || (M = {})), ve = function() {
+    return (ve = Object.assign || function(s) {
+      for (var h, r = 1, t = arguments.length; r < t; r++)
+        for (var e in h = arguments[r])
+          Object.prototype.hasOwnProperty.call(h, e) && (s[e] = h[e]);
+      return s;
+    }).apply(this, arguments);
+  }, Z = function(s, h, r, t) {
+    return new (r || (r = Promise))(function(e, n) {
+      function i(c) {
+        try {
+          u(t.next(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function a(c) {
+        try {
+          u(t.throw(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function u(c) {
+        var l;
+        c.done ? e(c.value) : (l = c.value, l instanceof r ? l : new r(function(d) {
+          d(l);
+        })).then(i, a);
+      }
+      u((t = t.apply(s, h || [])).next());
+    });
+  }, $ = function(s, h) {
+    var r, t, e, n, i = {
+      label: 0,
+      sent: function() {
+        if (1 & e[0])
+          throw e[1];
+        return e[1];
+      },
+      trys: [],
+      ops: []
+    };
+    return n = { next: a(0), throw: a(1), return: a(2) }, typeof Symbol == "function" && (n[Symbol.iterator] = function() {
+      return this;
+    }), n;
+    function a(u) {
+      return function(c) {
+        return function(l) {
+          if (r)
+            throw new TypeError("Generator is already executing.");
+          for (; i; )
+            try {
+              if (r = 1, t && (e = 2 & l[0] ? t.return : l[0] ? t.throw || ((e = t.return) && e.call(t), 0) : t.next) && !(e = e.call(t, l[1])).done)
+                return e;
+              switch (t = 0, e && (l = [2 & l[0], e.value]), l[0]) {
+                case 0:
+                case 1:
+                  e = l;
+                  break;
+                case 4:
+                  return i.label++, { value: l[1], done: !1 };
+                case 5:
+                  i.label++, t = l[1], l = [0];
+                  continue;
+                case 7:
+                  l = i.ops.pop(), i.trys.pop();
+                  continue;
+                default:
+                  if (!(e = (e = i.trys).length > 0 && e[e.length - 1]) && (l[0] === 6 || l[0] === 2)) {
+                    i = 0;
+                    continue;
+                  }
+                  if (l[0] === 3 && (!e || l[1] > e[0] && l[1] < e[3])) {
+                    i.label = l[1];
+                    break;
+                  }
+                  if (l[0] === 6 && i.label < e[1]) {
+                    i.label = e[1], e = l;
+                    break;
+                  }
+                  if (e && i.label < e[2]) {
+                    i.label = e[2], i.ops.push(l);
+                    break;
+                  }
+                  e[2] && i.ops.pop(), i.trys.pop();
+                  continue;
+              }
+              l = h.call(s, i);
+            } catch (d) {
+              l = [6, d], t = 0;
+            } finally {
+              r = e = 0;
+            }
+          if (5 & l[0])
+            throw l[1];
+          return { value: l[0] ? l[1] : void 0, done: !0 };
+        }([u, c]);
+      };
+    }
+  }, function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return t.prototype.isCanvasSupported = function() {
+          var e = document.createElement("canvas");
+          return !(!e.getContext || !e.getContext("2d"));
+        }, t.prototype.getWebglCanvas = function(e) {
+          var n = document.createElement("canvas"), i = null;
+          try {
+            i = e === "webgl" ? n.getContext("webgl") || n.getContext("experimental-webgl") : n.getContext("webgl2");
+          } catch {
+          }
+          return i || (i = null), i;
+        }, t.prototype.isWebGlSupported = function(e) {
+          if (!this.isCanvasSupported())
+            return !1;
+          var n = this.getWebglCanvas(e);
+          return (e === "webgl" ? !!window.WebGLRenderingContext : !!window.WebGL2RenderingContext) && !!n;
+        }, t.prototype.isWebGl = function(e) {
+          return !!this.isWebGlSupported(e) && !!this.getWebglCanvas(e);
+        }, t.prototype.getWebglVendorAndRenderer = function(e) {
+          try {
+            if (this.isWebGlSupported(e)) {
+              var n = this.getWebglCanvas(e), i = n.getExtension("WEBGL_debug_renderer_info");
+              return n.getParameter(i.UNMASKED_VENDOR_WEBGL) + "~" + n.getParameter(i.UNMASKED_RENDERER_WEBGL);
+            }
+          } catch {
+          }
+          return null;
+        }, t.prototype.getHasLiedLanguages = function() {
+          if (navigator.languages !== void 0)
+            try {
+              if (navigator.languages[0].substr(0, 2) !== navigator.language.substr(0, 2))
+                return !0;
+            } catch {
+              return !0;
+            }
+          return !1;
+        }, t.prototype.getHasLiedResolution = function() {
+          return window.screen.width < window.screen.availWidth || window.screen.height < window.screen.availHeight;
+        }, t.prototype.getHasLiedOs = function() {
+          var e, n = navigator.userAgent.toLowerCase(), i = navigator.oscpu, a = navigator.platform.toLowerCase();
+          return e = n.indexOf("windows phone") >= 0 ? "Windows Phone" : n.indexOf("win") >= 0 ? "Windows" : n.indexOf("android") >= 0 ? "Android" : n.indexOf("linux") >= 0 || n.indexOf("cros") >= 0 ? "Linux" : n.indexOf("iphone") >= 0 || n.indexOf("ipad") >= 0 ? "iOS" : n.indexOf("mac") >= 0 ? "Mac" : "Other", ("ontouchstart" in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0) && e !== "Windows Phone" && e !== "Android" && e !== "iOS" && e !== "Other" || i !== void 0 && ((i = i.toLowerCase()).indexOf("win") >= 0 && e !== "Windows" && e !== "Windows Phone" || i.indexOf("linux") >= 0 && e !== "Linux" && e !== "Android" || i.indexOf("mac") >= 0 && e !== "Mac" && e !== "iOS" || (i.indexOf("win") === -1 && i.indexOf("linux") === -1 && i.indexOf("mac") === -1) != (e === "Other")) ? !0 : a.indexOf("win") >= 0 && e !== "Windows" && e !== "Windows Phone" || (a.indexOf("linux") >= 0 || a.indexOf("android") >= 0 || a.indexOf("pike") >= 0) && e !== "Linux" && e !== "Android" || (a.indexOf("mac") >= 0 || a.indexOf("ipad") >= 0 || a.indexOf("ipod") >= 0 || a.indexOf("iphone") >= 0) && e !== "Mac" && e !== "iOS" || (a.indexOf("win") < 0 && a.indexOf("linux") < 0 && a.indexOf("mac") < 0 && a.indexOf("iphone") < 0 && a.indexOf("ipad") < 0) != (e === "Other") || navigator.plugins === void 0 && e !== "Windows" && e !== "Windows Phone";
+        }, t.prototype.getHasLiedBrowser = function() {
+          var e, n = navigator.userAgent.toLowerCase(), i = navigator.productSub;
+          if (((e = n.indexOf("firefox") >= 0 ? "Firefox" : n.indexOf("opera") >= 0 || n.indexOf("opr") >= 0 ? "Opera" : n.indexOf("chrome") >= 0 ? "Chrome" : n.indexOf("safari") >= 0 ? "Safari" : n.indexOf("trident") >= 0 ? "Internet Explorer" : "Other") == "Chrome" || e === "Safari" || e === "Opera") && i !== "20030107")
+            return !0;
+          var a, u = eval.toString().length;
+          if (u === 37 && e !== "Safari" && e !== "Firefox" && e !== "Other" || u === 39 && e !== "Internet Explorer" && e !== "Other" || u === 33 && e !== "Chrome" && e !== "Opera" && e !== "Other")
+            return !0;
+          try {
+            throw "a";
+          } catch (c) {
+            try {
+              c.toSource(), a = !0;
+            } catch {
+              a = !1;
+            }
+          }
+          return a && e !== "Firefox" && e !== "Other";
+        }, t;
+      }();
+      h.FingerprintLegacyMetadata = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t(e, n) {
+          this.sessionData = e, this.metadataParams = n, this.deviceId = null, this.hasMicrophone = null, this.hasSpeakers = null, this.hasWebcam = null, this.isBatterySupported = null, this.batteryLevel = null, this.batteryCharging = null, this.batteryChargingTime = null, this.batteryDischargingTime = null, this.headlessTests = /* @__PURE__ */ new Map(), this.lieTests = {}, this.gpsSupported = null, this.fingerPrintComponentKeys = /* @__PURE__ */ new Set([
+            "navigatorPlatform",
+            "colorDepth",
+            "deviceMemory",
+            "pixelRatio",
+            "hardwareConcurrency",
+            "screenResolution",
+            "availableScreenResolution",
+            "timezoneOffset",
+            "timezone",
+            "sessionStorage",
+            "localStorage",
+            "indexedDB",
+            "addBehavior",
+            "openDatabase",
+            "cpuClass",
+            "platform",
+            "canvas",
+            "adBlock",
+            "touchSupport",
+            "fonts",
+            "audio",
+            "osCpu",
+            "productSub",
+            "emptyEvalLength",
+            "errorFF",
+            "chrome",
+            "cookiesEnabled"
+          ]), this.webGlStatus = -1, this.numberOfVideoDevices = 0, this.numberOfAudioDevices = 0, this.videoInputDevices = [], this.audioInputDevices = [], this.audioOutputDevices = [], this.webRtcIps = /* @__PURE__ */ new Map(), this.lastCalculatedMetadata = null, this.metadataQueue = new s.PromiseQueue(1);
+        }
+        return Object.defineProperty(t.prototype, "OPS", {
+          get: function() {
+            if (!this.metadataParams.browserInfo.isIphoneOrIPad)
+              return 0;
+            var e = this.sessionData.ops;
+            return e || (e = this.getOps(), this.sessionData.ops = e), e;
+          },
+          enumerable: !1,
+          configurable: !0
+        }), t.prototype.getDeviceAttributes = function() {
+          return Z(this, void 0, void 0, function() {
+            var e = this;
+            return $(this, function(n) {
+              return [
+                2,
+                this.metadataQueue.add(function() {
+                  return Z(e, void 0, void 0, function() {
+                    var i;
+                    return $(this, function(a) {
+                      switch (a.label) {
+                        case 0:
+                          return this.lastCalculatedMetadata ? [3, 3] : (i = this, [4, this.calculateDeviceMetadata()]);
+                        case 1:
+                          return i.lastCalculatedMetadata = a.sent(), s._POSignalsUtils.Logger.info("calculated device attributes."), s._POSignalsUtils.Logger.info(
+                            "PingOne Signals deviceId: " + this.deviceId
+                          ), [4, this.sessionData.addAssertion(this.lastCalculatedMetadata)];
+                        case 2:
+                          a.sent(), this.sessionData.closeTrustStore(), a.label = 3;
+                        case 3:
+                          return [2, this.lastCalculatedMetadata];
+                      }
+                    });
+                  });
+                })
+              ];
+            });
+          });
+        }, t.prototype.getObfsInfo = function() {
+          return { identifier: "x1", key: "Xq7tSbjB517mhZwt" };
+        }, t.prototype.calculateDeviceMetadata = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n, i, a, u;
+            return $(this, function(c) {
+              switch (c.label) {
+                case 0:
+                  return this.gpsSupported = navigator.geolocation != null, e = this.metadataParams.metadataBlackList, n = [
+                    this.sessionData.initDeviceIdentity().catch(function(l) {
+                      s._POSignalsUtils.Logger.warn("failed to get deviceId info", l);
+                    }),
+                    this.getFingerPrint(e).catch(function(l) {
+                      s._POSignalsUtils.Logger.warn(
+                        "failed to get fingerprint info",
+                        l.message
+                      );
+                    }),
+                    this.getPrivateMode().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn("failed to get incognito info", l);
+                    }),
+                    h.Incognito.isPrivateMode().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn(
+                        "failed to get private mode info",
+                        l
+                      );
+                    }),
+                    this.getPermissionsMetadata().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn(
+                        "failed to get permissions info",
+                        l
+                      );
+                    }),
+                    new h.DetectHeadless(e).getHeadlessResults().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn(
+                        "failed to get headless results",
+                        l
+                      );
+                    }),
+                    new h.DetectLies(e).getAllLies().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn("failed to get lies results", l);
+                    }),
+                    this.audioIntVideoInit().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn(
+                        "failed to get audio-video info",
+                        l
+                      );
+                    }),
+                    this.batteryInit().catch(function(l) {
+                      return s._POSignalsUtils.Logger.warn("failed to get battery info", l);
+                    })
+                  ], [4, Promise.all(n)];
+                case 1:
+                  return u = c.sent(), this.deviceId = u[0], this.fingerPrint = u[1], this.isPrivateMode = u[2], this.isPrivateModeV2 = u[3], this.permissions = u[4], this.headlessTests = u[5], this.lieTests = u[6], i = {
+                    ops: this.OPS,
+                    devicePixelRatio: window.devicePixelRatio,
+                    screenWidth: window.screen.width,
+                    screenHeight: window.screen.height
+                  }, s._POSignalsUtils.Util.extendPrimitiveValues(i, screen, !1), a = [
+                    {
+                      deviceId: this.deviceId,
+                      deviceType: this.metadataParams.browserInfo.deviceType,
+                      osVersion: (this.metadataParams.browserInfo.osName + " " + this.metadataParams.browserInfo.osVersion).trim() || ""
+                    }
+                  ], [4, this.getIdentificationMetadata(e)];
+                case 2:
+                  return [
+                    2,
+                    ve.apply(void 0, [
+                      ve.apply(void 0, [
+                        ve.apply(void 0, [
+                          ve.apply(void 0, a.concat([c.sent()])),
+                          this.getIoMetadata()
+                        ]),
+                        this.getSensorsMetadata()
+                      ]),
+                      i
+                    ])
+                  ];
+              }
+            });
+          });
+        }, t.prototype.batteryInit = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n = this;
+            return $(this, function(i) {
+              switch (i.label) {
+                case 0:
+                  return e = this, [
+                    4,
+                    s._POSignalsUtils.Util.promiseTimeout(
+                      50,
+                      new Promise(function(a, u) {
+                        navigator.getBattery ? (n.isBatterySupported = !0, navigator.getBattery().then(function(c) {
+                          c && (e.batteryLevel = c.level, e.batteryCharging = c.charging, e.batteryChargingTime = c.chargingTime, e.batteryDischargingTime = c.dischargingTime), a();
+                        }).catch(function(c) {
+                          s._POSignalsUtils.Logger.warn("Battery " + c), a();
+                        })) : (s._POSignalsUtils.Logger.debug("Battery not supported!"), a());
+                      })
+                    )
+                  ];
+                case 1:
+                  return i.sent(), [2];
+              }
+            });
+          });
+        }, t.prototype.enumerateDevicesEnabled = function() {
+          var e = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+          return !s._POSignalsUtils.Util.inIframe() || !e;
+        }, t.prototype.getRTCPeerConnection = function() {
+          var e = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+          if (!e) {
+            var n = window["iframe.contentWindow"];
+            n && (e = n.RTCPeerConnection || n.mozRTCPeerConnection || n.webkitRTCPeerConnection);
+          }
+          return e;
+        }, t.prototype.collectWebRtc = function() {
+          var e = this;
+          try {
+            var n = {}, i = this.getRTCPeerConnection(), a = new i(
+              { iceServers: [{ urls: this.metadataParams.webRtcUrl.trim() }] },
+              { optional: [{ RtpDataChannels: !0 }] }
+            );
+            a.onicecandidate = function(u) {
+              if (u.candidate) {
+                var c = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/.exec(
+                  u.candidate.candidate
+                )[1];
+                n[c] === void 0 && (u.candidate.candidate.indexOf("host") > 0 ? e.webRtcIps.set("WEB_RTC_HOST_IP", c) : u.candidate.candidate.indexOf("srflx") > 0 && e.webRtcIps.set("WEB_RTC_SRFLX_IP", c)), n[c] = !0;
+              }
+            }, a.createDataChannel(""), a.createOffer(
+              function(u) {
+                a.setLocalDescription(
+                  u,
+                  function() {
+                  },
+                  function() {
+                  }
+                );
+              },
+              function() {
+              }
+            );
+          } catch {
+          }
+        }, t.prototype.audioIntVideoInit = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n = this;
+            return $(this, function(i) {
+              switch (i.label) {
+                case 0:
+                  return e = this, [
+                    4,
+                    s._POSignalsUtils.Util.promiseTimeout(
+                      50,
+                      new Promise(function(a, u) {
+                        return n.enumerateDevicesEnabled() ? navigator.mediaDevices && navigator.mediaDevices.enumerateDevices ? void navigator.mediaDevices.enumerateDevices().then(function(c) {
+                          c.forEach(function(l) {
+                            l.kind && (l.kind.toLowerCase() == "audioinput" ? (e.hasMicrophone = !0, e.numberOfAudioDevices++, l.label && e.audioInputDevices.push(l.label)) : l.kind.toLowerCase() == "videoinput" ? (e.hasWebcam = !0, e.numberOfVideoDevices++, l.label && e.videoInputDevices.push(l.label)) : l.kind.toLowerCase() == "audiooutput" && (e.hasSpeakers = !0, e.numberOfAudioDevices++, l.label && e.audioOutputDevices.push(l.label)));
+                          }), a();
+                        }).catch(function(c) {
+                          s._POSignalsUtils.Logger.warn("enumerateDevices failed", c), a();
+                        }) : (s._POSignalsUtils.Logger.debug(
+                          "enumerateDevices() not supported."
+                        ), void a()) : (s._POSignalsUtils.Logger.debug(
+                          "enumerateDevices() cannot run within safari iframe"
+                        ), void a());
+                      })
+                    )
+                  ];
+                case 1:
+                  return i.sent(), [2];
+              }
+            });
+          });
+        }, t.prototype.getFingerPrint = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a = this;
+            return $(this, function(u) {
+              switch (u.label) {
+                case 0:
+                  return e.has("fingerprint") ? [2, Promise.resolve("")] : (n = new Promise(function(c, l) {
+                    return Z(a, void 0, void 0, function() {
+                      var d, p;
+                      return $(this, function(m) {
+                        switch (m.label) {
+                          case 0:
+                            return m.trys.push([0, 3, , 4]), [4, s.FingerprintJS.load()];
+                          case 1:
+                            return [4, m.sent().get()];
+                          case 2:
+                            return d = m.sent(), this.fingerPrint = d.visitorId, this.fingerPrintComponents = d.components, c(d.visitorId), [3, 4];
+                          case 3:
+                            return p = m.sent(), s._POSignalsUtils.Logger.warn(
+                              "Failed to get FingerPrint " + p
+                            ), l({ err: p, message: "FingerPrint failed" }), [3, 4];
+                          case 4:
+                            return [2];
+                        }
+                      });
+                    });
+                  }), i = new Promise(function(c, l) {
+                    return Z(a, void 0, void 0, function() {
+                      return $(this, function(d) {
+                        switch (d.label) {
+                          case 0:
+                            return [
+                              4,
+                              s._POSignalsUtils.Util.delay(
+                                this.metadataParams.fingerprintTimeoutMillis
+                              )
+                            ];
+                          case 1:
+                            return d.sent(), l({ message: "Fingerprint timeout" }), [2];
+                        }
+                      });
+                    });
+                  }), [4, Promise.race([n, i])]);
+                case 1:
+                  return [2, u.sent()];
+              }
+            });
+          });
+        }, t.prototype.getSensorsMetadata = function() {
+          var e = {};
+          return this.flatAndAddMetadata(e, "DEDVCE_LIGHT_SUPPORTED", function() {
+            return "ondevicelight" in window;
+          }), this.flatAndAddMetadata(e, "IS_TOUCH_DEVICE", function() {
+            return "ontouchstart" in window;
+          }), window.DeviceMotionEvent || this.flatAndAddMetadata(e, "ACCELEROMETER_SUPPORTED", function() {
+            return !1;
+          }), window.DeviceOrientationEvent || this.flatAndAddMetadata(e, "GYROSCOPE_SUPPORTED", function() {
+            return !1;
+          }), this.flatAndAddMetadata(e, "PROXIMITY_SUPPORTED", function() {
+            return "ondeviceproximity" in window;
+          }), e;
+        }, t.prototype.getIdentificationMetadata = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a, u, c, l, d, p, m, k, x, y, C, A, P, D, j, z, B, T, L, E = this;
+            return $(this, function(H) {
+              switch (H.label) {
+                case 0:
+                  return n = this, i = {}, this.flatAndAddMetadata(i, "FINGER_PRINT", function() {
+                    return E.fingerPrint;
+                  }), this.metadataParams.browserInfo.userAgentData && (this.flatAndAddMetadata(i, "OS_NAME", function() {
+                    return E.metadataParams.browserInfo.osName;
+                  }), this.flatAndAddMetadata(i, "OS_VERSION", function() {
+                    return E.metadataParams.browserInfo.osVersion;
+                  })), this.metadataParams.browserInfo.userAgentData && (this.flatAndAddMetadata(i, "DEVICE_MODEL", function() {
+                    return E.metadataParams.browserInfo.deviceModel;
+                  }), this.flatAndAddMetadata(i, "DEVICE_VENDOR", function() {
+                    return E.metadataParams.browserInfo.deviceVendor;
+                  })), this.metadataParams.browserInfo.userAgentData && (this.flatAndAddMetadata(i, "BROWSER_ENGINE_NAME", function() {
+                    return E.metadataParams.browserInfo.engineName;
+                  }), this.flatAndAddMetadata(i, "BROWSER_ENGINE_VERSION", function() {
+                    return E.metadataParams.browserInfo.engineVersion;
+                  })), this.metadataParams.browserInfo.userAgentData && this.flatAndAddMetadata(i, "CPU_ARCHITECTURE", function() {
+                    return E.metadataParams.browserInfo.cpuArchitecture;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_VENDOR", function() {
+                    return navigator.vendor;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_PLUGINS_LENGTH", function() {
+                    return navigator.plugins ? navigator.plugins.length : null;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_MIME_TYPES_LENGTH", function() {
+                    return navigator.mimeTypes ? navigator.mimeTypes.length : null;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_LANGUAGE", function() {
+                    return navigator.language || navigator.userLanguage || navigator.browserLanguage || navigator.systemLanguage;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_LANGUAGES", function() {
+                    return navigator.languages;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_MAX_TOUCH_POINTS", function() {
+                    return navigator.maxTouchPoints || navigator.msMaxTouchPoints;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_POINTER_ENABLED", function() {
+                    return navigator.pointerEnabled || navigator.msPointerEnabled;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_WEB_DRIVER", function() {
+                    return navigator.webdriver;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_HARDWARE_CONCURRENCY", function() {
+                    return navigator.hardwareConcurrency;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_VIBRATE", function() {
+                    return navigator.vibrate != null;
+                  }), this.flatAndAddMetadata(i, "PUSH_NOTIFICATIONS_SUPPORTED", function() {
+                    return "Notification" in window;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_APP_CODE_NAME", function() {
+                    return navigator.appCodeName;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_APP_NAME", function() {
+                    return navigator.appName;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_APP_VERSION", function() {
+                    return navigator.appVersion;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_ON_LINE", function() {
+                    return navigator.onLine;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_PLATFORM", function() {
+                    return navigator.platform;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_PRODUCT", function() {
+                    return navigator.product;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_USER_AGENT", function() {
+                    return navigator.userAgent;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_PDF_VIEWER_ENABLED", function() {
+                    return navigator.pdfViewerEnabled;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_DEVICE_MEMORY", function() {
+                    return navigator.deviceMemory;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_CONNECTION_RTT", function() {
+                    return navigator.connection ? navigator.connection.rtt : null;
+                  }), e.has("modernizr") ? [3, 2] : [4, this.safeAddModernizrFeatures(i)];
+                case 1:
+                  H.sent(), H.label = 2;
+                case 2:
+                  if ((a = window._pingOneSignalsPingResult || window._ST_PING) ? this.flatAndAddMetadata(i, "JS_CHALLENGE", function() {
+                    return a;
+                  }) : this.flatAndAddMetadata(i, "JS_CHALLENGE", function() {
+                    return "unknown";
+                  }), u = new h.FingerprintLegacyMetadata(), this.flatAndAddMetadata(i, "IS_WEBGL", function() {
+                    return u.isWebGl("webgl");
+                  }), this.flatAndAddMetadata(i, "WEBGLVENDORANDRENDERER", function() {
+                    return u.getWebglVendorAndRenderer("webgl");
+                  }), this.flatAndAddMetadata(i, "IS_WEBGL2", function() {
+                    return u.isWebGl("webgl2");
+                  }), this.flatAndAddMetadata(i, "WEBGL2VENDORANDRENDERER", function() {
+                    return u.getWebglVendorAndRenderer("webgl2");
+                  }), this.flatAndAddMetadata(i, "HASLIEDLANGUAGES", function() {
+                    return u.getHasLiedLanguages();
+                  }), this.flatAndAddMetadata(i, "HASLIEDRESOLUTION", function() {
+                    return u.getHasLiedResolution();
+                  }), this.flatAndAddMetadata(i, "HASLIEDOS", function() {
+                    return u.getHasLiedOs();
+                  }), this.flatAndAddMetadata(i, "HASLIEDBROWSER", function() {
+                    return u.getHasLiedBrowser();
+                  }), this.fingerPrintComponents)
+                    for (d in c = function(S) {
+                      if (!l.fingerPrintComponents.hasOwnProperty(S))
+                        return "continue";
+                      var U = l.fingerPrintComponents[S];
+                      S == "fonts" ? l.flatAndAddMetadata(i, "JS_FONTS", function() {
+                        return U.value.length;
+                      }) : S == "canvas" ? l.flatAndAddMetadata(i, "IS_CANVAS", function() {
+                        return U.value != null;
+                      }) : S == "screenResolution" && U.value && U.value.length ? l.flatAndAddMetadata(i, "RESOLUTION", function() {
+                        return U.value.join(",");
+                      }) : S == "availableScreenResolution" && U.value && U.value.length ? l.flatAndAddMetadata(i, "AVAILABLE_RESOLUTION", function() {
+                        return U.value.join(",");
+                      }) : S == "touchSupport" && U.value ? l.flatAndAddMetadata(i, "TOUCH_SUPPORT", function() {
+                        return U.value;
+                      }) : S == "audio" && U.value ? l.flatAndAddMetadata(i, "AUDIO_FINGERPRINT", function() {
+                        return U.value;
+                      }) : S == "osCpu" && U.value ? l.flatAndAddMetadata(i, "OS_CPU", function() {
+                        return U.value;
+                      }) : S == "productSub" && U.value ? l.flatAndAddMetadata(i, "PRODUCT_SUB", function() {
+                        return U.value;
+                      }) : S == "emptyEvalLength" && U.value ? l.flatAndAddMetadata(
+                        i,
+                        "EMPTY_EVAL_LENGTH",
+                        function() {
+                          return U.value;
+                        }
+                      ) : S == "errorFF" && U.value ? l.flatAndAddMetadata(i, "ERROR_FF", function() {
+                        return U.value;
+                      }) : S == "chrome" && U.value ? l.flatAndAddMetadata(i, "CHROME", function() {
+                        return U.value;
+                      }) : S == "cookiesEnabled" && U.value ? l.flatAndAddMetadata(
+                        i,
+                        "COOKIES_ENABLED",
+                        function() {
+                          return U.value;
+                        }
+                      ) : n.fingerPrintComponentKeys.has(S) && S != null && l.flatAndAddMetadata(
+                        i,
+                        S.toUpperCase(),
+                        function() {
+                          return U.value;
+                        }
+                      );
+                    }, l = this, this.fingerPrintComponents)
+                      c(d);
+                  for (y in this.flatAndAddMetadata(i, "IS_INCOGNITO", function() {
+                    return E.isPrivateMode;
+                  }), this.flatAndAddMetadata(i, "IS_PRIVATE_MODE", function() {
+                    return E.isPrivateModeV2;
+                  }), this.flatAndAddMetadata(i, "IS_WEB_GLSTATUS", function() {
+                    return E.webGlStatus;
+                  }), p = {
+                    selenium: navigator.webdriver || s._POSignalsUtils.Util.getAttribute(
+                      window.document.documentElement,
+                      "webdriver"
+                    ) || "",
+                    phantomjs: {
+                      _phantom: window._phantom || "",
+                      __phantomas: window.__phantomas || "",
+                      callPhantom: window.callPhantom || ""
+                    },
+                    nodejs: { Buffer: window.Buffer || "" },
+                    couchjs: { emit: window.emit || "" },
+                    rhino: { spawn: window.spawn || "" },
+                    chromium: {
+                      domAutomationController: window.domAutomationController || "",
+                      domAutomation: window.domAutomation || ""
+                    },
+                    outerWidth: window.outerWidth,
+                    outerHeight: window.outerHeight
+                  }, this.flatAndAddMetadata(i, "HEADLESS", function() {
+                    return p;
+                  }), this.flatAndAddMetadata(i, "HEADLESS", function() {
+                    return E.headlessTests;
+                  }), this.flatAndAddMetadata(i, "LIES", function() {
+                    var S = {};
+                    for (var U in E.lieTests)
+                      S[U] = JSON.stringify(E.lieTests[U]);
+                    return Object.keys(S).length > 0 ? S : null;
+                  }), this.flatAndAddMetadata(i, "STEALTH", function() {
+                    return new h.DetectStealth(e).getStealthResult();
+                  }), this.flatAndAddMetadata(i, "REF_LINK", function() {
+                    return document.referrer;
+                  }), this.flatAndAddMetadata(i, "PLUGINS", function() {
+                    for (var S = { length: navigator.plugins.length, details: [] }, U = 0; U < S.length; U++)
+                      S.details.push({
+                        length: navigator.plugins[U].length,
+                        name: navigator.plugins[U].name,
+                        version: navigator.plugins[U].version,
+                        filename: navigator.plugins[U].filename
+                      });
+                    return S;
+                  }), this.flatAndAddMetadata(i, "AUDIO", function() {
+                    return E.numberOfAudioDevices;
+                  }), this.flatAndAddMetadata(i, "VIDEO", function() {
+                    return E.numberOfVideoDevices;
+                  }), this.flatAndAddMetadata(i, "VIDEO_INPUT_DEVICES", function() {
+                    return E.videoInputDevices.toString();
+                  }), this.flatAndAddMetadata(i, "AUDIO_INPUT_DEVICES", function() {
+                    return E.audioInputDevices.toString();
+                  }), this.flatAndAddMetadata(i, "AUDIO_OUTPUT_DEVICES", function() {
+                    return E.audioOutputDevices.toString();
+                  }), this.flatAndAddMetadata(i, "MEDIA_CODEC_MP4_AVC1", function() {
+                    return E.getMediaCodec('video/mp4;; codecs = "avc1.42E01E"');
+                  }), this.flatAndAddMetadata(i, "MEDIA_CODEC_X_M4A", function() {
+                    return E.getMediaCodec("audio/x-m4a");
+                  }), this.flatAndAddMetadata(i, "MEDIA_CODEC_AAC", function() {
+                    return E.getMediaCodec("audio/aac");
+                  }), m = this.metadataParams.additionalMediaCodecs, k = function(S) {
+                    if (!m.hasOwnProperty(S))
+                      return "continue";
+                    x.flatAndAddMetadata(i, "MEDIA_CODEC_" + S, function() {
+                      return E.getMediaCodec(m[S]);
+                    });
+                  }, x = this, m)
+                    k(y);
+                  window.performance && window.performance.memory && (this.flatAndAddMetadata(i, "MEMORY_HEAP_SIZE_LIMIT", function() {
+                    return window.performance.memory.jsHeapSizeLimit;
+                  }), this.flatAndAddMetadata(i, "MEMORY_TOTAL_HEAP_SIZE", function() {
+                    return window.performance.memory.totalJSHeapSize;
+                  }), this.flatAndAddMetadata(i, "MEMORY_USED_HEAP_SIZE", function() {
+                    return window.performance.memory.usedJSHeapSize;
+                  })), this.flatAndAddMetadata(i, "IS_ACCEPT_COOKIES", function() {
+                    return navigator.cookieEnabled;
+                  }), this.flatAndAddMetadata(i, "selenium_in_document", function() {
+                    return h.SeleniumProperties.seleniumInDocument();
+                  }), this.flatAndAddMetadata(i, "selenium_in_window", function() {
+                    return h.SeleniumProperties.seleniumInWindow();
+                  }), this.flatAndAddMetadata(i, "selenium_in_navigator", function() {
+                    return h.SeleniumProperties.seleniumInNavigator();
+                  }), this.flatAndAddMetadata(i, "selenium_sequentum", function() {
+                    return h.SeleniumProperties.seleniumSequentum();
+                  }), this.flatAndAddMetadata(i, "DOCUMENT_ELEMENT_SELENIUM", function() {
+                    return s._POSignalsUtils.Util.getAttribute(
+                      window.document.documentElement,
+                      "selenium"
+                    );
+                  }), this.flatAndAddMetadata(i, "DOCUMENT_ELEMENT_WEBDRIVER", function() {
+                    return s._POSignalsUtils.Util.getAttribute(
+                      window.document.documentElement,
+                      "webdriver"
+                    );
+                  }), this.flatAndAddMetadata(i, "DOCUMENT_ELEMENT_DRIVER", function() {
+                    return s._POSignalsUtils.Util.getAttribute(
+                      window.document.documentElement,
+                      "driver"
+                    );
+                  }), this.flatAndAddMetadata(i, "window_html_webdriver", function() {
+                    return !!s._POSignalsUtils.Util.getAttribute(
+                      document.getElementsByTagName("html")[0],
+                      "webdriver"
+                    );
+                  }), this.flatAndAddMetadata(i, "window_geb", function() {
+                    return !!window.geb;
+                  }), this.flatAndAddMetadata(i, "window_awesomium", function() {
+                    return !!window.awesomium;
+                  }), this.flatAndAddMetadata(i, "window_RunPerfTest", function() {
+                    return !!window.RunPerfTest;
+                  }), this.flatAndAddMetadata(i, "window_fmget_targets", function() {
+                    return !!window.fmget_targets;
+                  }), this.flatAndAddMetadata(i, "hasTrustToken", function() {
+                    return "hasTrustToken" in document;
+                  }), this.flatAndAddMetadata(i, "trustTokenOperationError", function() {
+                    return "trustTokenOperationError" in XMLHttpRequest.prototype;
+                  }), this.flatAndAddMetadata(i, "setTrustToken", function() {
+                    return "setTrustToken" in XMLHttpRequest.prototype;
+                  }), this.flatAndAddMetadata(i, "trustToken", function() {
+                    return "trustToken" in HTMLIFrameElement.prototype;
+                  }), this.flatAndAddMetadata(i, "localStorage.length", function() {
+                    return localStorage.length;
+                  }), this.flatAndAddMetadata(i, "sessionStorage.length", function() {
+                    return sessionStorage.length;
+                  }), this.sessionData.disabledStorage.forEach(function(S) {
+                    E.flatAndAddMetadata(i, S.toUpperCase() + "_FAILED", function() {
+                      return !0;
+                    });
+                  }), this.flatAndAddMetadata(i, "WEB_RTC_ENABLED", function() {
+                    return !!E.getRTCPeerConnection();
+                  }), this.metadataParams.webRtcUrl && this.metadataParams.webRtcUrl.length > 0 && (this.collectWebRtc(), this.webRtcIps.forEach(function(S, U) {
+                    U != null && S != null && E.flatAndAddMetadata(i, U, function() {
+                      return S;
+                    });
+                  }), this.webRtcIps.clear()), window.matchMedia && this.flatAndAddMetadata(i, "MQ_SCREEN", function() {
+                    var S = window.matchMedia(
+                      "(min-width: " + (window.innerWidth - 1) + "px)"
+                    );
+                    return { matches: S.matches, media: S.media };
+                  }), this.addIframeData(i, e), window.Notification && this.flatAndAddMetadata(i, "NOTIFICATION_PERMISSION", function() {
+                    return window.Notification.permission;
+                  }), this.flatAndAddMetadata(i, "HAS_CHROME_APP", function() {
+                    return window.chrome && "app" in window.chrome;
+                  }), this.flatAndAddMetadata(i, "HAS_CHROME_CSI", function() {
+                    return window.chrome && "csi" in window.chrome;
+                  }), this.flatAndAddMetadata(i, "HAS_CHROME_LOADTIMES", function() {
+                    return window.chrome && "loadTimes" in window.chrome;
+                  }), this.flatAndAddMetadata(i, "HAS_CHROME_RUNTIME", function() {
+                    return window.chrome && "runtime" in window.chrome;
+                  }), this.flatAndAddMetadata(i, "CHROMIUM_MATH", t.detectChromium), this.addClientHints(i), this.flatAndAddMetadata(i, "NAVIGATOR_KEYBOARD_SUPPORTED", function() {
+                    return !!navigator.keyboard;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_HID_SUPPORTED", function() {
+                    return !!navigator.hid;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_SERIAL_SUPPORTED", function() {
+                    return !!navigator.serial;
+                  }), this.flatAndAddMetadata(i, "NAVIGATOR_PRESENTATION_SUPPORTED", function() {
+                    return !!navigator.presentation;
+                  }), H.label = 3;
+                case 3:
+                  return H.trys.push([3, 6, , 7]), e.has("floc") || !s.Util.isFunction(document.interestCohort) ? [3, 5] : [4, s.Util.promiseTimeout(100, document.interestCohort())];
+                case 4:
+                  C = H.sent(), A = C.id, P = C.version, this.flatAndAddMetadata(i, "floc_id", function() {
+                    return A;
+                  }), this.flatAndAddMetadata(i, "floc_version", function() {
+                    return P;
+                  }), H.label = 5;
+                case 5:
+                  return [3, 7];
+                case 6:
+                  return H.sent(), [3, 7];
+                case 7:
+                  for (z in D = function(S) {
+                    j.flatAndAddMetadata(i, S, function() {
+                      return s._POSignalsUtils.Util.getProperty(
+                        window,
+                        E.metadataParams.dataPoints[S]
+                      );
+                    });
+                  }, j = this, this.metadataParams.dataPoints)
+                    D(z);
+                  for (T in B = this.metadataParams.propertyDescriptors)
+                    B.hasOwnProperty(T) && (L = T === "window" ? window : window[T]) && this.addPropertyDescriptorInfo(
+                      L,
+                      T.toUpperCase() + "_PROPERTY_DESCRIPTOR",
+                      B[T],
+                      i
+                    );
+                  return [2, i];
+              }
+            });
+          });
+        }, t.prototype.addClientHints = function(e) {
+          try {
+            var n = navigator.userAgentData;
+            if (!n)
+              return;
+            this.flatAndAddMetadata(e, "NAVIGATOR_CLIENT_HINTS_PLATFORM", function() {
+              return n.platform;
+            }), this.flatAndAddMetadata(e, "NAVIGATOR_CLIENT_HINTS_MOBILE", function() {
+              return n.mobile;
+            });
+            var i = n.brands;
+            if (!i)
+              return;
+            for (var a = function(l) {
+              if (i[l].hasOwnProperty("brand") && i[l].hasOwnProperty("version")) {
+                var d = i[l].brand + ":" + i[l].version;
+                u.flatAndAddMetadata(e, "NAVIGATOR_CLIENT_HINTS_BRAND_" + l, function() {
+                  return d;
+                });
+              }
+            }, u = this, c = 0; c < i.length; c++)
+              a(c);
+          } catch (l) {
+            s._POSignalsUtils.Logger.warn("failed to add client hints", l);
+          }
+        }, t.prototype.addPropertyDescriptorInfo = function(e, n, i, a) {
+          try {
+            for (var u = function(p) {
+              c.flatAndAddMetadata(a, n + "_" + p.toUpperCase(), function() {
+                var m = e.prototype ? e.prototype : e, k = Object.getOwnPropertyDescriptor(m, p);
+                if (k) {
+                  var x = k.get ? k.get.toString() : void 0;
+                  return JSON.stringify({
+                    configurable: k.configurable,
+                    enumerable: k.enumerable,
+                    value: k.value,
+                    writable: k.writable,
+                    getter: x != null && x.length < 100 ? x : void 0
+                  });
+                }
+                return "undefined";
+              });
+            }, c = this, l = 0, d = i; l < d.length; l++)
+              u(d[l]);
+          } catch (p) {
+            s._POSignalsUtils.Logger.warn("failed to add properties descriptor", p);
+          }
+        }, t.prototype.addIframeData = function(e, n) {
+          if (!n.has("IFRAME_DATA"))
+            try {
+              var i = s._POSignalsUtils.Util.createInvisibleElement("iframe");
+              if (!i)
+                return;
+              i.srcdoc = "blank page", document.body.appendChild(i), this.flatAndAddMetadata(e, "IFRAME_CHROME", function() {
+                return typeof i.contentWindow.chrome;
+              }), this.flatAndAddMetadata(e, "IFRAME_WIDTH", function() {
+                return i.contentWindow.screen.width;
+              }), this.flatAndAddMetadata(e, "IFRAME_HEIGHT", function() {
+                return i.contentWindow.screen.height;
+              }), i.remove();
+            } catch (a) {
+              s._POSignalsUtils.Logger.warn("failed to add iframe data", a);
+            }
+        }, t.prototype.getPermissionsMetadata = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n, i, a, u, c;
+            return $(this, function(l) {
+              switch (l.label) {
+                case 0:
+                  if (e = {}, n = [
+                    "accelerometer",
+                    "accessibility-events",
+                    "ambient-light-sensor",
+                    "background-sync",
+                    "camera",
+                    "clipboard-read",
+                    "clipboard-write",
+                    "geolocation",
+                    "gyroscope",
+                    "magnetometer",
+                    "microphone",
+                    "midi",
+                    "notifications",
+                    "payment-handler",
+                    "persistent-storage",
+                    "push"
+                  ], i = [], navigator.permissions)
+                    for (u in a = function(d) {
+                      var p = n[d];
+                      i.push(
+                        navigator.permissions.query({ name: p }).then(function(m) {
+                          e[p] = m.state;
+                        }).catch(function(m) {
+                        })
+                      );
+                    }, n)
+                      a(u);
+                  l.label = 1;
+                case 1:
+                  return l.trys.push([1, 3, , 4]), [4, Promise.all(i)];
+                case 2:
+                  return l.sent(), [3, 4];
+                case 3:
+                  return c = l.sent(), s._POSignalsUtils.Logger.warn(c), [3, 4];
+                case 4:
+                  return [2, e];
+              }
+            });
+          });
+        }, t.prototype.getMediaCodec = function(e) {
+          var n = document.createElement("video");
+          if (n && n.canPlayType)
+            return n.canPlayType(e);
+        }, t.prototype.safeAddModernizrFeatures = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a, u, c, l;
+            return $(this, function(d) {
+              switch (d.label) {
+                case 0:
+                  return s.evaluateModernizr(), n = this, i = s.Modernizr, a = i.prefixed, u = i.hasEvent, this.flatAndAddMetadata(e, "ambient_light", function() {
+                    return i.ambientlight;
+                  }), this.flatAndAddMetadata(e, "application_cache", function() {
+                    return i.applicationcache;
+                  }), this.flatAndAddMetadata(e, "audio", function() {
+                    return !!i.audio;
+                  }), i.audio && this.flatAndAddMetadata(e, "audio", function() {
+                    return i.audio;
+                  }), this.flatAndAddMetadata(e, "battery_api", function() {
+                    return !!a("battery", navigator) || !!a("getBattery", navigator);
+                  }), this.flatAndAddMetadata(e, "blob_constructor", function() {
+                    return i.blobconstructor;
+                  }), this.flatAndAddMetadata(e, "context_menu", function() {
+                    return i.contextmenu;
+                  }), this.flatAndAddMetadata(e, "cors", function() {
+                    return i.cors;
+                  }), this.flatAndAddMetadata(e, "cryptography", function() {
+                    return i.cryptography;
+                  }), this.flatAndAddMetadata(e, "custom_elements", function() {
+                    return i.customelements;
+                  }), this.flatAndAddMetadata(e, "custom_protocol_handler", function() {
+                    return i.customprotocolhandler;
+                  }), this.flatAndAddMetadata(e, "custom_event", function() {
+                    return i.customevent;
+                  }), this.flatAndAddMetadata(e, "dart", function() {
+                    return i.dart;
+                  }), this.flatAndAddMetadata(e, "data_view", function() {
+                    return i.dataview;
+                  }), this.flatAndAddMetadata(e, "event_listener", function() {
+                    return i.eventlistener;
+                  }), [4, this.safeModernizrOn("exiforientation")];
+                case 1:
+                  return c = d.sent(), n.flatAndAddMetadata(e, "exif_orientation", function() {
+                    return c;
+                  }), this.flatAndAddMetadata(e, "force_touch", function() {
+                    return i.forcetouch;
+                  }), i.forcetouch && (this.flatAndAddMetadata(
+                    e,
+                    "force_touch.mouse_force_will_begin",
+                    function() {
+                      return u(a("mouseforcewillbegin", window, !1), window);
+                    }
+                  ), this.flatAndAddMetadata(
+                    e,
+                    "force_touch.webkit_force_at_mouse_down",
+                    function() {
+                      return MouseEvent.WEBKIT_FORCE_AT_MOUSE_DOWN;
+                    }
+                  ), this.flatAndAddMetadata(
+                    e,
+                    "force_touch.webkit_force_at_force_mouse_down",
+                    function() {
+                      return MouseEvent.WEBKIT_FORCE_AT_FORCE_MOUSE_DOWN;
+                    }
+                  )), this.flatAndAddMetadata(e, "full_screen", function() {
+                    return i.fullscreen;
+                  }), this.flatAndAddMetadata(e, "game_pads", function() {
+                    return i.gamepads;
+                  }), this.flatAndAddMetadata(e, "geo_location", function() {
+                    return i.geolocation;
+                  }), this.flatAndAddMetadata(e, "ie8compat", function() {
+                    return i.ie8compat;
+                  }), [4, this.safeModernizrOn("indexeddb")];
+                case 2:
+                  return l = d.sent(), n.flatAndAddMetadata(e, "indexed_db", function() {
+                    return l;
+                  }), this.flatAndAddMetadata(e, "indexed_db_blob", function() {
+                    return i.indexeddbblob;
+                  }), this.flatAndAddMetadata(e, "internationalization", function() {
+                    return i.intl;
+                  }), this.flatAndAddMetadata(e, "json", function() {
+                    return i.json;
+                  }), this.flatAndAddMetadata(e, "ligatures", function() {
+                    return i.ligatures;
+                  }), this.flatAndAddMetadata(e, "media_source", function() {
+                    return "MediaSource" in window;
+                  }), this.flatAndAddMetadata(e, "message_channel", function() {
+                    return i.messagechannel;
+                  }), this.flatAndAddMetadata(e, "notification", function() {
+                    return i.notification;
+                  }), this.flatAndAddMetadata(e, "page_visibility", function() {
+                    return i.pagevisibility;
+                  }), this.flatAndAddMetadata(e, "performance", function() {
+                    return i.performance;
+                  }), this.flatAndAddMetadata(e, "pointer_events", function() {
+                    return i.pointerevents;
+                  }), this.flatAndAddMetadata(e, "pointer_lock", function() {
+                    return i.pointerlock;
+                  }), this.flatAndAddMetadata(e, "proximity", function() {
+                    return i.proximity;
+                  }), this.flatAndAddMetadata(e, "query_selector", function() {
+                    return i.queryselector;
+                  }), this.flatAndAddMetadata(e, "quota_management", function() {
+                    return i.quotamanagement;
+                  }), this.flatAndAddMetadata(e, "request_animation_frame", function() {
+                    return i.requestanimationframe;
+                  }), this.flatAndAddMetadata(e, "service_worker", function() {
+                    return i.serviceworker;
+                  }), this.flatAndAddMetadata(e, "touch_events", function() {
+                    return i.touchevents;
+                  }), this.flatAndAddMetadata(e, "typed_arrays", function() {
+                    return i.typedarrays;
+                  }), this.flatAndAddMetadata(e, "vibrate", function() {
+                    return i.vibrate;
+                  }), this.flatAndAddMetadata(e, "video", function() {
+                    return !!i.video;
+                  }), i.video && this.flatAndAddMetadata(e, "video", function() {
+                    return i.video;
+                  }), this.flatAndAddMetadata(e, "web_gl", function() {
+                    return i.webgl;
+                  }), this.flatAndAddMetadata(e, "web_sockets", function() {
+                    return i.websockets;
+                  }), this.flatAndAddMetadata(e, "x_domain_request", function() {
+                    return i.xdomainrequest;
+                  }), this.flatAndAddMetadata(e, "matchmedia", function() {
+                    return i.matchmedia;
+                  }), [2];
+              }
+            });
+          });
+        }, t.prototype.getIoMetadata = function() {
+          var e = this, n = {}, i = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+          return this.flatAndAddMetadata(n, "NETWORK_TYPE", function() {
+            return i ? i.type : null;
+          }), this.flatAndAddMetadata(n, "NETWORK_DOWNLOAD_MAX", function() {
+            return i ? i.downlinkMax : null;
+          }), this.flatAndAddMetadata(n, "BLUTOOTH_SUPPORTED", function() {
+            return !!navigator.bluetooth;
+          }), this.flatAndAddMetadata(n, "HAS_SPEAKERS", function() {
+            return e.hasSpeakers;
+          }), this.flatAndAddMetadata(n, "HAS_MICROPHONE", function() {
+            return e.hasMicrophone;
+          }), this.flatAndAddMetadata(n, "HAS_CAMERA", function() {
+            return e.hasWebcam;
+          }), this.flatAndAddMetadata(n, "BATTERY_SUPPORTED", function() {
+            return e.isBatterySupported;
+          }), this.flatAndAddMetadata(n, "BATTERY_LEVEL", function() {
+            return e.batteryLevel;
+          }), this.flatAndAddMetadata(n, "BATTERY_CHARGING", function() {
+            return e.batteryCharging;
+          }), this.flatAndAddMetadata(n, "BATTERY_CHARGING_TIME", function() {
+            return e.batteryChargingTime;
+          }), this.flatAndAddMetadata(n, "BATTERY_DISCHARGING_TIME", function() {
+            return e.batteryDischargingTime;
+          }), this.flatAndAddMetadata(n, "GPS_SUPPORTED", function() {
+            return e.gpsSupported;
+          }), this.flatAndAddMetadata(n, "IS_MOBILE", function() {
+            return s._POSignalsUtils.Util.isMobile;
+          }), this.flatAndAddMetadata(n, "HAS_TOUCH", function() {
+            return "ontouchstart" in document.documentElement;
+          }), this.flatAndAddMetadata(n, "PERMISSIONS", function() {
+            return e.permissions;
+          }), this.flatAndAddMetadata(n, "PREFERS_COLOR_SCHEME", function() {
+            return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : void 0;
+          }), n;
+        }, t.prototype.safeAddMetadata = function(e, n, i) {
+          try {
+            var a = new Set(this.metadataParams.metadataBlackList || []);
+            n == null || i == null || a.has(n) || (e[n] = i);
+          } catch (u) {
+            s._POSignalsUtils.Logger.warn("Failed to add " + n + " -> " + i + ", " + u);
+          }
+        }, t.prototype.safeModernizrOn = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i;
+            return $(this, function(a) {
+              switch (a.label) {
+                case 0:
+                  return n = new Promise(function(u) {
+                    try {
+                      s.Modernizr.on(e, function(c) {
+                        u(c);
+                      });
+                    } catch (c) {
+                      u(null), s._POSignalsUtils.Logger.warn(
+                        "Modernizr.on Failed with feature " + e,
+                        c
+                      );
+                    }
+                  }), i = s._POSignalsUtils.Util.delay(250).then(function() {
+                    return null;
+                  }), [4, Promise.race([n, i])];
+                case 1:
+                  return [2, a.sent()];
+              }
+            });
+          });
+        }, t.prototype.flatAndAddMetadata = function(e, n, i) {
+          try {
+            var a = new Set(this.metadataParams.metadataBlackList || []);
+            if (!n || a.has(n))
+              return;
+            var u = i();
+            if (typeof u == "object" && u !== null) {
+              var c = s._POSignalsUtils.Util.flatten(u);
+              for (var l in c)
+                this.safeAddMetadata(e, n + "." + l, c[l]);
+            } else
+              this.safeAddMetadata(e, n, u);
+          } catch (d) {
+            s._POSignalsUtils.Logger.warn("Failed to add " + n, d);
+          }
+        }, t.prototype.getOps = function() {
+          var e, n = /* @__PURE__ */ new Date(), i = 0;
+          do
+            i++, e = (/* @__PURE__ */ new Date()).getTime() - n.getTime();
+          while (e < 500);
+          var a = i / e;
+          return s._POSignalsUtils.Logger.debug("Ops : " + a), a;
+        }, t.prototype.getPrivateMode = function() {
+          return Z(this, void 0, void 0, function() {
+            var e;
+            return $(this, function(n) {
+              return e = this, [
+                2,
+                new Promise(function(i, a) {
+                  e.detectPrivateMode(function(u) {
+                    i(u);
+                  });
+                })
+              ];
+            });
+          });
+        }, t.prototype.detectPrivateMode = function(e) {
+          var n, i = e.bind(null, !0), a = e.bind(null, !1);
+          window.webkitRequestFileSystem ? window.webkitRequestFileSystem(0, 0, a, i) : "MozAppearance" in document.documentElement.style ? ((n = indexedDB.open("test")).onerror = i, n.onsuccess = a) : /constructor/i.test(window.HTMLElement) || window.safari ? function() {
+            try {
+              localStorage.length || (localStorage.x = 1, localStorage.removeItem("x")), a();
+            } catch {
+              navigator.cookieEnabled ? i() : a();
+            }
+          }() : window.indexedDB || !window.PointerEvent && !window.MSPointerEvent ? a() : i();
+        }, t.detectChromium = function() {
+          return Math.acos(0.123) == 1.4474840516030247 && Math.acosh(Math.SQRT2) == 0.881373587019543 && Math.atan(2) == 1.1071487177940904 && Math.atanh(0.5) == 0.5493061443340548 && Math.cbrt(Math.PI) == 1.4645918875615231 && Math.cos(21 * Math.LN2) == -0.4067775970251724 && Math.cosh(492 * Math.LOG2E) == 9199870313877772e292 && Math.expm1(1) == 1.718281828459045 && Math.hypot(6 * Math.PI, -100) == 101.76102278593319 && Math.log10(Math.PI) == 0.4971498726941338 && Math.sin(Math.PI) == 12246467991473532e-32 && Math.sinh(Math.PI) == 11.548739357257748 && Math.tan(10 * Math.LOG2E) == -3.3537128705376014 && Math.tanh(0.123) == 0.12238344189440875 && Math.pow(Math.PI, -100) == 19275814160560204e-66;
+        }, t;
+      }();
+      h.Metadata = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return t.seleniumInDocument = function() {
+          for (var e = 0, n = [
+            "__webdriver_evaluate",
+            "__selenium_evaluate",
+            "__webdriver_script_function",
+            "__webdriver_script_func",
+            "__webdriver_script_fn",
+            "__fxdriver_evaluate",
+            "__driver_unwrapped",
+            "__webdriver_unwrapped",
+            "__driver_evaluate",
+            "__selenium_unwrapped",
+            "__fxdriver_unwrapped"
+          ]; e < n.length; e++)
+            if (document[n[e]])
+              return !0;
+          return !1;
+        }, t.seleniumInWindow = function() {
+          for (var e = 0, n = [
+            "_phantom",
+            "__nightmare",
+            "_selenium",
+            "callPhantom",
+            "calledSelenium",
+            "callSelenium",
+            "_Selenium_IDE_Recorder"
+          ]; e < n.length; e++)
+            if (window[n[e]])
+              return !0;
+          return !1;
+        }, t.seleniumInNavigator = function() {
+          for (var e = 0, n = [
+            "webdriver",
+            "__driver_evaluate",
+            "__webdriver_evaluate",
+            "__selenium_evaluate",
+            "__fxdriver_evaluate",
+            "__driver_unwrapped",
+            "__webdriver_unwrapped",
+            "__selenium_unwrapped",
+            "__fxdriver_unwrapped",
+            "_Selenium_IDE_Recorder",
+            "_selenium",
+            "calledSelenium",
+            "_WEBDRIVER_ELEM_CACHE",
+            "ChromeDriverw",
+            "driver-evaluate",
+            "webdriver-evaluate",
+            "selenium-evaluate",
+            "webdriverCommand",
+            "webdriver-evaluate-response",
+            "__webdriverFunc",
+            "__webdriver_script_fn",
+            "__$webdriverAsyncExecutor",
+            "__lastWatirAlert",
+            "__lastWatirConfirm",
+            "__lastWatirPrompt",
+            "$chrome_asyncScriptInfo",
+            "$cdc_asdjflasutopfhvcZLmcfl_"
+          ]; e < n.length; e++)
+            if (navigator[n[e]])
+              return !0;
+          return !1;
+        }, t.seleniumSequentum = function() {
+          return window.external && window.external.toString() && window.external.toString().indexOf("Sequentum") != -1;
+        }, t;
+      }();
+      h.SeleniumProperties = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t(e) {
+          this.propertyBlackList = e;
+        }
+        return t.prototype.getHeadlessResults = function() {
+          return Z(this, void 0, void 0, function() {
+            var e, n = this;
+            return $(this, function(i) {
+              switch (i.label) {
+                case 0:
+                  return [4, this.headlessResults(window)];
+                case 1:
+                  return e = i.sent(), [
+                    4,
+                    this.test(e, "iframe_window", function() {
+                      return Z(n, void 0, void 0, function() {
+                        var a, u;
+                        return $(this, function(c) {
+                          switch (c.label) {
+                            case 0:
+                              return Object.getOwnPropertyDescriptors && (a = s._POSignalsUtils.Util.createInvisibleElement("iframe")) ? (a.srcdoc = "page intentionally left blank", document.body.appendChild(a), Object.getOwnPropertyDescriptors(
+                                HTMLIFrameElement.prototype
+                              ).contentWindow.get.toString() !== "function get contentWindow() { [native code] }" ? [2, !0] : a.contentWindow === window ? [2, !0] : [4, this.headlessResults(a.contentWindow)]) : [2];
+                            case 1:
+                              return u = c.sent(), a.remove(), [2, u];
+                          }
+                        });
+                      });
+                    })
+                  ];
+                case 2:
+                  return i.sent(), [2, e];
+              }
+            });
+          });
+        }, t.prototype.headlessResults = function(e) {
+          return Z(this, void 0, void 0, function() {
+            var n, i, a = this;
+            return $(this, function(u) {
+              switch (u.label) {
+                case 0:
+                  return n = /* @__PURE__ */ new Map(), (i = []).push(
+                    this.test(n, "headless_chrome", function() {
+                      return Z(a, void 0, void 0, function() {
+                        return $(this, function(c) {
+                          return [2, /HeadlessChrome/.test(e.navigator.userAgent)];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "navigator.webdriver_present", function() {
+                      return Z(a, void 0, void 0, function() {
+                        return $(this, function(c) {
+                          return [2, "webdriver" in e.navigator];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "window.chrome_missing", function() {
+                      return Z(a, void 0, void 0, function() {
+                        return $(this, function(c) {
+                          return [2, /Chrome/.test(e.navigator.userAgent) && !e.chrome];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "permissions_api", function() {
+                      return Z(a, void 0, void 0, function() {
+                        var c;
+                        return $(this, function(l) {
+                          switch (l.label) {
+                            case 0:
+                              return e.navigator.permissions && e.Notification ? [
+                                4,
+                                e.navigator.permissions.query({ name: "notifications" })
+                              ] : [3, 2];
+                            case 1:
+                              return c = l.sent(), [
+                                2,
+                                e.Notification.permission === "denied" && c.state === "prompt"
+                              ];
+                            case 2:
+                              return [2];
+                          }
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "permissions_api_overriden", function() {
+                      return Z(a, void 0, void 0, function() {
+                        var c;
+                        return $(this, function(l) {
+                          return (c = e.navigator.permissions) ? c.query.toString() !== "function query() { [native code] }" ? [2, !0] : c.query.toString.toString() !== "function toString() { [native code] }" ? [2, !0] : c.query.toString.hasOwnProperty("[[Handler]]") && c.query.toString.hasOwnProperty("[[Target]]") && c.query.toString.hasOwnProperty("[[IsRevoked]]") ? [2, !0] : [2, c.hasOwnProperty("query")] : [2];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "navigator.plugins_empty", function() {
+                      return Z(a, void 0, void 0, function() {
+                        return $(this, function(c) {
+                          return [2, navigator.plugins.length === 0];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "navigator.languages_blank", function() {
+                      return Z(a, void 0, void 0, function() {
+                        return $(this, function(c) {
+                          return [2, navigator.languages === ""];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "consistent_plugins_prototype", function() {
+                      return Z(a, void 0, void 0, function() {
+                        var c;
+                        return $(this, function(l) {
+                          return c = PluginArray.prototype === navigator.plugins.__proto__, navigator.plugins.length > 0 && (c = c && Plugin.prototype === navigator.plugins[0].__proto__), [2, c];
+                        });
+                      });
+                    })
+                  ), i.push(
+                    this.test(n, "consistent_mimetypes_prototype", function() {
+                      return Z(a, void 0, void 0, function() {
+                        var c;
+                        return $(this, function(l) {
+                          return c = MimeTypeArray.prototype === navigator.mimeTypes.__proto__, navigator.mimeTypes.length > 0 && (c = c && MimeType.prototype === navigator.mimeTypes[0].__proto__), [2, c];
+                        });
+                      });
+                    })
+                  ), [4, Promise.all(i)];
+                case 1:
+                  return u.sent(), [2, n];
+              }
+            });
+          });
+        }, t.prototype.test = function(e, n, i) {
+          return Z(this, void 0, void 0, function() {
+            var a, u;
+            return $(this, function(c) {
+              switch (c.label) {
+                case 0:
+                  return c.trys.push([0, 3, , 4]), this.propertyBlackList.has(n) ? [3, 2] : [4, s._POSignalsUtils.Util.promiseTimeout(100, i())];
+                case 1:
+                  (a = c.sent()) != null && (e[n] = a), c.label = 2;
+                case 2:
+                  return [3, 4];
+                case 3:
+                  return u = c.sent(), s._POSignalsUtils.Logger.warn(n + " headless test was failed", u), [3, 4];
+                case 4:
+                  return [2];
+              }
+            });
+          });
+        }, t;
+      }();
+      h.DetectHeadless = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t(e) {
+          this.propertyBlackList = e, this.result = {};
+        }
+        return t.prototype.documentLie = function(e, n) {
+          if (n.lied)
+            for (var i = 0, a = n.lieTypes; i < a.length; i++) {
+              var u = a[i];
+              this.result[u] || (this.result[u] = []), this.result[u].push(e);
+            }
+        }, t.prototype.getLies = function(e, n, i) {
+          var a = this;
+          if (i === void 0 && (i = null), typeof e != "function")
+            return { lied: !1, lieTypes: [] };
+          var u = e.name.replace(/get\s/, ""), c = {
+            undefined_properties: function() {
+              return !!i && t.getUndefinedValueLie(i, u);
+            },
+            to_string: function() {
+              return t.getToStringLie(e, u, a.iframeWindow);
+            },
+            prototype_in_function: function() {
+              return t.getPrototypeInFunctionLie(e);
+            },
+            own_property: function() {
+              return t.getOwnPropertyLie(e);
+            },
+            object_to_string_error: function() {
+              return t.getNewObjectToStringTypeErrorLie(e);
+            }
+          }, l = Object.keys(c).filter(function(d) {
+            return !a.propertyBlackList.has("LIES." + d) && !!c[d]();
+          });
+          return { lied: l.length > 0, lieTypes: l };
+        }, t.prototype.getAllLies = function() {
+          return Z(this, void 0, void 0, function() {
+            var e;
+            return $(this, function(n) {
+              switch (n.label) {
+                case 0:
+                  return this.propertyBlackList.has("LIES") ? [2, this.result] : (this.propertyBlackList.has("LIES_IFRAME") || (e = s._POSignalsUtils.Util.createInvisibleElement("iframe")) && (document.body.appendChild(e), this.iframeWindow = e), [
+                    4,
+                    Promise.all([
+                      this.searchLies(
+                        function() {
+                          return AnalyserNode;
+                        },
+                        { target: ["minDecibels"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return AudioBuffer;
+                        },
+                        { target: ["copyFromChannel"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return BiquadFilterNode;
+                        },
+                        { target: ["getFrequencyResponse"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return CanvasRenderingContext2D;
+                        },
+                        { target: ["getLineDash"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return DOMRect;
+                        },
+                        { target: ["height"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return DOMRectReadOnly;
+                        },
+                        { target: ["left"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return Element;
+                        },
+                        { target: ["getClientRects"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return HTMLCanvasElement;
+                        },
+                        { target: ["height"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return Math;
+                        },
+                        { target: ["sinh"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return MediaDevices;
+                        },
+                        { target: ["enumerateDevices"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return Navigator;
+                        },
+                        { target: ["plugins"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return OffscreenCanvasRenderingContext2D;
+                        },
+                        { target: ["getLineDash"] }
+                      ),
+                      this.searchLies(
+                        function() {
+                          return SVGRect;
+                        },
+                        { target: ["x"] }
+                      )
+                    ])
+                  ]);
+                case 1:
+                  return n.sent(), this.iframeWindow.remove(), [2, this.result];
+              }
+            });
+          });
+        }, t.prototype.searchLies = function(e, n) {
+          var i = n === void 0 ? {} : n, a = i.target, u = a === void 0 ? [] : a, c = i.ignore, l = c === void 0 ? [] : c;
+          return Z(this, void 0, void 0, function() {
+            var d, p, m = this;
+            return $(this, function(k) {
+              try {
+                if (d = e(), (x = d) === void 0 || !x)
+                  return [2];
+              } catch {
+                return [2];
+              }
+              var x;
+              return p = d.prototype ? d.prototype : d, Object.getOwnPropertyNames(p).forEach(function(y) {
+                if (!(y == "constructor" || u.length && !new Set(u).has(y) || l.length && new Set(l).has(y))) {
+                  var C = /\s(.+)\]/, A = (d.name ? d.name : C.test(d) ? C.exec(d)[1] : void 0) + "." + y;
+                  try {
+                    var P = d.prototype ? d.prototype : d;
+                    try {
+                      if (typeof P[y] == "function") {
+                        var D = m.getLies(P[y], P);
+                        return void m.documentLie(A, D);
+                      }
+                    } catch {
+                    }
+                    var j = Object.getOwnPropertyDescriptor(P, y).get, z = m.getLies(j, P, d);
+                    m.documentLie(A, z);
+                  } catch (B) {
+                    s._POSignalsUtils.Logger.warn("failed " + y + " test execution", B);
+                  }
+                }
+              }), [2];
+            });
+          });
+        }, t.getUndefinedValueLie = function(e, n) {
+          var i = e.name, a = window[i.charAt(0).toLowerCase() + i.slice(1)];
+          return !!a && (Object.getOwnPropertyDescriptor(a, n) !== void 0 || Reflect.getOwnPropertyDescriptor(a, n) !== void 0);
+        }, t.getToStringLie = function(e, n, i) {
+          var a, u;
+          try {
+            a = i.Function.prototype.toString.call(e);
+          } catch {
+          }
+          try {
+            u = i.Function.prototype.toString.call(e.toString);
+          } catch {
+          }
+          var c = a || e.toString(), l = u || e.toString.toString(), d = function(p) {
+            var m;
+            return (m = {})["function " + p + "() { [native code] }"] = !0, m["function get " + p + "() { [native code] }"] = !0, m["function () { [native code] }"] = !0, m["function " + p + `() {
+    [native code]
+}`] = !0, m["function get " + p + `() {
+    [native code]
+}`] = !0, m[`function () {
+    [native code]
+}`] = !0, m;
+          };
+          return !d(n)[c] || !d("toString")[l];
+        }, t.getPrototypeInFunctionLie = function(e) {
+          return "prototype" in e;
+        }, t.getOwnPropertyLie = function(e) {
+          return e.hasOwnProperty("arguments") || e.hasOwnProperty("caller") || e.hasOwnProperty("prototype") || e.hasOwnProperty("toString");
+        }, t.getNewObjectToStringTypeErrorLie = function(e) {
+          try {
+            return Object.create(e).toString(), !0;
+          } catch (l) {
+            var n = l.stack.split(`
+`), i = /at Object\.apply/, a = !n.slice(1).find(function(d) {
+              return i.test(d);
+            }), u = l.constructor.name == "TypeError" && n.length > 1, c = "chrome" in window || h.Metadata.detectChromium();
+            return !(!u || !c || /at Function\.toString/.test(n[1]) && a) || !u;
+          }
+        }, t;
+      }();
+      h.DetectLies = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t(e) {
+          this.propertyBlackList = e, this.result = /* @__PURE__ */ new Map();
+        }
+        return t.prototype.getStealthResult = function() {
+          return this.addStealthTest("srcdoc_throws_error", function() {
+            try {
+              return !!document.createElement("iframe").srcdoc;
+            } catch {
+              return !0;
+            }
+          }), this.addStealthTest("srcdoc_triggers_window_proxy", function() {
+            var e = document.createElement("iframe");
+            return e.srcdoc = "" + s._POSignalsUtils.Util.hashMini(crypto.getRandomValues(new Uint32Array(10))), !!e.contentWindow;
+          }), this.addStealthTest("index_chrome_too_high", function() {
+            var e = "cookieStore" in window ? "cookieStore" : "ondevicemotion" in window ? "ondevicemotion" : "speechSynthesis", n = [];
+            for (var i in window)
+              n.push(i);
+            return n.indexOf("chrome") > n.indexOf(e);
+          }), this.addStealthTest("chrome_runtime_functions_invalid", function() {
+            if (!("chrome" in window && "runtime" in window.chrome))
+              return !1;
+            try {
+              return "prototype" in window.chrome.runtime.sendMessage || "prototype" in window.chrome.runtime.connect || (new window.chrome.runtime.sendMessage(), new window.chrome.runtime.connect(), !0);
+            } catch (e) {
+              return e.constructor.name != "TypeError";
+            }
+          }), this.addStealthTest("Function_prototype_toString_invalid_typeError", function() {
+            var e = new t.StackTraceTester();
+            return e.isInvalidStackTraceSize(Function.prototype.toString) || e.isInvalidStackTraceSize(function() {
+            });
+          }), this.result;
+        }, t.prototype.addStealthTest = function(e, n) {
+          if (!this.propertyBlackList.has(e))
+            try {
+              this.result[e] = n();
+            } catch (i) {
+              s._POSignalsUtils.Logger.warn("stealth test " + e + " failed", i);
+            }
+        }, t.StackTraceTester = function() {
+          function e() {
+          }
+          return e.prototype.isInvalidStackTraceSize = function(n) {
+            var i = this;
+            try {
+              return this.you = function() {
+                return Object.create(n).toString();
+              }, this.cant = function() {
+                return i.you();
+              }, this.hide = function() {
+                return i.cant();
+              }, this.hide(), !0;
+            } catch (d) {
+              var a = d.stack.split(`
+`), u = !/at Object\.apply/.test(a[1]), c = d.constructor.name == "TypeError" && a.length >= 5, l = "chrome" in window || h.Metadata.detectChromium();
+              return !(!c || !l || u && /at Function\.toString/.test(a[1]) && /\.you/.test(a[2]) && /\.cant/.test(a[3]) && /\.hide/.test(a[4])) || !c;
+            }
+          }, e;
+        }(), t;
+      }();
+      h.DetectStealth = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {})), function(s) {
+    (function(h) {
+      var r = function() {
+        function t() {
+        }
+        return t.isPrivateMode = function() {
+          return new Promise(function(e) {
+            var n, i, a = function() {
+              return e(!0);
+            }, u = function() {
+              return e(!1);
+            };
+            try {
+              if ((i = navigator && /(?=.*(opera|chrome)).*/i.test(navigator.userAgent) && navigator.storage && navigator.storage.estimate) && navigator.storage.estimate().then(function(c) {
+                c.quota < 12e7 ? a() : u();
+              }).catch(function(c) {
+                u();
+              }), i || function() {
+                var c = "MozAppearance" in document.documentElement.style;
+                if (c)
+                  if (indexedDB == null)
+                    a();
+                  else {
+                    var l = indexedDB.open("inPrivate");
+                    l.onsuccess = u, l.onerror = a;
+                  }
+                return c;
+              }() || function() {
+                var c = navigator && navigator.userAgent && navigator.userAgent.match(/Version\/([0-9\._]+).*Safari/);
+                if (c) {
+                  if (parseInt(c[1], 10) < 11)
+                    return function() {
+                      try {
+                        localStorage.length || (localStorage.setItem("inPrivate", "0"), localStorage.removeItem("inPrivate")), u();
+                      } catch {
+                        navigator.cookieEnabled ? a() : u();
+                      }
+                      return !0;
+                    }();
+                  try {
+                    window.openDatabase(null, null, null, null), u();
+                  } catch {
+                    a();
+                  }
+                }
+                return !!c;
+              }() || ((n = !window.indexedDB && (window.PointerEvent || window.MSPointerEvent)) && a(), n))
+                return;
+            } catch {
+            }
+            return u();
+          });
+        }, t;
+      }();
+      h.Incognito = r;
+    })(s._POSignalsMetadata || (s._POSignalsMetadata = {}));
+  }(M || (M = {}));
+  var _e = /* @__PURE__ */ function() {
+    var s = function(h, r) {
+      return (s = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(t, e) {
+        t.__proto__ = e;
+      } || function(t, e) {
+        for (var n in e)
+          e.hasOwnProperty(n) && (t[n] = e[n]);
+      })(h, r);
+    };
+    return function(h, r) {
+      function t() {
+        this.constructor = h;
+      }
+      s(h, r), h.prototype = r === null ? Object.create(r) : (t.prototype = r.prototype, new t());
+    };
+  }();
+  Z = function(s, h, r, t) {
+    return new (r || (r = Promise))(function(e, n) {
+      function i(c) {
+        try {
+          u(t.next(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function a(c) {
+        try {
+          u(t.throw(c));
+        } catch (l) {
+          n(l);
+        }
+      }
+      function u(c) {
+        var l;
+        c.done ? e(c.value) : (l = c.value, l instanceof r ? l : new r(function(d) {
+          d(l);
+        })).then(i, a);
+      }
+      u((t = t.apply(s, h || [])).next());
+    });
+  }, $ = function(s, h) {
+    var r, t, e, n, i = {
+      label: 0,
+      sent: function() {
+        if (1 & e[0])
+          throw e[1];
+        return e[1];
+      },
+      trys: [],
+      ops: []
+    };
+    return n = { next: a(0), throw: a(1), return: a(2) }, typeof Symbol == "function" && (n[Symbol.iterator] = function() {
+      return this;
+    }), n;
+    function a(u) {
+      return function(c) {
+        return function(l) {
+          if (r)
+            throw new TypeError("Generator is already executing.");
+          for (; i; )
+            try {
+              if (r = 1, t && (e = 2 & l[0] ? t.return : l[0] ? t.throw || ((e = t.return) && e.call(t), 0) : t.next) && !(e = e.call(t, l[1])).done)
+                return e;
+              switch (t = 0, e && (l = [2 & l[0], e.value]), l[0]) {
+                case 0:
+                case 1:
+                  e = l;
+                  break;
+                case 4:
+                  return i.label++, { value: l[1], done: !1 };
+                case 5:
+                  i.label++, t = l[1], l = [0];
+                  continue;
+                case 7:
+                  l = i.ops.pop(), i.trys.pop();
+                  continue;
+                default:
+                  if (!(e = (e = i.trys).length > 0 && e[e.length - 1]) && (l[0] === 6 || l[0] === 2)) {
+                    i = 0;
+                    continue;
+                  }
+                  if (l[0] === 3 && (!e || l[1] > e[0] && l[1] < e[3])) {
+                    i.label = l[1];
+                    break;
+                  }
+                  if (l[0] === 6 && i.label < e[1]) {
+                    i.label = e[1], e = l;
+                    break;
+                  }
+                  if (e && i.label < e[2]) {
+                    i.label = e[2], i.ops.push(l);
+                    break;
+                  }
+                  e[2] && i.ops.pop(), i.trys.pop();
+                  continue;
+              }
+              l = h.call(s, i);
+            } catch (d) {
+              l = [6, d], t = 0;
+            } finally {
+              r = e = 0;
+            }
+          if (5 & l[0])
+            throw l[1];
+          return { value: l[0] ? l[1] : void 0, done: !0 };
+        }([u, c]);
+      };
+    }
+  }, ve = function() {
+    return (ve = Object.assign || function(s) {
+      for (var h, r = 1, t = arguments.length; r < t; r++)
+        for (var e in h = arguments[r])
+          Object.prototype.hasOwnProperty.call(h, e) && (s[e] = h[e]);
+      return s;
+    }).apply(this, arguments);
+  }, function(s) {
+    (function(h) {
+      h[h.Unknown = 0] = "Unknown", h[h.FlingRight = 1] = "FlingRight", h[h.FlingLeft = 2] = "FlingLeft", h[h.FlingUp = 3] = "FlingUp", h[h.FlingDown = 4] = "FlingDown", h[h.Diagonal = 5] = "Diagonal", h[h.ScrollRight = 6] = "ScrollRight", h[h.ScrollLeft = 7] = "ScrollLeft", h[h.ScrollUp = 8] = "ScrollUp", h[h.ScrollDown = 9] = "ScrollDown", h[h.Tap = 10] = "Tap", h[h.DoubleTap = 11] = "DoubleTap";
+    })(s.GestureType || (s.GestureType = {}));
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function d(p, m) {
+        this.handler = p, this.isOnce = m, this.isExecuted = !1;
+      }
+      return d.prototype.execute = function(p, m, k) {
+        if (!this.isOnce || !this.isExecuted) {
+          this.isExecuted = !0;
+          var x = this.handler;
+          p ? setTimeout(function() {
+            x.apply(m, k);
+          }, 1) : x.apply(m, k);
+        }
+      }, d;
+    }(), r = function() {
+      function d() {
+        this._wrap = new i(this), this._subscriptions = new Array();
+      }
+      return d.prototype.subscribe = function(p) {
+        p && this._subscriptions.push(new h(p, !1));
+      }, d.prototype.sub = function(p) {
+        this.subscribe(p);
+      }, d.prototype.one = function(p) {
+        p && this._subscriptions.push(new h(p, !0));
+      }, d.prototype.has = function(p) {
+        if (p) {
+          for (var m = 0, k = this._subscriptions; m < k.length; m++)
+            if (k[m].handler == p)
+              return !0;
+        }
+        return !1;
+      }, d.prototype.unsubscribe = function(p) {
+        if (p) {
+          for (var m = 0; m < this._subscriptions.length; m++)
+            if (this._subscriptions[m].handler == p) {
+              this._subscriptions.splice(m, 1);
+              break;
+            }
+        }
+      }, d.prototype.unsub = function(p) {
+        this.unsubscribe(p);
+      }, d.prototype._dispatch = function(p, m, k) {
+        for (var x = 0; x < this._subscriptions.length; x++) {
+          var y = this._subscriptions[x];
+          if (y.isOnce) {
+            if (y.isExecuted === !0)
+              continue;
+            this._subscriptions.splice(x, 1), x--;
+          }
+          y.execute(p, m, k);
+        }
+      }, d.prototype.asEvent = function() {
+        return this._wrap;
+      }, d;
+    }();
+    s.DispatcherBase = r;
+    var t = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.dispatch = function(m, k) {
+        this._dispatch(!1, this, arguments);
+      }, p.prototype.dispatchAsync = function(m, k) {
+        this._dispatch(!0, this, arguments);
+      }, p;
+    }(r);
+    s.EventDispatcher = t;
+    var e = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.dispatch = function(m) {
+        this._dispatch(!1, this, arguments);
+      }, p.prototype.dispatchAsync = function(m) {
+        this._dispatch(!0, this, arguments);
+      }, p;
+    }(r), n = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.dispatch = function() {
+        this._dispatch(!1, this, arguments);
+      }, p.prototype.dispatchAsync = function() {
+        this._dispatch(!0, this, arguments);
+      }, p;
+    }(r), i = function() {
+      function d(p) {
+        this._subscribe = function(m) {
+          return p.subscribe(m);
+        }, this._unsubscribe = function(m) {
+          return p.unsubscribe(m);
+        }, this._one = function(m) {
+          return p.one(m);
+        }, this._has = function(m) {
+          return p.has(m);
+        };
+      }
+      return d.prototype.subscribe = function(p) {
+        this._subscribe(p);
+      }, d.prototype.sub = function(p) {
+        this.subscribe(p);
+      }, d.prototype.unsubscribe = function(p) {
+        this._unsubscribe(p);
+      }, d.prototype.unsub = function(p) {
+        this.unsubscribe(p);
+      }, d.prototype.one = function(p) {
+        this._one(p);
+      }, d.prototype.has = function(p) {
+        return this._has(p);
+      }, d;
+    }(), a = function() {
+      function d() {
+        this._events = {};
+      }
+      return d.prototype.get = function(p) {
+        var m = this._events[p];
+        return m || (m = this.createDispatcher(), this._events[p] = m, m);
+      }, d.prototype.remove = function(p) {
+        this._events[p] = null;
+      }, d;
+    }(), u = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.createDispatcher = function() {
+        return new t();
+      }, p;
+    }(a), c = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.createDispatcher = function() {
+        return new e();
+      }, p;
+    }(a), l = function(d) {
+      function p() {
+        return d !== null && d.apply(this, arguments) || this;
+      }
+      return _e(p, d), p.prototype.createDispatcher = function() {
+        return new n();
+      }, p;
+    }(a);
+    ((function() {
+      function d() {
+        this._events = new u();
+      }
+      Object.defineProperty(d.prototype, "events", {
+        get: function() {
+          return this._events;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), d.prototype.subscribe = function(p, m) {
+        this._events.get(p).subscribe(m);
+      }, d.prototype.sub = function(p, m) {
+        this.subscribe(p, m);
+      }, d.prototype.unsubscribe = function(p, m) {
+        this._events.get(p).unsubscribe(m);
+      }, d.prototype.unsub = function(p, m) {
+        this.unsubscribe(p, m);
+      }, d.prototype.one = function(p, m) {
+        this._events.get(p).one(m);
+      }, d.prototype.has = function(p, m) {
+        return this._events.get(p).has(m);
+      };
+    }))(), function() {
+      function d() {
+        this._events = new c();
+      }
+      Object.defineProperty(d.prototype, "events", {
+        get: function() {
+          return this._events;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), d.prototype.subscribe = function(p, m) {
+        this._events.get(p).subscribe(m);
+      }, d.prototype.sub = function(p, m) {
+        this.subscribe(p, m);
+      }, d.prototype.one = function(p, m) {
+        this._events.get(p).one(m);
+      }, d.prototype.has = function(p, m) {
+        return this._events.get(p).has(m);
+      }, d.prototype.unsubscribe = function(p, m) {
+        this._events.get(p).unsubscribe(m);
+      }, d.prototype.unsub = function(p, m) {
+        this.unsubscribe(p, m);
+      };
+    }(), function() {
+      function d() {
+        this._events = new l();
+      }
+      Object.defineProperty(d.prototype, "events", {
+        get: function() {
+          return this._events;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), d.prototype.one = function(p, m) {
+        this._events.get(p).one(m);
+      }, d.prototype.has = function(p, m) {
+        return this._events.get(p).has(m);
+      }, d.prototype.subscribe = function(p, m) {
+        this._events.get(p).subscribe(m);
+      }, d.prototype.sub = function(p, m) {
+        this.subscribe(p, m);
+      }, d.prototype.unsubscribe = function(p, m) {
+        this._events.get(p).unsubscribe(m);
+      }, d.prototype.unsub = function(p, m) {
+        this.unsubscribe(p, m);
+      };
+    }();
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this._isStarted = !1, this._isEventsStarted = !1, this._gestureTimestamps = [], this._maxSensorSamples = 0, this._sensorsTimestampDeltaInMillis = 0, this._accelerometerList = [], this._gyroscopeList = [], this._linearAccelerometerList = [], this._rotationList = [], this.orientationImplementationFix = 1, this.delegate = t, window.navigator.userAgent.match(
+          /^.*(iPhone|iPad).*(OS\s[0-9]).*(CriOS|Version)\/[.0-9]*\sMobile.*$/i
+        ) && (this.orientationImplementationFix = -1), this.accelerometerUpdateHandle = this.accelerometerUpdate.bind(this), this.orientationUpdateHandle = this.orientationUpdate.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "LAST_GESTURE_SENSOR_TIMEOUT_MILI_SECONDS", {
+        get: function() {
+          return 3e3;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "accX", {
+        get: function() {
+          return this._accX;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "accY", {
+        get: function() {
+          return this._accY;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "accZ", {
+        get: function() {
+          return this._accZ;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "lienarAccX", {
+        get: function() {
+          return this._lienarAccX;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "lienarAccY", {
+        get: function() {
+          return this._lienarAccY;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "lienarAccZ", {
+        get: function() {
+          return this._lienarAccZ;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "rotX", {
+        get: function() {
+          return this._rotX;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "rotY", {
+        get: function() {
+          return this._rotY;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "rotZ", {
+        get: function() {
+          return this._rotZ;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxSensorSamples", {
+        get: function() {
+          return this._maxSensorSamples;
+        },
+        set: function(t) {
+          this._maxSensorSamples = t;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "sensorsTimestampDeltaInMillis", {
+        get: function() {
+          return this._sensorsTimestampDeltaInMillis;
+        },
+        set: function(t) {
+          this._sensorsTimestampDeltaInMillis = t;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "accelerometerList", {
+        get: function() {
+          return this.getRelevantSensorSamples(this._accelerometerList);
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "gyroscopeList", {
+        get: function() {
+          return this.getRelevantSensorSamples(this._gyroscopeList);
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "linearAccelerometerList", {
+        get: function() {
+          return this.getRelevantSensorSamples(this._linearAccelerometerList);
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "rotationList", {
+        get: function() {
+          return this._rotationList;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, s._POSignalsUtils.Logger.debug("Sensor events started..."));
+      }, r.prototype.getRotationListCopy = function() {
+        return this._rotationList ? Array.from(this._rotationList) : [];
+      }, r.prototype.stop = function() {
+        this._isStarted && (window.DeviceMotionEvent != null && window.removeEventListener("devicemotion", this.accelerometerUpdateHandle, !0), window.DeviceOrientationEvent && window.removeEventListener("deviceorientation", this.orientationUpdateHandle, !0), this._isStarted = !1, s._POSignalsUtils.Logger.debug("Sensor events stopped"));
+      }, r.prototype.getRelevantSensorSamples = function(t) {
+        if (t.length == 0 || this._sensorsTimestampDeltaInMillis < 1 || this._gestureTimestamps.length == 0)
+          return t;
+        for (var e = /* @__PURE__ */ new Map(), n = null, i = 0, a = 0; a < t.length; a++)
+          for (var u = 0; u < this._gestureTimestamps.length; u++)
+            (i = t[a].timestamp) >= (n = this._gestureTimestamps[u]).start - this._sensorsTimestampDeltaInMillis && i <= n.end + this._sensorsTimestampDeltaInMillis && e.set(t[a].timestamp, t[a]);
+        return s._POSignalsUtils.Util.getValuesOfMap(e);
+      }, r.prototype.stopEvents = function() {
+        this._isEventsStarted && (window.DeviceMotionEvent != null && window.removeEventListener("devicemotion", this.accelerometerUpdateHandle, !0), window.DeviceOrientationEvent && window.removeEventListener("deviceorientation", this.orientationUpdateHandle, !0), this._isEventsStarted = !1, s._POSignalsUtils.Logger.debug("Sensor events stopped listening"));
+      }, r.prototype.startEvents = function() {
+        this._isEventsStarted || (window.DeviceMotionEvent != null ? this.delegate.addEventListener(
+          window,
+          "devicemotion",
+          this.accelerometerUpdateHandle,
+          !0
+        ) : s._POSignalsUtils.Logger.warn("DeviceMotion not supported!"), window.DeviceOrientationEvent ? this.delegate.addEventListener(
+          window,
+          "deviceorientation",
+          this.orientationUpdateHandle,
+          !0
+        ) : s._POSignalsUtils.Logger.warn("DeviceOrientation not supported!"), s._POSignalsUtils.Logger.debug("Sensor events start listening..."), this._isEventsStarted = !0);
+      }, r.prototype.reset = function() {
+        this._accelerometerList = [], this._gyroscopeList = [], this._linearAccelerometerList = [], this._rotationList = [], this._gestureTimestamps.length > 0 ? this._gestureTimestamps = [
+          this._gestureTimestamps[this._gestureTimestamps.length - 1]
+        ] : this._gestureTimestamps = [], this._accX = 0, this._accY = 0, this._accZ = 0, this._rotX = 0, this._rotY = 0, this._rotZ = 0;
+      }, r.prototype.onGesture = function(t) {
+        this._isEventsStarted || this.startEvents(), t.events.length > 1 && this._gestureTimestamps.push({
+          start: t.events[0].eventTs,
+          end: t.events[t.events.length - 1].eventTs
+        });
+      }, r.prototype.puaseSensorsCollectionIfNoActivity = function(t) {
+        return (this._gestureTimestamps.length > 0 ? this._gestureTimestamps[this._gestureTimestamps.length - 1].end : 0) > 0 ? Math.abs(t - this._gestureTimestamps[this._gestureTimestamps.length - 1].end) > this.LAST_GESTURE_SENSOR_TIMEOUT_MILI_SECONDS && (this.stopEvents(), !0) : (this.stopEvents(), !0);
+      }, r.prototype.getDeviceAcceleration = function(t) {
+        return t && t.x != null && t.y != null && t.z != null ? t : null;
+      }, r.prototype.accelerometerUpdate = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData() || this.puaseSensorsCollectionIfNoActivity(s._POSignalsUtils.Util.now()))
+            return;
+          var e = this.getDeviceAcceleration(t.accelerationIncludingGravity);
+          e && (this._accX = e.x * this.orientationImplementationFix, this._accY = e.y * this.orientationImplementationFix, this._accZ = e.z, this.safeAddSensorSample(
+            {
+              x: this._accX,
+              y: this._accY,
+              z: this._accX,
+              timestamp: s._POSignalsUtils.Util.now()
+            },
+            this._accelerometerList
+          ));
+          var n = this.getDeviceAcceleration(t.acceleration);
+          n && (this._lienarAccX = n.x * this.orientationImplementationFix, this._lienarAccY = n.y * this.orientationImplementationFix, this._lienarAccZ = n.z, this.safeAddSensorSample(
+            {
+              x: this._lienarAccX,
+              y: this._lienarAccY,
+              z: this._lienarAccZ,
+              timestamp: s._POSignalsUtils.Util.now()
+            },
+            this._linearAccelerometerList
+          )), t.rotationRate && t.rotationRate.alpha != null && t.rotationRate.beta != null && t.rotationRate.gamma != null && (this._rotX = t.rotationRate.alpha, this._rotY = t.rotationRate.beta, this._rotZ = t.rotationRate.gamma, this.safeAddSensorSample(
+            {
+              x: this._rotX,
+              y: this._rotY,
+              z: this._rotZ,
+              timestamp: s._POSignalsUtils.Util.now()
+            },
+            this._gyroscopeList
+          ));
+        } catch (i) {
+          s._POSignalsUtils.Logger.warn("error in accelerometer handler", i);
+        }
+      }, r.prototype.orientationUpdate = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData() || this.puaseSensorsCollectionIfNoActivity(s._POSignalsUtils.Util.now()))
+            return;
+          t.alpha != null && t.beta != null && t.gamma != null && this.safeAddSensorSample(
+            { x: t.alpha, y: t.beta, z: t.gamma, timestamp: s._POSignalsUtils.Util.now() },
+            this._rotationList
+          );
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in orientation handler", e);
+        }
+      }, r.prototype.safeAddSensorSample = function(t, e) {
+        this.maxSensorSamples > e.length && e.push(t);
+      }, r;
+    }();
+    s.Sensors = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this._pointerParams = new s.PointerParams();
+      }
+      return Object.defineProperty(r, "instance", {
+        get: function() {
+          return r._instance || (r._instance = new r()), r._instance;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "pointerParams", {
+        get: function() {
+          return this._pointerParams;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r;
+    }();
+    s.PointerConfig = h;
+  }(M || (M = {})), function(s) {
+    var h;
+    (function(t) {
+      t[t.Up = 1] = "Up", t[t.Down = 2] = "Down", t[t.Left = 3] = "Left", t[t.Right = 4] = "Right";
+    })(h || (h = {}));
+    var r = function() {
+      function t(e, n) {
+        this.BEHAVIORAL_TYPE = "gestures", this._isStarted = !1, this._onGesture = new s.EventDispatcher(), this.touchSnapshotsMap = /* @__PURE__ */ new Map(), this.snapshotStartTime = /* @__PURE__ */ new Map(), this.delegate = e, this.sensors = n, this.touchStartHandler = this.touchStart.bind(this), this.touchMoveHandler = this.touchMove.bind(this), this.touchEndHandler = this.touchEnd.bind(this), this.touchCancelHandler = this.touchCancel.bind(this);
+      }
+      return Object.defineProperty(t.prototype, "onGesture", {
+        get: function() {
+          return this._onGesture.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "SCROLL_MIN_DURATION", {
+        get: function() {
+          return 500;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "SWIPE_MAX_ANGLE", {
+        get: function() {
+          return 45;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "TAP_MOVEMENT_TRESHOLD", {
+        get: function() {
+          return 10;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), t.prototype.countEvents = function(e) {
+        for (var n = {}, i = 0, a = e; i < a.length; i++) {
+          var u = a[i];
+          n[u.type] = (n[u.type] || 0) + 1;
+        }
+        return n;
+      }, t.prototype.clearTouchSnapshots = function(e) {
+        this.touchSnapshotsMap.delete(e), this.snapshotStartTime.delete(e);
+      }, t.prototype.getTouchSnapshots = function(e) {
+        var n;
+        return this.touchSnapshotsMap.has(e) ? n = this.touchSnapshotsMap.get(e) : (n = [], this.touchSnapshotsMap.set(e, n)), n;
+      }, t.prototype.isEmpty = function() {
+        return this.touchSnapshotsMap.size === 0;
+      }, t.prototype.start = function() {
+        this._isStarted || (this.delegate.addEventListener(document, "touchstart", this.touchStartHandler), this.delegate.addEventListener(document, "touchmove", this.touchMoveHandler), this.delegate.addEventListener(document, "touchend", this.touchEndHandler), this.delegate.addEventListener(document, "touchcancel", this.touchCancelHandler), this._isStarted = !0);
+      }, t.prototype.stop = function() {
+        this._isStarted && (document.removeEventListener("touchstart", this.touchStartHandler), document.removeEventListener("touchmove", this.touchMoveHandler), document.removeEventListener("touchend", this.touchEndHandler), document.removeEventListener("touchcancel", this.touchCancelHandler), this._isStarted = !1);
+      }, t.prototype.touchStart = function(e) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || s.PointerConfig.instance.pointerParams.eventsToIgnore.has(e.type))
+            return;
+          s._POSignalsUtils.Logger.debug("touchstart(" + e.changedTouches.length + ")", e), e.changedTouches.length > 0 && this.pushSnapshot(e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in touchStart handler", n);
+        }
+      }, t.prototype.touchMove = function(e) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || s.PointerConfig.instance.pointerParams.eventsToIgnore.has(e.type))
+            return;
+          s._POSignalsUtils.Logger.debug("touchmove(" + e.changedTouches.length + ")", e), e.changedTouches.length > 0 && this.pushSnapshot(e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in touchMove handler", n);
+        }
+      }, t.prototype.touchEnd = function(e) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onGesture.dispatch(this, null);
+          if (s.PointerConfig.instance.pointerParams.eventsToIgnore.has(e.type))
+            return;
+          s._POSignalsUtils.Logger.debug("touchend(" + e.changedTouches.length + ")", e), this.gestureEnd(e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in touchEnd handler", n);
+        }
+      }, t.prototype.touchCancel = function(e) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onGesture.dispatch(this, null);
+          if (s.PointerConfig.instance.pointerParams.eventsToIgnore.has(e.type))
+            return;
+          s._POSignalsUtils.Logger.debug("touchcancel(" + e.changedTouches.length + ")", e), this.gestureEnd(e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in touchCancel handler", n);
+        }
+      }, t.prototype.gestureEnd = function(e) {
+        e.changedTouches.length > 0 && this.pushSnapshot(e);
+        for (var n = 0; n < e.changedTouches.length; n++) {
+          var i = e.changedTouches.item(n), a = this.getTouchSnapshots(i.identifier);
+          a.length > 0 && (this.isTap(a) ? this.dispatchGesture(s.GestureType.Tap, i.identifier) : this.dispatchGesture(this.calcGestureType(a), i.identifier));
+        }
+      }, t.prototype.calcGestureType = function(e) {
+        var n, i = this.getDirection(e);
+        if (this.isFling(e))
+          switch (i) {
+            case h.Up:
+              n = s.GestureType.FlingUp;
+              break;
+            case h.Right:
+              n = s.GestureType.FlingRight;
+              break;
+            case h.Down:
+              n = s.GestureType.FlingDown;
+              break;
+            case h.Left:
+              n = s.GestureType.FlingLeft;
+          }
+        else if (this.isScroll(e))
+          switch (i) {
+            case h.Up:
+              n = s.GestureType.ScrollUp;
+              break;
+            case h.Right:
+              n = s.GestureType.ScrollRight;
+              break;
+            case h.Down:
+              n = s.GestureType.ScrollDown;
+              break;
+            case h.Left:
+              n = s.GestureType.ScrollLeft;
+          }
+        return n;
+      }, t.prototype.pushSnapshot = function(e) {
+        if (e.changedTouches && e.changedTouches.length > 0)
+          for (var n, i = function() {
+            var c = e.changedTouches.item(u);
+            n = c.radiusX && c.radiusY ? (c.radiusX + c.radiusY) / 2 : null, a.snapshotStartTime.has(c.identifier) || a.snapshotStartTime.set(c.identifier, (/* @__PURE__ */ new Date()).getTime());
+            var l = a.getTouchSnapshots(c.identifier);
+            l.length < s.PointerConfig.instance.pointerParams.maxSnapshotsCount && l.push({
+              type: e.type,
+              eventTs: e.timeStamp,
+              epochTs: (/* @__PURE__ */ new Date()).getTime(),
+              relativeX: c.screenX,
+              relativeY: c.screenY,
+              x: c.clientX,
+              y: c.clientY,
+              pressure: c.force,
+              size: n,
+              xaccelerometer: a.sensors.accX,
+              yaccelerometer: a.sensors.accY,
+              zaccelerometer: a.sensors.accZ,
+              xlinearaccelerometer: a.sensors.lienarAccX,
+              ylinearaccelerometer: a.sensors.lienarAccY,
+              zlinearaccelerometer: a.sensors.lienarAccZ,
+              xrotation: a.sensors.rotX,
+              yrotation: a.sensors.rotY,
+              zrotation: a.sensors.rotZ,
+              radiusX: c.radiusX,
+              radiusY: c.radiusY,
+              rotationAngle: c.rotationAngle,
+              pageX: c.pageX,
+              pageY: c.pageY,
+              getX: function() {
+                return c.screenX;
+              },
+              getY: function() {
+                return c.screenY;
+              }
+            });
+          }, a = this, u = 0; u < e.changedTouches.length; u++)
+            i();
+      }, t.prototype.dispatchGesture = function(e, n) {
+        var i = this.touchSnapshotsMap.get(n) || [], a = i.filter(function(u) {
+          return u.type === "touchmove";
+        });
+        this._onGesture.dispatch(this, {
+          epochTs: this.snapshotStartTime.get(n) || 0,
+          counter: this.delegate.gesturesCounter,
+          type: e,
+          events: i,
+          eventCounters: this.countEvents(i),
+          duration: this.delegate.getInteractionDuration(i),
+          additionalData: this.delegate.additionalData,
+          uiControl: void 0,
+          timeProximity: s._POSignalsUtils.Util.calculateMeanTimeDeltasBetweenEvents(a),
+          meanEuclidean: s._POSignalsUtils.Util.calculateMeanDistanceBetweenPoints(a),
+          reduction: {}
+        }), this.clearTouchSnapshots(n);
+      }, t.prototype.isTap = function(e) {
+        var n = Math.abs(e[0].x - e[1].x), i = Math.abs(e[0].y - e[1].y);
+        return e.length == 2 && n < this.TAP_MOVEMENT_TRESHOLD && i < this.TAP_MOVEMENT_TRESHOLD;
+      }, t.prototype.isFling = function(e) {
+        return e.length > 1 && e[e.length - 1].eventTs - e[0].eventTs < this.SCROLL_MIN_DURATION;
+      }, t.prototype.isScroll = function(e) {
+        return e.length > 1 && e[e.length - 1].eventTs - e[0].eventTs > this.SCROLL_MIN_DURATION;
+      }, t.prototype.getDirection = function(e) {
+        var n = this.calcAngle(e[0], e[e.length - 1]);
+        return n > 90 - this.SWIPE_MAX_ANGLE && n <= 90 + this.SWIPE_MAX_ANGLE ? h.Up : n > 180 - this.SWIPE_MAX_ANGLE && n <= 180 + this.SWIPE_MAX_ANGLE ? h.Right : n > 270 - this.SWIPE_MAX_ANGLE && n <= 270 + this.SWIPE_MAX_ANGLE ? h.Down : h.Left;
+      }, t.prototype.calcAngle = function(e, n) {
+        return 180 * Math.atan2(n.y - e.y, n.x - e.x) / Math.PI + 180;
+      }, t;
+    }();
+    s.GestureEvents = r;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.key = t, this.cache = this.loadFromStorage();
+      }
+      return r.prototype.loadFromStorage = function() {
+        var t = r.sessionStorage.getItem(this.key);
+        return t || (t = JSON.stringify([])), JSON.parse(t);
+      }, r.prototype.get = function() {
+        return this.cache;
+      }, Object.defineProperty(r.prototype, "length", {
+        get: function() {
+          return this.cache.length;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.push = function(t) {
+        var e = this.cache.push(t);
+        return r.sessionStorage.setItem(this.key, JSON.stringify(this.cache)), e;
+      }, r.prototype.set = function(t) {
+        this.cache = t, r.sessionStorage.setItem(this.key, JSON.stringify(this.cache));
+      }, r.prototype.remove = function(t) {
+        this.cache.splice(t, 1), r.sessionStorage.setItem(this.key, JSON.stringify(this.cache));
+      }, r.prototype.concat = function(t) {
+        return this.cache.concat(t);
+      }, r.prototype.clear = function() {
+        this.cache = [], r.sessionStorage.removeItem(this.key);
+      }, r.sessionStorage = s._POSignalsStorage.SessionStorage.instance.sessionStorage, r;
+    }();
+    s.StorageArray = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this.MAX_TAGS = 10, this._tags = new s.StorageArray(s._POSignalsUtils.Constants.CAPTURED_TAGS);
+      }
+      return Object.defineProperty(r, "instance", {
+        get: function() {
+          return r._instance || (r._instance = new r()), r._instance;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "tags", {
+        get: function() {
+          return this._tags.get();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "disableTags", {
+        set: function(t) {
+          this._disableTags = t;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.setTag = function(t, e) {
+        var n;
+        if (!this._disableTags)
+          if (s.PointerConfig.instance.pointerParams.enabled)
+            if (t) {
+              var i = s.PointerConfig.instance.pointerParams.tagsBlacklistRegex;
+              if (i && (t.match(i) || e != null && e.match(i)))
+                s._POSignalsUtils.Logger.info("Tag name or value is blacklisted");
+              else if (!(this._tags.length >= this.MAX_TAGS)) {
+                this._tags.push({
+                  name: t.trim(),
+                  value: ((n = e == null ? void 0 : e.trim) === null || n === void 0 ? void 0 : n.call(e)) || void 0,
+                  epochTs: Date.now(),
+                  timestamp: Date.now()
+                });
+                var a = e ? t + ":" + e : t;
+                s._POSignalsUtils.Logger.info("Add tag: " + a);
+              }
+            } else
+              s._POSignalsUtils.Logger.info("Can't add tag, missing name");
+          else
+            s._POSignalsUtils.Logger.info("Can't add tag, PingOneSignals SDK is disabled");
+      }, r.prototype.reset = function() {
+        this._tags.clear();
+      }, r;
+    }();
+    s.Tags = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.client = t;
+      }
+      return r.prototype.calculateStrategyResult = function(t, e) {
+        return {
+          shouldCollect: this.client.getBufferSize() < s.PointerConfig.instance.pointerParams.bufferSize
+        };
+      }, r;
+    }();
+    s.FirstInteractionsStrategy = h;
+  }(M || (M = {})), function(s) {
+    var h;
+    (function(t) {
+      t[t.RICH = 3] = "RICH", t[t.CLICK = 2] = "CLICK", t[t.MOVE = 1] = "MOVE", t[t.POOR = 0] = "POOR";
+    })(h || (h = {}));
+    var r = function() {
+      function t(e) {
+        this.client = e, this.MAX_INTERACTIONS_PER_TYPE = 5, this.MAX_MOUSE_AND_GESTURE = this.MAX_INTERACTIONS_PER_TYPE + 1, this.RICH_MOUSE_MOVES_AMOUNT = 8, this.MIN_KEYBOARD_EVENTS = 4;
+      }
+      return t.prototype.isRichMouseInteraction = function(e) {
+        return e.mousemove >= this.RICH_MOUSE_MOVES_AMOUNT && this.isClickInteraction(e);
+      }, t.prototype.isClickInteraction = function(e) {
+        return e.mousedown > 0 && e.mouseup > 0;
+      }, t.prototype.isMoveInteraction = function(e) {
+        return e.mousemove >= this.RICH_MOUSE_MOVES_AMOUNT;
+      }, t.prototype.classifyMouseInteraction = function(e) {
+        var n = s._POSignalsUtils.Util.typesCounter(e.events);
+        return this.isRichMouseInteraction(n) ? h.RICH : this.isClickInteraction(n) ? h.CLICK : this.isMoveInteraction(n) ? h.MOVE : h.POOR;
+      }, t.prototype.findMinPriorityGestureIndex = function(e, n) {
+        if (n.length === 0)
+          return -1;
+        for (var i = e ? -1 : 0, a = e ? e.events.length : n[0].events.length, u = 0; u < n.length; u++)
+          n[u].events.length < a && (i = u, a = n[u].events.length);
+        return i;
+      }, t.prototype.calculateStrategyResult = function(e, n) {
+        var i = this.client.getBehavioralData();
+        switch (n) {
+          case "mouse":
+            if (i.mouse.interactions.length < this.MAX_INTERACTIONS_PER_TYPE) {
+              if (i.touch.interactions.length + i.mouse.interactions.length >= this.MAX_MOUSE_AND_GESTURE) {
+                var a = this.findMinPriorityGestureIndex(null, i.touch.interactions);
+                if (a !== -1)
+                  return { shouldCollect: !0, remove: { type: "touch", index: a } };
+              }
+              return { shouldCollect: !0 };
+            }
+            var u = this.classifyMouseInteraction(e);
+            if (u === h.POOR)
+              return { shouldCollect: !1 };
+            for (var c = -1, l = u, d = 0; d < i.mouse.interactions.length; d++) {
+              var p = this.classifyMouseInteraction(i.mouse.interactions[d]);
+              p < l && (c = d, l = p);
+            }
+            return c === -1 ? { shouldCollect: !1 } : { shouldCollect: !0, remove: { type: "mouse", index: c } };
+          case "keyboard":
+            if (i.keyboard.interactions.length < this.MAX_INTERACTIONS_PER_TYPE)
+              return { shouldCollect: !0 };
+            if (e.events.length < this.MIN_KEYBOARD_EVENTS)
+              return { shouldCollect: !1 };
+            for (d = 0; d < i.keyboard.interactions.length; d++)
+              if (i.keyboard.interactions[d].events.length < this.MIN_KEYBOARD_EVENTS)
+                return { shouldCollect: !0, remove: { type: "keyboard", index: d } };
+            return { shouldCollect: !1 };
+          case "touch":
+            if (i.touch.interactions.length < this.MAX_INTERACTIONS_PER_TYPE && i.touch.interactions.length + i.mouse.interactions.length < this.MAX_MOUSE_AND_GESTURE)
+              return { shouldCollect: !0 };
+            var m = e, k = this.findMinPriorityGestureIndex(m, i.touch.interactions);
+            return k === -1 ? { shouldCollect: !1 } : { shouldCollect: !0, remove: { type: "touch", index: k } };
+        }
+      }, t;
+    }();
+    s.PriorityStrategy = r;
+  }(M || (M = {})), function(s) {
+    var h;
+    (function(t) {
+      t[t.FIRST_INTERACTIONS = 0] = "FIRST_INTERACTIONS", t[t.PRIORITY_INTERACTIONS = 1] = "PRIORITY_INTERACTIONS";
+    })(h = s.BufferingStrategyType || (s.BufferingStrategyType = {}));
+    var r = function() {
+      function t() {
+      }
+      return t.createBufferingStrategy = function(e, n) {
+        switch (e) {
+          case h.FIRST_INTERACTIONS:
+            return new s.FirstInteractionsStrategy(n);
+          case h.PRIORITY_INTERACTIONS:
+            return new s.PriorityStrategy(n);
+        }
+      }, t;
+    }();
+    s.StrategyFactory = r;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.sessionData = t, this.instanceUUID = s._POSignalsUtils.Util.newGuid(), this._isBehavioralDataPaused = !1, this.started = !1, this.initQueue = new s.PromiseQueue(1);
+      }
+      return r.instance = function() {
+        if (!this._instance) {
+          var t = s._POSignalsStorage.SessionStorage.instance;
+          if (!document.body)
+            throw s._POSignalsUtils.Logger.error(
+              "PingOne Signals can be started only after DOM Ready!"
+            ), new Error("PingOne Signals can be started only after DOM Ready!");
+          this._instance = new s.Client(t, s.BufferingStrategyType.PRIORITY_INTERACTIONS);
+        }
+        return this._instance;
+      }, r.prototype.getData = function() {
+        return Z(this, void 0, void 0, function() {
+          return $(this, function(t) {
+            switch (t.label) {
+              case 0:
+                if (!this.startedPromise)
+                  throw new Error("SDK not initialized");
+                return [4, this.startedPromise];
+              case 1:
+                return t.sent(), [4, this.dataHandler.getData(Date.now())];
+              case 2:
+                return [2, t.sent()];
+            }
+          });
+        });
+      }, r.prototype.addTag = function(t, e) {
+        s.Tags.instance.setTag(t, e);
+      }, r.prototype.start = function(t) {
+        var e, n;
+        return t === void 0 && (t = {}), Z(this, void 0, void 0, function() {
+          var i, a;
+          return $(this, function(u) {
+            switch (u.label) {
+              case 0:
+                return (e = t.waitForWindowLoad) === null || e === void 0 || e ? [4, this.loadEventPromise()] : [3, 2];
+              case 1:
+                u.sent(), u.label = 2;
+              case 2:
+                if (this.initParams = t, this.validateStartParams(t), this.clientVersion = s._POSignalsUtils.Constants.CLIENT_VERSION, this.started)
+                  return s._POSignalsUtils.Logger.warn("SDK already initialized"), [2];
+                this.browserInfo = new s._POSignalsUtils.BrowserInfo(), s._POSignalsUtils.Logger.isLogEnabled = !!t.consoleLogEnabled || !!t.devEnv, s._POSignalsUtils.Logger.info("Starting Signals SDK..."), s.Tags.instance.disableTags = !!this.initParams.disableTags, this.sessionData.setStorageConfig(t), i = s.PointerConfig.instance.pointerParams, a = {
+                  additionalMediaCodecs: i.additionalMediaCodecs,
+                  browserInfo: this.browserInfo,
+                  fingerprintTimeoutMillis: i.fingerprintTimeoutMillis,
+                  metadataBlackList: new Set(
+                    i.metadataBlackList.concat(t.deviceAttributesToIgnore)
+                  ),
+                  propertyDescriptors: i.propertyDescriptors,
+                  webRtcUrl: i.webRtcUrl,
+                  dataPoints: i.metadataDataPoints
+                }, this.metadata = new s._POSignalsMetadata.Metadata(this.sessionData, a), this.dataHandler = new s.DataHandler(
+                  this.clientVersion,
+                  this.instanceUUID,
+                  this.initParams,
+                  this.metadata,
+                  this,
+                  t.externalIdentifiers,
+                  this.sessionData
+                ), ((n = this.initParams.behavioralDataCollection) === null || n === void 0 || n) && this.refreshListening(), t.lazyMetadata || this.metadata.getDeviceAttributes(), this.started = !0;
+                try {
+                  this.logInit(), this.addStartupTags();
+                } catch (c) {
+                  s._POSignalsUtils.Logger.warn("SDK post init failed", c);
+                }
+                return [2];
+            }
+          });
+        });
+      }, r.prototype.logInit = function() {
+        var t, e;
+        s._POSignalsUtils.Logger.info(
+          "PingOne Signals initialized. " + JSON.stringify(
+            {
+              timestamp: (/* @__PURE__ */ new Date()).getTime(),
+              sdkVersion: this.clientVersion,
+              instanceUUID: this.instanceUUID,
+              tabUUID: this.sessionData.tabUUID
+            },
+            null,
+            2
+          )
+        );
+        var n = function() {
+          return s._POSignalsUtils.Logger.info("Token Ready: " + window._pingOneSignalsToken);
+        }, i = function() {
+          s._POSignalsUtils.Logger.info("Signals token fetch is disabled"), window._pingOneSignalsToken = void 0;
+        };
+        ((t = window._pingOneSignalsToken) === null || t === void 0 ? void 0 : t.substring(0, 7)) === "skipped" ? i() : ((e = window._pingOneSignalsToken) === null || e === void 0 ? void 0 : e.substring(0, 13)) !== "uninitialized" && n(), document.addEventListener("PingOneSignalsTokenReadyEvent", n), document.addEventListener("PingOneSignalsTokenSkippedEvent", i);
+      }, Object.defineProperty(r.prototype, "isBehavioralDataPaused", {
+        get: function() {
+          return this._isBehavioralDataPaused;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.getSignalsToken = function() {
+        var t = "";
+        if (typeof window._pingOneSignalsToken == "string" && 0 <= window._pingOneSignalsToken.indexOf(":")) {
+          var e = window._pingOneSignalsToken.match(/t:(.*?)(&|$)/g);
+          e && 0 < e.length && (t = e[0].replace(/&s*$/, "").replace(/t:/, ""));
+        } else
+          typeof window._pingOneSignalsToken == "string" && (t = window._pingOneSignalsToken);
+        return t;
+      }, r.prototype.pauseBehavioralData = function() {
+        this._isBehavioralDataPaused || (this._isBehavioralDataPaused = !0, this.addTag("SDK paused behaviorally"));
+      }, r.prototype.resumeBehavioralData = function() {
+        this._isBehavioralDataPaused && (this._isBehavioralDataPaused = !1, this.addTag("SDK resumed behaviorally"));
+      }, r.prototype.startSignals = function(t) {
+        return Z(this, void 0, void 0, function() {
+          var e, n, i = this;
+          return $(this, function(a) {
+            switch (a.label) {
+              case 0:
+                return a.trys.push([0, 2, , 3]), this.startedPromise = this.initQueue.add(function() {
+                  return i.start(t);
+                }), [4, this.startedPromise];
+              case 1:
+                return [2, a.sent()];
+              case 2:
+                throw e = a.sent(), n = {
+                  id: s._POSignalsUtils.POErrorCodes.INITIALIZATION_ERROR,
+                  message: e.message,
+                  code: "SDK initialization failed."
+                }, new Error(JSON.stringify(n));
+              case 3:
+                return [2];
+            }
+          });
+        });
+      }, r.prototype.validateStartParams = function(t) {
+        if (!document.body)
+          throw s._POSignalsUtils.Logger.error(
+            "PingOne Signals can be started only after DOM Ready!"
+          ), new Error("PingOne Signals can be started only after DOM Ready!");
+        t.externalIdentifiers = t.externalIdentifiers || {};
+      }, r.prototype.loadEventPromise = function() {
+        return Z(this, void 0, void 0, function() {
+          return $(this, function(t) {
+            return [
+              2,
+              new Promise(function(e) {
+                document.readyState === "complete" ? e() : window.addEventListener("load", function(n) {
+                  e();
+                });
+              })
+            ];
+          });
+        });
+      }, r.prototype.addStartupTags = function() {
+        this.addTag("SDK started"), document.referrer && this.addTag("referrer", document.referrer), this.addTag("location", window.location.href);
+      }, r;
+    }();
+    s.ClientBase = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.BEHAVIORAL_TYPE = "indirect", this._isStarted = !1, this._onClipboardEvent = new s.EventDispatcher(), this.delegate = t, this.onClipboardEventHandler = this.onEvent.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onClipboardEvent", {
+        get: function() {
+          return this._onClipboardEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.onEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          this._onClipboardEvent.dispatch(this, this.createClipboardEvent(t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in clipboard handler", e);
+        }
+      }, r.prototype.createClipboardEvent = function(t) {
+        var e = s._POSignalsUtils.Util.getSrcElement(t);
+        return {
+          category: "ClipboardEvent",
+          type: t.type,
+          eventTs: t.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          additionalData: {
+            locationHref: location.href,
+            stId: this.delegate.getElementsStID(e),
+            elementId: e == null ? void 0 : e.id
+          }
+        };
+      }, r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, this.delegate.addEventListener(document, "cut", this.onClipboardEventHandler), this.delegate.addEventListener(document, "copy", this.onClipboardEventHandler), this.delegate.addEventListener(document, "paste", this.onClipboardEventHandler));
+      }, r.prototype.stop = function() {
+        this._isStarted && (this._isStarted = !1, document.removeEventListener("cut", this.onClipboardEventHandler), document.removeEventListener("copy", this.onClipboardEventHandler), document.removeEventListener("paste", this.onClipboardEventHandler));
+      }, r;
+    }();
+    s.ClipboardEvents = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.BEHAVIORAL_TYPE = "indirect", this._isStarted = !1, this._onDragEvent = new s.EventDispatcher(), this.delegate = t, this.onDragEventHandler = this.onEvent.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onDragEvent", {
+        get: function() {
+          return this._onDragEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.createDragEvent = function(t) {
+        return {
+          category: "DragEvent",
+          type: t.type,
+          eventTs: t.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          additionalData: { locationHref: location.href }
+        };
+      }, r.prototype.onEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          this._onDragEvent.dispatch(this, this.createDragEvent(t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in drag handler", e);
+        }
+      }, r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, this.delegate.addEventListener(document, "dragstart", this.onDragEventHandler), this.delegate.addEventListener(document, "dragexit", this.onDragEventHandler), this.delegate.addEventListener(document, "drop", this.onDragEventHandler), this.delegate.addEventListener(document, "dragend", this.onDragEventHandler));
+      }, r.prototype.stop = function() {
+        this._isStarted && (this._isStarted = !1, document.removeEventListener("dragstart", this.onDragEventHandler), document.removeEventListener("dragexit", this.onDragEventHandler), document.removeEventListener("drop", this.onDragEventHandler), document.removeEventListener("dragend", this.onDragEventHandler));
+      }, r;
+    }();
+    s.DragEvents = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.BEHAVIORAL_TYPE = "indirect", this._isStarted = !1, this._onFocusEvent = new s.EventDispatcher(), this.delegate = t, this.onFocusEventHandler = this.onEvent.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onFocusEvent", {
+        get: function() {
+          return this._onFocusEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.getRelatedTarget = function(t) {
+        if (!t.relatedTarget)
+          return { type: "", stId: "", elementId: "" };
+        var e = {
+          type: s._POSignalsUtils.Util.getObjectType(t.relatedTarget),
+          stId: "",
+          elementId: ""
+        };
+        t.relatedTarget.id && (e.elementId = t.relatedTarget.id);
+        try {
+          var n = t.relatedTarget;
+          e.stId = this.delegate.getElementsStID(n);
+        } catch {
+        }
+        return e;
+      }, r.prototype.createFocusEvent = function(t) {
+        var e = s._POSignalsUtils.Util.getSrcElement(t), n = this.getRelatedTarget(t);
+        return {
+          category: "FocusEvent",
+          type: t.type,
+          eventTs: t.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          additionalData: {
+            locationHref: location.href,
+            stId: this.delegate.getElementsStID(e),
+            elementId: e ? e.id : "",
+            relatedTarget: n
+          }
+        };
+      }, r.prototype.onEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          this._onFocusEvent.dispatch(this, this.createFocusEvent(t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in focus handler", e);
+        }
+      }, r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, this.delegate.addEventListener(document, "DOMFocusIn", this.onFocusEventHandler), this.delegate.addEventListener(document, "DOMFocusOut", this.onFocusEventHandler), this.delegate.addEventListener(document, "focus", this.onFocusEventHandler), this.delegate.addEventListener(document, "focusin", this.onFocusEventHandler), this.delegate.addEventListener(document, "focusout", this.onFocusEventHandler));
+      }, r.prototype.stop = function() {
+        this._isStarted && (this._isStarted = !1, document.removeEventListener("DOMFocusIn", this.onFocusEventHandler), document.removeEventListener("DOMFocusOut", this.onFocusEventHandler), document.removeEventListener("focus", this.onFocusEventHandler), document.removeEventListener("focusin", this.onFocusEventHandler), document.removeEventListener("focusout", this.onFocusEventHandler));
+      }, r;
+    }();
+    s.FocusEvents = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.BEHAVIORAL_TYPE = "indirect", this._isStarted = !1, this._onUIEvent = new s.EventDispatcher(), this.delegate = t, this.onUIEventHandler = this.onEvent.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onUIEvent", {
+        get: function() {
+          return this._onUIEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.createUIEvent = function(t) {
+        return {
+          category: "UIEvent",
+          type: t.type,
+          eventTs: t.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          additionalData: { locationHref: location.href }
+        };
+      }, r.prototype.onEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          this._onUIEvent.dispatch(this, this.createUIEvent(t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in UIEvent handler", e);
+        }
+      }, r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, this.delegate.addEventListener(document, "resize", this.onUIEventHandler), this.delegate.addEventListener(document, "scroll", this.onUIEventHandler), this.delegate.addEventListener(document, "select", this.onUIEventHandler));
+      }, r.prototype.stop = function() {
+        this._isStarted && (this._isStarted = !1, document.removeEventListener("resize", this.onUIEventHandler), document.removeEventListener("scroll", this.onUIEventHandler), document.removeEventListener("select", this.onUIEventHandler));
+      }, r;
+    }();
+    s.UIEvents = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.BEHAVIORAL_TYPE = "indirect", this.visibilityChangeEventName = "visibilitychange", this.hiddenProperty = "hidden", this._isStarted = !1, this._onGeneralEvent = new s.EventDispatcher(), this.delegate = t, this.onGeneralEventHandler = this.onEvent.bind(this), this.onLangChangeHandler = this.onLangChangeEvent.bind(this), this.onOrientationChangeHandler = this.onOrientationChangeEvent.bind(this), this.onVisibilityChangeHandler = this.onVisibilityChangeEvent.bind(this), document.msHidden !== void 0 ? (this.hiddenProperty = "msHidden", this.visibilityChangeEventName = "msvisibilitychange") : document.webkitHidden !== void 0 && (this.hiddenProperty = "webkitHidden", this.visibilityChangeEventName = "webkitvisibilitychange");
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onGeneralEvent", {
+        get: function() {
+          return this._onGeneralEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.onEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          this._onGeneralEvent.dispatch(this, this.createGeneralEvent(t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in general event handler", e);
+        }
+      }, r.prototype.onLangChangeEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          var e = this.createGeneralEvent(t);
+          this._onGeneralEvent.dispatch(this, e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in LangChange event handler", n);
+        }
+      }, r.prototype.onOrientationChangeEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          var e = this.createGeneralEvent(t), n = s._POSignalsUtils.Util.getDeviceOrientation();
+          e.additionalData.deviceOrientation = n.orientation, e.additionalData.deviceAngle = n.angle, this._onGeneralEvent.dispatch(this, e);
+        } catch (i) {
+          s._POSignalsUtils.Logger.warn("error in OrientationChange event handler", i);
+        }
+      }, r.prototype.onVisibilityChangeEvent = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return;
+          var e = this.createGeneralEvent(t);
+          e.additionalData.hidden = !!document[this.hiddenProperty], document.visibilityState && (e.additionalData.visibilityState = document.visibilityState.toString()), this._onGeneralEvent.dispatch(this, e);
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in VisibilityChange event handler", n);
+        }
+      }, r.prototype.createGeneralEvent = function(t) {
+        return {
+          category: "Event",
+          type: t.type,
+          eventTs: t.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          additionalData: { locationHref: location.href }
+        };
+      }, r.prototype.start = function() {
+        this._isStarted || (this._isStarted = !0, this.delegate.addEventListener(
+          document,
+          this.visibilityChangeEventName,
+          this.onVisibilityChangeHandler
+        ), this.delegate.addEventListener(document, "change", this.onGeneralEventHandler), this.delegate.addEventListener(
+          document,
+          "fullscreenchange",
+          this.onGeneralEventHandler
+        ), this.delegate.addEventListener(document, "invalid", this.onGeneralEventHandler), this.delegate.addEventListener(window, "languagechange", this.onLangChangeHandler), this.delegate.addEventListener(
+          window,
+          "orientationchange",
+          this.onOrientationChangeHandler
+        ), this.delegate.addEventListener(document, "seeked", this.onGeneralEventHandler), this.delegate.addEventListener(document, "seeking", this.onGeneralEventHandler), this.delegate.addEventListener(document, "selectstart", this.onGeneralEventHandler), this.delegate.addEventListener(
+          document,
+          "selectionchange",
+          this.onGeneralEventHandler
+        ), this.delegate.addEventListener(document, "submit", this.onGeneralEventHandler), this.delegate.addEventListener(document, "volumechange", this.onGeneralEventHandler), this.delegate.addEventListener(document, "reset", this.onGeneralEventHandler), this.delegate.addEventListener(document, "textInput", this.onGeneralEventHandler));
+      }, r.prototype.stop = function() {
+        this._isStarted && (this._isStarted = !1, document.removeEventListener(
+          this.visibilityChangeEventName,
+          this.onVisibilityChangeHandler
+        ), document.removeEventListener("change", this.onGeneralEventHandler), document.removeEventListener("fullscreenchange", this.onGeneralEventHandler), document.removeEventListener("invalid", this.onGeneralEventHandler), window.removeEventListener("languagechange", this.onLangChangeHandler), window.removeEventListener("orientationchange", this.onOrientationChangeHandler), document.removeEventListener("seeked", this.onGeneralEventHandler), document.removeEventListener("seeking", this.onGeneralEventHandler), document.removeEventListener("selectstart", this.onGeneralEventHandler), document.removeEventListener("selectionchange", this.onGeneralEventHandler), document.removeEventListener("submit", this.onGeneralEventHandler), document.removeEventListener("volumechange", this.onGeneralEventHandler), document.removeEventListener("reset", this.onGeneralEventHandler), document.removeEventListener("textInput", this.onGeneralEventHandler));
+      }, r;
+    }();
+    s.GeneralEvents = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.DEFAULT_INDIRECT_IDLE_INTERVAL = 1e3, this.MAX_INDIRECT_EVENTS = 25, this._onIndirect = new s.EventDispatcher(), this.indirectEvents = [], this.idleTimeInMillis = this.DEFAULT_INDIRECT_IDLE_INTERVAL, this.lastIndirectEventTimestamp = 0, this._isStarted = !1, this.clipboardEvents = new s.ClipboardEvents(t), this.clipboardEvents.onClipboardEvent.subscribe(this.handleEvent.bind(this)), this.dragEvents = new s.DragEvents(t), this.dragEvents.onDragEvent.subscribe(this.handleEvent.bind(this)), this.focusEvents = new s.FocusEvents(t), this.focusEvents.onFocusEvent.subscribe(this.handleEvent.bind(this)), this.uiEvents = new s.UIEvents(t), this.uiEvents.onUIEvent.subscribe(this.handleEvent.bind(this)), this.generalEvents = new s.GeneralEvents(t), this.generalEvents.onGeneralEvent.subscribe(this.handleEvent.bind(this)), this.onTimeElapsedHandler = this.onTimeElapsed.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "onIndirect", {
+        get: function() {
+          return this._onIndirect.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.onTimeElapsed = function() {
+        return Z(this, void 0, void 0, function() {
+          return $(this, function(t) {
+            return this.indirectEvents.length > 0 && (/* @__PURE__ */ new Date()).getTime() - this.lastIndirectEventTimestamp >= this.idleTimeInMillis && this.dispatch(), [2];
+          });
+        });
+      }, r.prototype.handleEvent = function(t, e) {
+        this.lastIndirectEventTimestamp = (/* @__PURE__ */ new Date()).getTime(), this.pushEvent(e);
+      }, r.prototype.pushEvent = function(t) {
+        this.indirectEvents.push(t), this.indirectEvents.length >= this.MAX_INDIRECT_EVENTS && this.dispatch();
+      }, r.prototype.clearBuffer = function() {
+        var t = { events: this.indirectEvents };
+        return this.indirectEvents = [], t;
+      }, r.prototype.dispatch = function() {
+        try {
+          clearInterval(this.updateIntervalHandle), this._onIndirect.dispatch(this, this.clearBuffer()), this.updateIntervalHandle = setInterval(
+            this.onTimeElapsedHandler,
+            s.PointerConfig.instance.pointerParams.indirectIntervalMillis
+          );
+        } catch (t) {
+          s._POSignalsUtils.Logger.warn("Failed to dispatch indirect events", t);
+        }
+      }, Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.start = function() {
+        this._isStarted || (this.updateIntervalHandle = setInterval(
+          this.onTimeElapsedHandler,
+          s.PointerConfig.instance.pointerParams.indirectIntervalMillis
+        ), this.clipboardEvents.start(), this.dragEvents.start(), this.focusEvents.start(), this.uiEvents.start(), this.generalEvents.start(), this._isStarted = !0);
+      }, r.prototype.stop = function() {
+        this._isStarted && (this.clipboardEvents.stop(), this.dragEvents.stop(), this.focusEvents.stop(), this.uiEvents.stop(), this.generalEvents.stop(), clearInterval(this.updateIntervalHandle), this.updateIntervalHandle = null, this._isStarted = !1);
+      }, r.prototype.unsubscribe = function() {
+        this.clipboardEvents.onClipboardEvent.unsubscribe(this.handleEvent.bind(this)), this.dragEvents.onDragEvent.unsubscribe(this.handleEvent.bind(this)), this.focusEvents.onFocusEvent.unsubscribe(this.handleEvent.bind(this)), this.uiEvents.onUIEvent.unsubscribe(this.handleEvent.bind(this)), this.generalEvents.onGeneralEvent.unsubscribe(this.handleEvent.bind(this));
+      }, r;
+    }();
+    s.IndirectClient = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this.config = {}, this._cacheHash = 0, this.cache = /* @__PURE__ */ new Map();
+      }
+      return r.prototype.refreshCssSelectors = function(t) {
+        try {
+          if (!t)
+            return;
+          var e = s._POSignalsUtils.Util.hashCode(JSON.stringify(t));
+          if (this._cacheHash === e)
+            return;
+          this.config = t, this._cacheHash = e, this.cache = /* @__PURE__ */ new Map();
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("Failed to set css selectors", n);
+        }
+      }, r.prototype.getIdentification = function(t, e) {
+        if (this.cache.get(t) === null)
+          return null;
+        if (this.cache.get(t) !== void 0)
+          return this.cache.get(t);
+        for (var n in this.config)
+          try {
+            if (!this.config.hasOwnProperty(n))
+              continue;
+            var i = this.config[n] || [];
+            s._POSignalsUtils.Util.isArray(i) || (i = [].concat(i));
+            for (var a = 0, u = i; a < u.length; a++) {
+              var c = u[a];
+              if (s._POSignalsUtils.Util.isSelectorMatches(t, c, e))
+                return this.cache.set(t, n), n;
+            }
+          } catch (l) {
+            s._POSignalsUtils.Logger.warn("Failed to find selector for " + n, l);
+          }
+        return this.cache.set(t, null), null;
+      }, Object.defineProperty(r.prototype, "cacheHash", {
+        get: function() {
+          return this._cacheHash;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r;
+    }();
+    s.ElementsIdentifications = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t, e) {
+        this.BEHAVIORAL_TYPE = "eventKeyboard", this._isStarted = !1, this._onInteraction = new s.EventDispatcher(), this._onEnterPress = new s.EventDispatcher(), this._onObfuscatedValue = new s.EventDispatcher(), this.interactionsMap = /* @__PURE__ */ new Map(), this._fieldsIdentifications = new s.ElementsIdentifications(), this.keyStrokeMap = /* @__PURE__ */ new Map(), this.delegate = t, this.uiControlManager = e, this.onKeyDownHandle = this.onKeyDown.bind(this), this.onKeyUpHandle = this.onKeyUp.bind(this), this.onFocusHandle = this.onFocus.bind(this), this.onBlurHandle = this.onBlur.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onInteraction", {
+        get: function() {
+          return this._onInteraction.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onEnterPress", {
+        get: function() {
+          return this._onEnterPress.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onObfuscatedValue", {
+        get: function() {
+          return this._onObfuscatedValue.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.refreshKeyboardCssSelectors = function(t) {
+        this._fieldsIdentifications.refreshCssSelectors(t);
+      }, Object.defineProperty(r.prototype, "modifiersKeys", {
+        get: function() {
+          return [
+            "Alt",
+            "AltGraph",
+            "CapsLock",
+            "Control",
+            "Fn",
+            "FnLock",
+            "Hyper",
+            "Meta",
+            "NumLock",
+            "OS",
+            "ScrollLock",
+            "Shift",
+            "Super",
+            "Symbol",
+            "SymbolLock"
+          ];
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "specialKeys", {
+        get: function() {
+          return [
+            "Tab",
+            "Shift",
+            "Backspace",
+            "Enter",
+            "CapsLock",
+            "Meta",
+            "Delete",
+            "Alt",
+            "ArrowDown",
+            "ArrowUp",
+            "Control",
+            "ArrowLeft",
+            "End",
+            "Unidentified",
+            "Home",
+            "ArrowRight",
+            "Insert",
+            "Pause",
+            "PageDown",
+            "PageUp",
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7",
+            "F8",
+            "F9",
+            "F10",
+            "F11",
+            "F12",
+            "AltGraph",
+            "Escape"
+          ];
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.countEvent = function(t, e) {
+        e && (e.eventCounters[t] = (e.eventCounters[t] || 0) + 1);
+      }, r.prototype.clearBuffer = function() {
+        var t = s._POSignalsUtils.Util.getValuesOfMap(this.interactionsMap);
+        return this.interactionsMap.clear(), t;
+      }, r.prototype.start = function() {
+        this._isStarted ? s._POSignalsUtils.Logger.debug("Desktop Keyboard events already listening") : (this.delegate.addEventListener(document, "keydown", this.onKeyDownHandle), this.delegate.addEventListener(document, "keyup", this.onKeyUpHandle), this.delegate.addEventListener(document, "focus", this.onFocusHandle, !0), this.delegate.addEventListener(document, "blur", this.onBlurHandle, !0), this._isStarted = !0, s._POSignalsUtils.Logger.debug("Desktop Keyboard events start listening..."));
+      }, r.prototype.stop = function() {
+        this._isStarted ? (document.removeEventListener("keydown", this.onKeyDownHandle), document.removeEventListener("keyup", this.onKeyUpHandle), document.removeEventListener("focus", this.onFocusHandle, !0), document.removeEventListener("blur", this.onBlurHandle, !0), this._isStarted = !1, s._POSignalsUtils.Logger.debug("Desktop Keyboard events stop listening...")) : s._POSignalsUtils.Logger.debug("Desktop Keyboard events already stopped");
+      }, r.prototype.getInteractionFromElement = function(t) {
+        var e, n = null, i = null, a = s._POSignalsUtils.Util.getSrcElement(t);
+        if (a && a instanceof HTMLInputElement && !s._POSignalsUtils.Util.isClickableInput(a) && s._POSignalsUtils.Util.isFunction(a.getAttribute) && !(!((e = a.hasAttribute) === null || e === void 0) && e.call(a, "data-st-ignore")) && !s._POSignalsUtils.Util.anySelectorMatches(
+          a,
+          s.PointerConfig.instance.pointerParams.keyboardCssSelectorsBlacklist,
+          0
+        )) {
+          i = this.delegate.getElementsStID(a);
+          for (var u = s.PointerConfig.instance.pointerParams.keyboardIdentifierAttributes, c = 0; c < u.length && !i; c++)
+            i = a.getAttribute(u[c]);
+          i && !s.PointerConfig.instance.pointerParams.keyboardFieldBlackList.has(i) && ((n = this.interactionsMap.get(a)) || (n = {
+            epochTs: (/* @__PURE__ */ new Date()).getTime(),
+            stId: i,
+            elementId: s._POSignalsUtils.Util.getAttribute(a, "id"),
+            name: s._POSignalsUtils.Util.getAttribute(a, "name"),
+            type: s._POSignalsUtils.Util.getAttribute(a, "type"),
+            events: [],
+            counter: this.delegate.keyboardCounter,
+            eventCounters: {},
+            duration: 0,
+            numOfDeletions: 0,
+            additionalData: this.delegate.additionalData
+          }, this.interactionsMap.set(a, n)));
+        }
+        return n;
+      }, r.prototype.getKeyCode = function(t) {
+        return t.keyCode ? t.keyCode : t.which ? t.which : t.code ? s._POSignalsUtils.Util.hashCode(t.code) : s._POSignalsUtils.Util.hashCode(t.key) + (t.location || 0);
+      }, r.prototype.getKeyboardEvent = function(t) {
+        return t || window.event;
+      }, r.prototype.getKeystrokeId = function(t, e) {
+        var n, i = this.getKeyCode(t);
+        return e === "keyup" && (this.keyStrokeMap.has(i) ? (n = this.keyStrokeMap.get(i), this.keyStrokeMap.delete(i)) : n = s._POSignalsUtils.Util.newGuid()), e === "keydown" && (this.keyStrokeMap.has(i) && t.repeat ? n = this.keyStrokeMap.get(i) : (n = s._POSignalsUtils.Util.newGuid(), this.keyStrokeMap.set(i, n))), n;
+      }, r.prototype.createKeyboardInteractionEvent = function(t, e) {
+        var n = s._POSignalsUtils.Util.getSrcElement(e), i = n.value ? n.value.toString().length : 0;
+        return {
+          type: t,
+          eventTs: e.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          selectionStart: s._POSignalsUtils.Util.getElementSelectionStart(n),
+          selectionEnd: s._POSignalsUtils.Util.getElementSelectionEnd(n),
+          key: null,
+          keystrokeId: null,
+          currentLength: i
+        };
+      }, r.prototype.enrichKeyboardEvent = function(t, e) {
+        (this.modifiersKeys.indexOf(t.key) >= 0 || this.specialKeys.indexOf(t.key) >= 0) && (e.key = t.key), e.keystrokeId = this.getKeystrokeId(t, e.type);
+        var n = s._POSignalsUtils.Util.getSrcElement(t);
+        e.currentLength = String(n.value).length;
+      }, r.prototype.onFocus = function(t) {
+        var e, n;
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onInteraction.dispatch(this, null);
+          t = this.getKeyboardEvent(t);
+          var i = this.getInteractionFromElement(t);
+          if (this.countEvent(t.type, i), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type))
+            return;
+          if (i) {
+            var a = this.createKeyboardInteractionEvent("focus", t);
+            i.events.push(a);
+            var u = this.uiControlManager.createUIControlData(t);
+            u && (i.uiControl = { uiElement: u.uiElement, enrichedData: u.enrichedData }, ((n = (e = u.uiElement) === null || e === void 0 ? void 0 : e.id) === null || n === void 0 ? void 0 : n.length) > 0 && s._POSignalsUtils.Logger.info(
+              "Typing in element with id '" + u.uiElement.id + "'"
+            ));
+          }
+        } catch (c) {
+          s._POSignalsUtils.Logger.warn("error in keyboard focus handler", c);
+        }
+      }, r.prototype.onKeyUp = function(t) {
+        try {
+          if ((t = this.getKeyboardEvent(t)).keyCode !== 13 && t.which !== 13 || this._onEnterPress.dispatch(this, s._POSignalsUtils.Util.getSrcElement(t)), !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onInteraction.dispatch(this, null);
+          var e = this.getInteractionFromElement(t);
+          if (this.countEvent(t.type, e), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type))
+            return;
+          if (e) {
+            var n = this.createKeyboardInteractionEvent("keyup", t);
+            this.enrichKeyboardEvent(t, n), e.events.push(n);
+          } else
+            this.keyStrokeMap.delete(this.getKeyCode(t));
+        } catch (i) {
+          s._POSignalsUtils.Logger.warn("error in keyUp handler", i);
+        }
+      }, r.prototype.isEmpty = function() {
+        return this.interactionsMap.size === 0;
+      }, r.prototype.onKeyDown = function(t) {
+        try {
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onInteraction.dispatch(this, null);
+          t = this.getKeyboardEvent(t);
+          var e = this.getInteractionFromElement(t);
+          if (this.countEvent(t.type, e), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type))
+            return;
+          if (e) {
+            var n = this.createKeyboardInteractionEvent("keydown", t);
+            this.enrichKeyboardEvent(t, n), e.events.push(n);
+          }
+        } catch (i) {
+          s._POSignalsUtils.Logger.warn("error in keyDown handler", i);
+        }
+      }, r.prototype.onBlur = function(t) {
+        try {
+          t = this.getKeyboardEvent(t);
+          var e = this.getInteractionFromElement(t);
+          if (!this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE))
+            return void this._onInteraction.dispatch(this, null);
+          if (this.countEvent(t.type, e), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type))
+            return;
+          if (e) {
+            var n = this.createKeyboardInteractionEvent("blur", t);
+            e.events.push(n), e.duration = this.delegate.getInteractionDuration(e.events), e.numOfDeletions = this.calculateNumOfDeletions(e.events);
+            var i = s._POSignalsUtils.Util.getSrcElement(t);
+            this.interactionsMap.delete(i), this._onInteraction.dispatch(this, e);
+          }
+        } catch (a) {
+          s._POSignalsUtils.Logger.warn("error in blur handler", a);
+        }
+      }, r.prototype.calculateNumOfDeletions = function(t) {
+        if (!(t != null && t[0]))
+          return 0;
+        for (var e = 0, n = t[0].currentLength, i = 1; i < t.length; i++)
+          t[i].currentLength < n && e++, n = t[i].currentLength;
+        return e;
+      }, Object.defineProperty(r.prototype, "fieldsIdentifications", {
+        get: function() {
+          return this._fieldsIdentifications;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r;
+    }();
+    s.Keyboard = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t, e) {
+        var n, i = this, a = s.PointerConfig.instance.pointerParams.uiModelingElementFilters, u = s._POSignalsUtils.Util.getAttribute, c = (n = t.getBoundingClientRect) === null || n === void 0 ? void 0 : n.call(t);
+        this._htmlElement = t, this._data = {
+          location: this.getUIElementAttribute(a.location, function() {
+            return window.location.href;
+          }),
+          id: this.getUIElementAttribute(a.id, function() {
+            return u(t, "id");
+          }),
+          aria_label: this.getUIElementAttribute(a.aria_label, function() {
+            return u(t, "aria-label");
+          }),
+          data_st_field: this.getUIElementAttribute(a.data_st_field, function() {
+            return e.getElementsStID(t);
+          }),
+          data_st_tag: this.getUIElementAttribute(a.data_st_tag, function() {
+            return u(t, "data-st-tag");
+          }),
+          data_selenium: this.getUIElementAttribute(a.data_selenium, function() {
+            return u(t, "data-selenium");
+          }),
+          data_selenium_id: this.getUIElementAttribute(a.data_selenium_id, function() {
+            return u(t, "data-selenium-id");
+          }),
+          data_testid: this.getUIElementAttribute(a.data_testid, function() {
+            return u(t, "data-testid");
+          }),
+          data_test_id: this.getUIElementAttribute(a.data_test_id, function() {
+            return u(t, "data-test-id");
+          }),
+          data_qa_id: this.getUIElementAttribute(a.data_qa_id, function() {
+            return u(t, "data-qa-id");
+          }),
+          data_id: this.getUIElementAttribute(a.data_id, function() {
+            return u(t, "data-id");
+          }),
+          name: this.getUIElementAttribute(a.name, function() {
+            return u(t, "name");
+          }),
+          placeholder: this.getUIElementAttribute(a.placeholder, function() {
+            return u(t, "placeholder");
+          }),
+          role: this.getUIElementAttribute(a.role, function() {
+            return u(t, "role");
+          }),
+          type: this.getUIElementAttribute(a.type, function() {
+            return u(t, "type");
+          }),
+          nodeTypeInt: this.getUIElementAttribute(a.nodeTypeInt, function() {
+            return t.nodeType;
+          }),
+          nodeName: this.getUIElementAttribute(a.nodeName, function() {
+            return t.nodeName;
+          }),
+          cursorType: this.getUIElementAttribute(a.cursorType, function() {
+            return window.getComputedStyle(t).cursor;
+          }),
+          text: this.getUIElementAttribute(a.text, function() {
+            return i.getElementText(t);
+          }),
+          textLength: this.getUIElementAttribute(a.textLength, function() {
+            var l;
+            return ((l = i.getElementText(t)) === null || l === void 0 ? void 0 : l.length) || null;
+          }),
+          bottom: this.getUIElementAttribute(a.bottom, function() {
+            return c == null ? void 0 : c.bottom;
+          }),
+          height: this.getUIElementAttribute(a.height, function() {
+            return c == null ? void 0 : c.height;
+          }),
+          left: this.getUIElementAttribute(a.left, function() {
+            return c == null ? void 0 : c.left;
+          }),
+          right: this.getUIElementAttribute(a.right, function() {
+            return c == null ? void 0 : c.right;
+          }),
+          top: this.getUIElementAttribute(a.top, function() {
+            return c == null ? void 0 : c.top;
+          }),
+          width: this.getUIElementAttribute(a.width, function() {
+            return c == null ? void 0 : c.width;
+          }),
+          x: this.getUIElementAttribute(a.x, function() {
+            return c == null ? void 0 : c.x;
+          }),
+          y: this.getUIElementAttribute(a.y, function() {
+            return c == null ? void 0 : c.y;
+          })
+        }, this._data.elementId = this.getStrongestElementID();
+      }
+      return Object.defineProperty(r.prototype, "data", {
+        get: function() {
+          return s._POSignalsUtils.Util.filterReduce(this._data, function(t) {
+            return t != null && t !== "";
+          });
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "htmlElement", {
+        get: function() {
+          return this._htmlElement;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.getUIElementAttribute = function(t, e) {
+        var n;
+        try {
+          if ((n = t == null ? void 0 : t.enabled) === null || n === void 0 || n) {
+            var i = e();
+            return typeof i == "string" && (typeof (t == null ? void 0 : t.maxLength) == "number" && i.length > t.maxLength && (i = i.substring(0, t.maxLength)), t != null && t.filterRegex && (i = i.replace(new RegExp(t.filterRegex, "g"), "*"))), i;
+          }
+        } catch (a) {
+          s._POSignalsUtils.Logger.warn("Failed to add ui element attribute", a);
+        }
+        return null;
+      }, r.prototype.getStrongestElementID = function() {
+        return this._data.data_st_field || this._data.data_selenium_id || this._data.data_selenium || this._data.data_testid || this._data.data_test_id || this._data.data_qa_id || this._data.data_id || this._data.id || "";
+      }, r.prototype.getElementText = function(t) {
+        return t instanceof HTMLInputElement && !s._POSignalsUtils.Util.isClickableInput(t) ? null : s._POSignalsUtils.Util.getElementText(t);
+      }, r.prototype.equals = function(t) {
+        return !!t && !(t.location && location.href.indexOf(t.location) < 0) && (!t.elementId || t.elementId === this._data.elementId) && (!t.id || t.id === this._data.id) && (!t.aria_label || t.aria_label === this._data.aria_label) && (!t.data_st_field || t.data_st_field === this._data.data_st_field) && (!t.data_st_tag || t.data_st_tag === this._data.data_st_tag) && (!t.data_selenium || t.data_selenium === this._data.data_selenium) && (!t.data_selenium_id || t.data_selenium_id === this._data.data_selenium_id) && (!t.data_testid || t.data_testid === this._data.data_testid) && (!t.data_test_id || t.data_test_id === this._data.data_test_id) && (!t.data_qa_id || t.data_qa_id === this._data.data_qa_id) && (!t.data_id || t.data_id === this._data.data_id) && (!t.name || t.name === this._data.name) && (!t.placeholder || t.placeholder === this._data.placeholder) && (!t.role || t.role === this._data.role) && (!t.type || t.type === this._data.type) && (!t.nodeTypeInt || t.nodeTypeInt === this._data.nodeTypeInt) && (!t.nodeName || t.nodeName === this._data.nodeName) && (!t.cursorType || t.cursorType === this._data.cursorType) && (!t.text || t.text === this._data.text) && (!t.textLength || t.textLength === this._data.textLength) && (!t.bottom || t.bottom === this._data.bottom) && (!t.height || t.height === this._data.height) && (!t.left || t.left === this._data.left) && (!t.right || t.right === this._data.right) && (!t.top || t.top === this._data.top) && (!t.width || t.width === this._data.width) && (!t.x || t.x === this._data.x) && (!t.y || t.y === this._data.y);
+      }, r.createCssSelector = function(t) {
+        var e = "";
+        return t != null && t.nodeName && (e += t.nodeName.toLowerCase()), t != null && t.id && (e += '[id="' + t.id + '"]'), t != null && t.aria_label && (e += '[aria-label="' + t.aria_label + '"]'), t != null && t.data_st_field && (e += '[data-st-field="' + t.data_st_field + '"]'), t != null && t.data_st_tag && (e += '[data-st-tag="' + t.data_st_tag + '"]'), t != null && t.data_selenium && (e += '[data-selenium="' + t.data_selenium + '"]'), t != null && t.data_selenium_id && (e += '[data-selenium-id="' + t.data_selenium_id + '"]'), t != null && t.data_testid && (e += '[data-testid="' + t.data_testid + '"]'), t != null && t.data_test_id && (e += '[data-test-id="' + t.data_test_id + '"]'), t != null && t.data_qa_id && (e += '[data-qa-id="' + t.data_qa_id + '"]'), t != null && t.data_id && (e += '[data-id="' + t.data_id + '"]'), t != null && t.name && (e += '[name="' + t.name + '"]'), t != null && t.placeholder && (e += '[placeholder="' + t.placeholder + '"]'), t != null && t.role && (e += '[role="' + t.role + '"]'), t != null && t.type && (e += '[type="' + t.type + '"]'), e;
+      }, r;
+    }();
+    s.UiElement = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this._clientDelegate = t;
+      }
+      return r.prototype.createUIControlData = function(t) {
+        var e = s._POSignalsUtils.Util.getSrcElement(t);
+        if (!e)
+          return null;
+        var n = s.PointerConfig.instance.pointerParams.uiModelingBlacklistRegex;
+        if (n && window.location.href.match(n))
+          return s._POSignalsUtils.Logger.debug("ui control data is disabled for this url"), null;
+        var i = new s.UiElement(e, this._clientDelegate);
+        return this.findMatchingUiControl(i) || { uiElement: i.data };
+      }, r.prototype.findMatchingUiControl = function(t, e) {
+        e === void 0 && (e = 0);
+        try {
+          var n = s.PointerConfig.instance.pointerParams.uiControlsConfig;
+          if (n.length === 0 || e > s.PointerConfig.instance.pointerParams.uiModelingMaxMatchingParents)
+            return null;
+          for (var i = !1, a = 0, u = n; a < u.length; a++) {
+            var c = u[a];
+            if ((c.tagConfig || c.enrichedData) && (i = !0, t.equals(c.uiElement)))
+              return {
+                uiElement: t.data,
+                enrichedData: c.enrichedData,
+                tagConfig: c.tagConfig
+              };
+          }
+          if (!i)
+            return null;
+          var l = t.htmlElement.parentElement;
+          if ((l == null ? void 0 : l.nodeType) === Node.ELEMENT_NODE) {
+            var d = new s.UiElement(l, this._clientDelegate);
+            return this.findMatchingUiControl(d, e + 1);
+          }
+        } catch (p) {
+          s._POSignalsUtils.Logger.warn("failed to find matching ui control", p);
+        }
+        return null;
+      }, r.prototype.convertToTagValueConfig = function(t) {
+        var e;
+        return {
+          context: (e = t == null ? void 0 : t.uiElement) === null || e === void 0 ? void 0 : e.location,
+          valueSelector: s.UiElement.createCssSelector(
+            t == null ? void 0 : t.uiElement
+          ),
+          operation: t == null ? void 0 : t.operation,
+          valueMandatory: t == null ? void 0 : t.valueMandatory
+        };
+      }, r;
+    }();
+    s.UIControlManager = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t, e) {
+        this.BEHAVIORAL_TYPE = "mouse", this._isStarted = !1, this._onInteraction = new s.EventDispatcher(), this._onClickEvent = new s.EventDispatcher(), this.lastMouseInteractionTimestamp = null, this.mouseEventsCounter = 0, this.eventCounters = {}, this.delegate = t, this.uiControlManager = e, this.wheelOptions = !!s._POSignalsUtils.Util.isPassiveSupported() && { passive: !0 }, this.onPointerHandle = this.onPointerEvent.bind(this), this.onClickHandle = this.onClick.bind(this), this.onDblclickHandle = this.onMouseClickEvent.bind(this), this.onMousedownHandle = this.onMouseClickEvent.bind(this), this.onMousemoveHandle = this.onMouseEvent.bind(this), this.onMouseoutHandle = this.onMouseout.bind(this), this.onMouseoverHandle = this.onMouseEvent.bind(this), this.onMouseupHandle = this.onMouseClickEvent.bind(this), this.onWheelHandle = this.onMouseEvent.bind(this), this.interactionUpdateHandle = this.interactionUpdate.bind(this);
+      }
+      return Object.defineProperty(r.prototype, "isStarted", {
+        get: function() {
+          return this._isStarted;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onInteraction", {
+        get: function() {
+          return this._onInteraction.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "onClickEvent", {
+        get: function() {
+          return this._onClickEvent.asEvent();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.countEvent = function(t) {
+        this.eventCounters[t] = (this.eventCounters[t] || 0) + 1;
+      }, r.prototype.interactionUpdate = function() {
+        this.lastMouseInteraction ? (/* @__PURE__ */ new Date()).getTime() - this.lastMouseInteractionTimestamp >= s.PointerConfig.instance.pointerParams.mouseIdleTimeoutMillis && this.dispatch() : !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) && (/* @__PURE__ */ new Date()).getTime() - this.lastMouseInteractionTimestamp <= s.PointerConfig.instance.pointerParams.mouseIntervalMillis && this.dispatch();
+      }, r.prototype.enrichLastInteraction = function() {
+        var t;
+        if (this.lastMouseInteraction) {
+          this.lastMouseInteraction.eventCounters = this.eventCounters, this.lastMouseInteraction.duration = this.delegate.getInteractionDuration(
+            this.lastMouseInteraction.events
+          );
+          var e = (t = this.lastMouseInteraction.events) === null || t === void 0 ? void 0 : t.filter(function(n) {
+            return n.type === "mousemove";
+          });
+          this.lastMouseInteraction.timeProximity = s._POSignalsUtils.Util.calculateMeanTimeDeltasBetweenEvents(e), this.lastMouseInteraction.meanEuclidean = s._POSignalsUtils.Util.calculateMeanDistanceBetweenPoints(e);
+        }
+      }, r.prototype.dispatch = function() {
+        try {
+          this.enrichLastInteraction(), this._onInteraction.dispatch(this, this.lastMouseInteraction), this.eventCounters = {}, this.lastMouseInteraction = null, this.mouseEventsCounter = 0;
+        } catch (t) {
+          s._POSignalsUtils.Logger.warn("Failed to dispatch mouse events", t);
+        }
+      }, r.prototype.updateInteraction = function(t, e) {
+        this.lastMouseInteraction || (this.lastMouseInteraction = {
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          events: [],
+          counter: this.delegate.mouseCounter,
+          additionalData: this.delegate.additionalData,
+          eventCounters: {},
+          duration: 0,
+          timeProximity: 0,
+          uiControl: void 0,
+          meanEuclidean: 0,
+          reduction: {}
+        }), this.lastMouseInteraction.events.push(t), this.mouseEventsCounter++, e && (this.lastMouseInteraction.uiControl = {
+          uiElement: e.uiElement,
+          enrichedData: e.enrichedData
+        }, this.delegate.addUiControlTags(e.tagConfig)), this.mouseEventsCounter >= s.PointerConfig.instance.pointerParams.maxMouseEvents && this.dispatch();
+      }, r.prototype.start = function() {
+        this._isStarted ? s._POSignalsUtils.Logger.debug("Desktop Mouse events already listening") : (this.delegate.addEventListener(document, "click", this.onClickHandle, !0), this.delegate.addEventListener(document, "dblclick", this.onDblclickHandle), this.delegate.addEventListener(document, "mousedown", this.onMousedownHandle), this.delegate.addEventListener(document, "mousemove", this.onMousemoveHandle), this.delegate.addEventListener(document, "mouseout", this.onMouseoutHandle), this.delegate.addEventListener(document, "mouseover", this.onMouseoverHandle), this.delegate.addEventListener(document, "mouseup", this.onMouseupHandle), this.delegate.addEventListener(
+          document,
+          "wheel",
+          this.onWheelHandle,
+          this.wheelOptions
+        ), this.delegate.addEventListener(document, "pointerover", this.onPointerHandle), this.delegate.addEventListener(document, "pointerenter", this.onPointerHandle), this.delegate.addEventListener(document, "pointerdown", this.onPointerHandle), this.delegate.addEventListener(document, "pointermove", this.onPointerHandle), this.delegate.addEventListener(document, "pointerup", this.onPointerHandle), this.delegate.addEventListener(document, "pointercancel", this.onPointerHandle), this.delegate.addEventListener(document, "pointerout", this.onPointerHandle), this.delegate.addEventListener(document, "pointerleave", this.onPointerHandle), this.updateIntervalHandle = setInterval(
+          this.interactionUpdateHandle,
+          s.PointerConfig.instance.pointerParams.mouseIntervalMillis
+        ), this._isStarted = !0, s._POSignalsUtils.Logger.debug("Desktop Mouse events start listening..."));
+      }, r.prototype.stop = function() {
+        this._isStarted ? (document.removeEventListener("click", this.onClickHandle, !0), document.removeEventListener("dblclick", this.onDblclickHandle), document.removeEventListener("mousedown", this.onMousedownHandle), document.removeEventListener("mousemove", this.onMousemoveHandle), document.removeEventListener("mouseout", this.onMouseoutHandle), document.removeEventListener("mouseover", this.onMouseoverHandle), document.removeEventListener("mouseup", this.onMouseupHandle), document.removeEventListener("wheel", this.onWheelHandle, this.wheelOptions), document.removeEventListener("pointerover", this.onPointerHandle), document.removeEventListener("pointerenter", this.onPointerHandle), document.removeEventListener("pointerdown", this.onPointerHandle), document.removeEventListener("pointermove", this.onPointerHandle), document.removeEventListener("pointerup", this.onPointerHandle), document.removeEventListener("pointercancel", this.onPointerHandle), document.removeEventListener("pointerout", this.onPointerHandle), document.removeEventListener("pointerleave", this.onPointerHandle), clearInterval(this.updateIntervalHandle), this.updateIntervalHandle = null, this._isStarted = !1, s._POSignalsUtils.Logger.debug("Desktop Mouse events stop listening...")) : s._POSignalsUtils.Logger.debug("Desktop Mouse events already stopped");
+      }, r.prototype.onClick = function(t) {
+        var e, n;
+        try {
+          this.lastMouseInteractionTimestamp = (/* @__PURE__ */ new Date()).getTime();
+          var i = s._POSignalsUtils.Util.getSrcElement(t);
+          if (this._onClickEvent.dispatch(this, i), !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || (this.countEvent(t.type), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type)))
+            return;
+          var a = this.uiControlManager.createUIControlData(t);
+          this.updateInteraction(this.createMouseClickEvent(t.type, t), a), this.dispatch(), ((n = (e = a == null ? void 0 : a.uiElement) === null || e === void 0 ? void 0 : e.id) === null || n === void 0 ? void 0 : n.length) > 0 && s._POSignalsUtils.Logger.info(
+            "Tapped on element with id '" + a.uiElement.id + "'"
+          );
+        } catch (u) {
+          s._POSignalsUtils.Logger.warn("error in " + t.type + " handler", u);
+        }
+      }, r.prototype.onMouseout = function(t) {
+        try {
+          this.onMouseEvent(t);
+          var e = t.relatedTarget || t.toElement;
+          e && e.nodeName !== "HTML" || this.dispatch();
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("error in " + t.type + " handler", n);
+        }
+      }, r.prototype.onMouseEvent = function(t) {
+        try {
+          if (t.type !== "wheel" && (this.lastMouseInteractionTimestamp = (/* @__PURE__ */ new Date()).getTime()), !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || (this.countEvent(t.type), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type)))
+            return;
+          this.updateInteraction(this.createMouseEvent(t.type, t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in " + t.type + " handler", e);
+        }
+      }, r.prototype.onMouseClickEvent = function(t) {
+        try {
+          if (this.lastMouseInteractionTimestamp = (/* @__PURE__ */ new Date()).getTime(), !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || (this.countEvent(t.type), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type)))
+            return;
+          this.updateInteraction(this.createMouseClickEvent(t.type, t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in " + t.type + " handler", e);
+        }
+      }, r.prototype.onPointerEvent = function(t) {
+        try {
+          if (this.lastMouseInteractionTimestamp = (/* @__PURE__ */ new Date()).getTime(), !this.delegate.collectBehavioralData(this.BEHAVIORAL_TYPE) || (this.countEvent(t.type), s.PointerConfig.instance.pointerParams.eventsToIgnore.has(t.type)))
+            return;
+          this.updateInteraction(this.createPointerEvent(t.type, t));
+        } catch (e) {
+          s._POSignalsUtils.Logger.warn("error in " + t.type + " handler", e);
+        }
+      }, r.prototype.clearBuffer = function() {
+        var t = null;
+        return this.lastMouseInteraction && (t = this.lastMouseInteraction), this.lastMouseInteraction = null, t;
+      }, r.prototype.isEmpty = function() {
+        return !this.lastMouseInteraction;
+      }, r.prototype.createMouseEvent = function(t, e) {
+        return {
+          type: t,
+          eventTs: e.timeStamp,
+          epochTs: (/* @__PURE__ */ new Date()).getTime(),
+          button: e.button,
+          offsetX: e.offsetX,
+          offsetY: e.offsetY,
+          pageX: e.pageX,
+          pageY: e.pageY,
+          screenX: e.screenX,
+          screenY: e.screenY,
+          getX: function() {
+            return e.screenX;
+          },
+          getY: function() {
+            return e.screenY;
+          }
+        };
+      }, r.prototype.createPointerEvent = function(t, e) {
+        var n = this.createMouseEvent(t, e);
+        return ve(ve({}, n), {
+          pointerId: e.pointerId,
+          width: e.width,
+          height: e.height,
+          pressure: e.pressure,
+          tangentialPressure: e.tangentialPressure,
+          tiltX: e.tiltX,
+          tiltY: e.tiltY,
+          twist: e.twist,
+          pointerType: e.pointerType,
+          isPrimary: e.isPrimary
+        });
+      }, r.prototype.createMouseClickEvent = function(t, e) {
+        var n = this.createMouseEvent(t, e);
+        if (e.target && s._POSignalsUtils.Util.isFunction(e.target.getBoundingClientRect)) {
+          var i = e.target.getBoundingClientRect();
+          n.targetBottom = i.bottom, n.targetHeight = i.height, n.targetLeft = i.left, n.targetRight = i.right, n.targetTop = i.top, n.targetWidth = i.width, n.targetX = i.x, n.targetY = i.y;
+        }
+        return n;
+      }, r;
+    }();
+    s.Mouse = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.counter = 0, this.key = t, this.counter = this.loadFromStorage();
+      }
+      return r.prototype.loadFromStorage = function() {
+        var t = r.sessionStorage.getItem(this.key);
+        return Number(t) || 0;
+      }, r.prototype.get = function() {
+        return this.counter;
+      }, r.prototype.increment = function(t) {
+        t === void 0 && (t = 1), this.counter += t, r.sessionStorage.setItem(this.key, this.counter);
+      }, r.prototype.decrement = function(t) {
+        t === void 0 && (t = 1), this.increment(-1 * t);
+      }, r.prototype.reset = function() {
+        this.counter = 0, r.sessionStorage.removeItem(this.key);
+      }, r.sessionStorage = s._POSignalsStorage.SessionStorage.instance.sessionStorage, r;
+    }();
+    s.StorageCounter = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.mapKey = t, this.cache = this.loadFromStorage();
+      }
+      return r.prototype.loadFromStorage = function() {
+        var t = r.sessionStorage.getItem(this.mapKey);
+        return t || (t = JSON.stringify({})), JSON.parse(t);
+      }, r.prototype.asMap = function() {
+        return this.cache;
+      }, r.prototype.set = function(t, e, n) {
+        n === void 0 && (n = !0), this.cache[t] = e, n && r.sessionStorage.setItem(this.mapKey, JSON.stringify(this.cache));
+      }, r.prototype.sync = function() {
+        r.sessionStorage.setItem(this.mapKey, JSON.stringify(this.cache));
+      }, r.prototype.get = function(t) {
+        return this.cache[t];
+      }, r.prototype.delete = function(t) {
+        delete this.cache[t], r.sessionStorage.setItem(this.mapKey, JSON.stringify(this.cache));
+      }, r.prototype.values = function() {
+        return s._POSignalsUtils.Util.values(this.cache);
+      }, r.prototype.clear = function() {
+        this.cache = {}, r.sessionStorage.removeItem(this.mapKey);
+      }, r.sessionStorage = s._POSignalsStorage.SessionStorage.instance.sessionStorage, r;
+    }();
+    s.StorageMap = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this.config = {}, this._cacheHash = 0, this.cache = /* @__PURE__ */ new Map();
+      }
+      return r.prototype.refreshConfig = function(t) {
+        try {
+          if (!t)
+            return;
+          var e = s._POSignalsUtils.Util.hashCode(JSON.stringify(t));
+          if (this._cacheHash === e)
+            return;
+          this.config = t, this._cacheHash = e, this.cache = /* @__PURE__ */ new Map();
+        } catch (n) {
+          s._POSignalsUtils.Logger.warn("Failed to set css selectors", n);
+        }
+      }, r.prototype.getMatchingTags = function(t, e) {
+        var n = this.cache.get(t);
+        if (n)
+          return n;
+        var i = {};
+        for (var a in this.config)
+          try {
+            if (!this.config.hasOwnProperty(a))
+              continue;
+            var u = this.config[a].selector || [];
+            s._POSignalsUtils.Util.isArray(u) || (u = [].concat(u));
+            for (var c = 0, l = u; c < l.length; c++) {
+              var d = l[c];
+              s._POSignalsUtils.Util.isSelectorMatches(t, d, e) && (i[a] = this.config[a]);
+            }
+          } catch (p) {
+            s._POSignalsUtils.Logger.warn("Failed to get the config for " + a + " tag", p);
+          }
+        return this.cache.set(t, i), i;
+      }, r.prototype.getValue = function(t, e) {
+        if (e && t)
+          switch (e = e.trim(), t) {
+            case "email_domain":
+              return s._POSignalsUtils.Util.getEmailDomain(e);
+            case "obfuscate":
+              return "" + s._POSignalsUtils.Util.mod(e, 1e3);
+            case "plain":
+              return e;
+            case "zip":
+              return e.substr(0, 3);
+            case "length":
+              return "" + e.length;
+          }
+        return "";
+      }, Object.defineProperty(r.prototype, "cacheHash", {
+        get: function() {
+          return this._cacheHash;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r;
+    }();
+    s.TagsIdentifications = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this._reduceFactorMap = null;
+      }
+      return Object.defineProperty(r.prototype, "reduceFactorMap", {
+        get: function() {
+          return this._reduceFactorMap;
+        },
+        set: function(t) {
+          this._reduceFactorMap = t;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.reduceEventsByFactor = function(t) {
+        var e = this;
+        try {
+          if (!t || t.length === 0 || !this.reduceFactorMap)
+            return t;
+          for (var n = /* @__PURE__ */ new Map(), i = [], a = 0; a < t.length; a++)
+            n.get(t[a].type) ? n.get(t[a].type).push(a) : n.set(t[a].type, [a]);
+          n.forEach(function(c, l) {
+            var d = e.reduceFactorMap[l] ? Number(e.reduceFactorMap[l]) : 0;
+            e.reduceByFactor(d, c, function(p) {
+              i[c[p]] = !0;
+            });
+          });
+          var u = [];
+          for (a = 0; a < t.length; a++)
+            i[a] && u.push(t[a]);
+          return t.length !== u.length && s._POSignalsUtils.Logger.debug(
+            t.length - u.length + " events reduced out of " + t.length
+          ), u;
+        } catch (c) {
+          return s._POSignalsUtils.Logger.warn("Failed to reduce events", c), t;
+        }
+      }, r.prototype.reduceByFactor = function(t, e, n) {
+        t = Math.min(t, 1);
+        for (var i = Math.round(Math.max(e.length * (1 - t), 2)), a = (e.length - 1) / (i - 1), u = Math.min(e.length, i), c = 0; c < u; c++)
+          n(Math.round(c * a));
+      }, r;
+    }();
+    s.ReduceFactor = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.algorithm = t;
+      }
+      return r.prototype.reduce = function(t, e) {
+        if (r.TYPES_TO_REDUCE.indexOf(e) === -1)
+          return { keptEvents: t, epsilon: 0 };
+        if (t.length <= r.MIN_EVENTS_TO_REDUCE)
+          return { keptEvents: t, epsilon: 0 };
+        var n = t.length < 50 ? 0.55 : t.length < 100 ? 0.35 : 0.2, i = t.length < 50 ? 1 : t.length < 100 ? 3 : 7, a = this.algorithm.reduceEvents(t, i), u = a.length / t.length;
+        if (a.length >= 10 && u >= n)
+          return { keptEvents: a, epsilon: i };
+        var c = t.length < 50 ? 0.1 : t.length < 100 ? 0.3 : 0.7, l = this.algorithm.reduceEvents(t, c), d = l.length / t.length;
+        if (l.length <= r.MIN_EVENTS_TO_REDUCE || d <= n)
+          return { keptEvents: l, epsilon: c };
+        var p = (Math.min(i, Math.pow(i, u / n)) * Math.abs(d - n) + c * Math.abs(u - n)) / Math.abs(u - d);
+        return (p < c || p > i) && s._POSignalsUtils.Logger.warn(
+          "linear weighted average - calculated epsilon is out of range, lowEpsilon: " + c + ", highEpsilon: " + i + ", epsilon: " + p
+        ), { keptEvents: this.algorithm.reduceEvents(t, p), epsilon: p };
+      }, r.MIN_EVENTS_TO_REDUCE = 18, r.TYPES_TO_REDUCE = ["mousemove", "touchmove"], r;
+    }();
+    s.RDPEpsilonStrategy = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r(t) {
+        this.rdpStrategy = t;
+      }
+      return r.prototype.reduceWithRPD = function(t) {
+        var e = this;
+        if (!t || t.length === 0)
+          return { events: t, reductionInfo: {} };
+        for (var n = /* @__PURE__ */ new Map(), i = [], a = 0, u = t; a < u.length; a++) {
+          var c = u[a];
+          n.get(c.type) ? n.get(c.type).push(c) : n.set(c.type, [c]);
+        }
+        var l = {};
+        return n.forEach(function(d, p) {
+          var m = e.rdpStrategy.reduce(d, p), k = m.keptEvents, x = m.epsilon;
+          x > 0 && (l[p] = { epsilon: x, originalLength: d.length, keptLength: k.length }), i = i.concat(k);
+        }), { events: s._POSignalsUtils.Util.sortEventsByTimestamp(i), reductionInfo: l };
+      }, r;
+    }();
+    s.ReduceRDP = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+      }
+      return r.prototype.getSqDist = function(t, e) {
+        var n = t.getX() - e.getX(), i = t.getY() - e.getY();
+        return n * n + i * i;
+      }, r.prototype.getSqSegDist = function(t, e, n) {
+        var i = e.getX(), a = e.getY(), u = n.getX() - i, c = n.getY() - a;
+        if (u !== 0 || c !== 0) {
+          var l = ((t.getX() - i) * u + (t.getY() - a) * c) / (u * u + c * c);
+          l > 1 ? (i = n.getX(), a = n.getY()) : l > 0 && (i += u * l, a += c * l);
+        }
+        return (u = t.getX() - i) * u + (c = t.getY() - a) * c;
+      }, r.prototype.simplifyRadialDist = function(t, e) {
+        for (var n, i = t[0], a = [i], u = 1, c = t.length; u < c; u++)
+          n = t[u], this.getSqDist(n, i) > e && (a.push(n), i = n);
+        return i !== n && a.push(n), a;
+      }, r.prototype.simplifyDPStep = function(t, e, n, i, a) {
+        for (var u, c = i, l = e + 1; l < n; l++) {
+          var d = this.getSqSegDist(t[l], t[e], t[n]);
+          d > c && (u = l, c = d);
+        }
+        c > i && (u - e > 1 && this.simplifyDPStep(t, e, u, i, a), a.push(t[u]), n - u > 1 && this.simplifyDPStep(t, u, n, i, a));
+      }, r.prototype.simplifyDouglasPeucker = function(t, e) {
+        var n = t.length - 1, i = [t[0]];
+        return this.simplifyDPStep(t, 0, n, e, i), i.push(t[n]), i;
+      }, r.prototype.simplify = function(t, e, n) {
+        if (t.length <= 2)
+          return t;
+        var i = e !== void 0 ? e * e : 1;
+        return t = n ? t : this.simplifyRadialDist(t, i), t = this.simplifyDouglasPeucker(t, i);
+      }, r.prototype.reduceEvents = function(t, e) {
+        return this.simplify(t, e);
+      }, r;
+    }();
+    s.RDPReduction = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+      }
+      return r.prototype.filterMoveEvents = function(t, e) {
+        if (t.length <= 18)
+          return t;
+        for (var n = t.filter(function(d) {
+          return d.type === e;
+        }), i = s._POSignalsUtils.Util.keepFirstEventsWithDistance({
+          events: n,
+          threshold: 200,
+          min: 18,
+          max: 30
+        }), a = -1, u = {}, c = 0; c < t.length; c++) {
+          var l = t[c];
+          l.type !== e && (l.type !== "mousedown" ? u[l.type] || (i.push(l), u[l.type] = !0) : a = c);
+        }
+        return a >= 0 && i.push(t[a]), s._POSignalsUtils.Util.sortEventsByTimestamp(i);
+      }, r;
+    }();
+    s.EventsReduction = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this.reduceFactor = new s.ReduceFactor(), this.reduceRDP = new s.ReduceRDP(new s.RDPEpsilonStrategy(new s.RDPReduction())), this.eventsReduction = new s.EventsReduction();
+      }
+      return Object.defineProperty(r.prototype, "reduceFactorMap", {
+        set: function(t) {
+          this.reduceFactor.reduceFactorMap = t;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.prototype.reduceGesture = function(t) {
+        var e = this.reduceRDP.reduceWithRPD(t.events);
+        t.events = this.eventsReduction.filterMoveEvents(e.events, "touchmove"), t.reduction = e.reductionInfo;
+      }, r.prototype.reduceKeyboardInteraction = function(t) {
+        t.events = s._POSignalsUtils.Util.filterArrayByLength(t.events, 50);
+      }, r.prototype.reduceMouseInteraction = function(t) {
+        var e = this.reduceRDP.reduceWithRPD(t.events);
+        t.events = this.eventsReduction.filterMoveEvents(e.events, "mousemove"), t.reduction = e.reductionInfo;
+      }, r;
+    }();
+    s.ReductionManager = h;
+  }(M || (M = {})), function(s) {
+    var h = function(r) {
+      function t(e, n) {
+        var i = r.call(this, e) || this;
+        return i.tagsWithValueIdentifications = new s.TagsIdentifications(), i.reductionManager = new s.ReductionManager(), i.lastGestureTimestamp = 0, i.currentBufferSize = 0, i.bufferingStrategy = s.StrategyFactory.createBufferingStrategy(n, i), i.capturedKeyboardInteractions = new s.StorageArray(
+          s._POSignalsUtils.Constants.CAPTURED_KEYBOARD_INTERACTIONS
+        ), i.keyboardInteractionsCount = new s.StorageCounter(
+          s._POSignalsUtils.Constants.KEYBOARD_INTERACTIONS_COUNT
+        ), i.mouseInteractionsCount = new s.StorageCounter(
+          s._POSignalsUtils.Constants.MOUSE_INTERACTIONS_COUNT
+        ), i.gesturesCount = new s.StorageCounter(s._POSignalsUtils.Constants.GESTURES_COUNT), i.eventCounters = new s.StorageMap(s._POSignalsUtils.Constants.EVENT_COUNTERS), i.capturedMouseInteractions = new s.StorageArray(
+          s._POSignalsUtils.Constants.CAPTURED_MOUSE_INTERACTIONS
+        ), i.capturedGestures = new s.StorageArray(
+          s._POSignalsUtils.Constants.CAPTURED_GESTURES
+        ), i.capturedIndirectEvents = new s.StorageArray(
+          s._POSignalsUtils.Constants.CAPTURED_INDIRECT
+        ), i.currentBufferSize = i.capturedGestures.length + i.capturedMouseInteractions.length + i.capturedKeyboardInteractions.length, i.uiControlManager = new s.UIControlManager(i), i.keyboard = new s.Keyboard(i, i.uiControlManager), i.keyboard.onInteraction.subscribe(i.handleKeyboardInteraction.bind(i)), i.keyboard.onEnterPress.subscribe(i.handleStTagOnEnter.bind(i)), i.keyboard.onObfuscatedValue.subscribe(i.handleTagValueOnBlur.bind(i)), i.mouse = new s.Mouse(i, i.uiControlManager), i.mouse.onInteraction.subscribe(i.handleMouseInteraction.bind(i)), i.mouse.onClickEvent.subscribe(i.handleStTagOnClick.bind(i)), i.sensors = new s.Sensors(i), i.gesture = new s.GestureEvents(i, i.sensors), i.gesture.onGesture.subscribe(i.handleGesture.bind(i)), i.indirect = new s.IndirectClient(i), i.indirect.onIndirect.subscribe(i.handleIndirect.bind(i)), i.onUrlChangeHandler = i.onUrlChange.bind(i), i.onEventHandler = i.onEvent.bind(i), i;
+      }
+      return _e(t, r), Object.defineProperty(t.prototype, "keyboardCounter", {
+        get: function() {
+          return this.keyboardInteractionsCount.get();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "mouseCounter", {
+        get: function() {
+          return this.mouseInteractionsCount.get();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "gesturesCounter", {
+        get: function() {
+          return this.gesturesCount.get();
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(t.prototype, "additionalData", {
+        get: function() {
+          var e = s._POSignalsUtils.Util.getDeviceOrientation();
+          return {
+            locationHref: location.href,
+            devTools: s._POSignalsUtils.Util.getDevToolsState(),
+            innerWidth: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth,
+            innerHeight: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight,
+            outerWidth: window.outerWidth,
+            outerHeight: window.outerHeight,
+            width: screen.width,
+            height: screen.height,
+            availWidth: screen.availWidth,
+            availHeight: screen.availHeight,
+            pixelRatio: window.devicePixelRatio,
+            deviceOrientation: e.orientation,
+            deviceAngle: e.angle
+          };
+        },
+        enumerable: !1,
+        configurable: !0
+      }), t.prototype.getBehavioralData = function() {
+        return this.clearIndirectBuffer(), {
+          mouse: {
+            count: this.mouseInteractionsCount.get(),
+            interactions: this.capturedMouseInteractions.get()
+          },
+          keyboard: {
+            count: this.keyboardInteractionsCount.get(),
+            interactions: this.capturedKeyboardInteractions.get()
+          },
+          touch: {
+            count: this.gesturesCount.get(),
+            interactions: this.capturedGestures.get()
+          },
+          indirect: { events: this.capturedIndirectEvents.get() },
+          eventCounters: this.eventCounters.asMap()
+        };
+      }, t.prototype.getBufferSize = function() {
+        return this.currentBufferSize;
+      }, t.prototype.getInteractionDuration = function(e) {
+        return (e == null ? void 0 : e.length) > 0 ? e[e.length - 1].epochTs - e[0].epochTs : 0;
+      }, t.prototype.dispose = function() {
+        return Z(this, void 0, void 0, function() {
+          return $(this, function(e) {
+            return this.stopListening(), this.keyboard.onInteraction.unsubscribe(
+              this.handleKeyboardInteraction.bind(this)
+            ), this.keyboard.onEnterPress.unsubscribe(this.handleStTagOnEnter.bind(this)), this.keyboard.onObfuscatedValue.unsubscribe(this.handleTagValueOnBlur.bind(this)), this.mouse.onInteraction.unsubscribe(this.handleMouseInteraction.bind(this)), this.mouse.onClickEvent.unsubscribe(this.handleStTagOnClick.bind(this)), this.gesture.onGesture.unsubscribe(this.handleGesture.bind(this)), this.indirect.unsubscribe(), this.indirect.onIndirect.unsubscribe(this.handleIndirect.bind(this)), [2];
+          });
+        });
+      }, t.prototype.collectBehavioralData = function(e) {
+        if (this.isBehavioralDataPaused)
+          return !1;
+        var n = s.PointerConfig.instance.pointerParams.behavioralBlacklist;
+        return !(e && n && n[e]) || !window.location.href.match(n[e]);
+      }, t.prototype.getElementsStID = function(e) {
+        try {
+          return s._POSignalsUtils.Util.getAttribute(e, "data-st-field") || this.keyboard.fieldsIdentifications.getIdentification(e, 0) || "";
+        } catch (n) {
+          return s._POSignalsUtils.Logger.warn("failed to get element stId", n), "";
+        }
+      }, t.prototype.addEventListener = function(e, n, i, a) {
+        s.PointerConfig.instance.pointerParams.eventsBlackList.has(n) || (e.addEventListener(n, this.onEventHandler, a), e.addEventListener(n, i, a));
+      }, t.prototype.addUiControlTags = function(e) {
+        if ((e == null ? void 0 : e.length) > 0)
+          for (var n = !1, i = 0, a = e; i < a.length; i++) {
+            var u = a[i];
+            try {
+              if (u != null && u.name) {
+                var c = this.uiControlManager.convertToTagValueConfig(u.value);
+                n = this.addSingleTagWithValue(u.name, c) || n;
+              }
+            } catch (l) {
+              s._POSignalsUtils.Logger.warn("failed to add tag config", l);
+            }
+          }
+      }, t.prototype.refreshListening = function() {
+        var e = s.PointerConfig.instance;
+        this.tagsWithValueIdentifications.refreshConfig(e.pointerParams.remoteTags), this.reductionManager.reduceFactorMap = e.pointerParams.eventsReduceFactorMap, this.keyboard.refreshKeyboardCssSelectors(e.pointerParams.keyboardCssSelectors), this.sensors.maxSensorSamples = e.pointerParams.maxSensorSamples, this.sensors.sensorsTimestampDeltaInMillis = e.pointerParams.sensorsDeltaInMillis, this.mouse.start(), this.keyboard.start(), this.gesture.start(), this.indirect.start(), e.pointerParams.maxSensorSamples == 0 ? this.sensors.stop() : this.sensors.start(), this.addEventListener(window, "_onlocationchange", this.onUrlChangeHandler), this.addEventListener(window, "popstate", this.onUrlChangeHandler);
+      }, t.prototype.addSingleTagWithValue = function(e, n) {
+        try {
+          if (n != null && n.context && !window.location.href.match(n.context))
+            return !1;
+          var i = "";
+          if (n != null && n.operation && (n != null && n.valueSelector)) {
+            var a = document.querySelector(n.valueSelector);
+            if (a) {
+              var u = s._POSignalsUtils.Util.getElementText(a);
+              i = this.tagsWithValueIdentifications.getValue(n.operation, u);
+            }
+          }
+          if (n != null && n.valueMandatory && !i)
+            return s._POSignalsUtils.Logger.warn("tag '" + e + "' wasn't added. value is missing"), !1;
+          this.addTag(e, i);
+        } catch (c) {
+          s._POSignalsUtils.Logger.warn("failed to add " + e + " tag", c);
+        }
+        return !1;
+      }, t.prototype.addTagsWithValue = function(e) {
+        var n = !1;
+        for (var i in e)
+          e.hasOwnProperty(i) && (n = this.addSingleTagWithValue(i, e[i]) || n);
+      }, t.prototype.handleStTagOnEnter = function(e, n) {
+        n instanceof HTMLInputElement && s._POSignalsUtils.Util.isTextInput(n) && this.handleStTagElement(n);
+      }, t.prototype.handleTagValueOnBlur = function(e, n) {
+        n && this.addTag(n.fieldKey, n.obfuscatedValue);
+      }, t.prototype.handleStTagOnClick = function(e, n) {
+        n instanceof HTMLInputElement && !s._POSignalsUtils.Util.isClickableInput(n) || this.handleStTagElement(n);
+      }, t.prototype.handleMouseInteraction = function(e, n) {
+        if (n) {
+          this.mouseInteractionsCount.increment(), this.reductionManager.reduceMouseInteraction(n);
+          var i = this.bufferingStrategy.calculateStrategyResult(n, "mouse");
+          i.shouldCollect && (i.remove && this.removeInteraction(i.remove), this.capturedMouseInteractions.push(n), this.lastGestureTimestamp !== n.events[n.events.length - 1].eventTs && this.currentBufferSize++, this.eventCounters.sync());
+        }
+      }, t.prototype.handleIndirect = function(e, n) {
+        this.addIndirectEvents(n), this.eventCounters.sync();
+      }, t.prototype.handleKeyboardInteraction = function(e, n) {
+        if (n) {
+          this.keyboardInteractionsCount.increment(), this.reductionManager.reduceKeyboardInteraction(n);
+          var i = this.bufferingStrategy.calculateStrategyResult(n, "keyboard");
+          i.shouldCollect && (i.remove && this.removeInteraction(i.remove), this.capturedKeyboardInteractions.push(n), this.currentBufferSize++, this.eventCounters.sync());
+        }
+      }, t.prototype.handleGesture = function(e, n) {
+        var i;
+        if (this.isValidGesture(n)) {
+          this.gesturesCount.increment(), this.reductionManager.reduceGesture(n);
+          var a = this.bufferingStrategy.calculateStrategyResult(n, "touch");
+          a.shouldCollect && (a.remove && this.removeInteraction(a.remove), this.sensors.onGesture(n), this.capturedGestures.push(n), this.currentBufferSize++, this.lastGestureTimestamp = (i = n.events[n.events.length - 1]) === null || i === void 0 ? void 0 : i.eventTs, this.eventCounters.sync());
+        }
+      }, t.prototype.clearIndirectBuffer = function() {
+        var e = this.indirect.clearBuffer();
+        this.addIndirectEvents(e);
+      }, t.prototype.removeInteraction = function(e) {
+        switch (e.type) {
+          case "mouse":
+            this.capturedMouseInteractions.remove(e.index);
+            break;
+          case "keyboard":
+            this.capturedKeyboardInteractions.remove(e.index);
+            break;
+          case "touch":
+            this.capturedGestures.remove(e.index);
+        }
+      }, t.prototype.addIndirectEvents = function(e) {
+        var n;
+        if (((n = e == null ? void 0 : e.events) === null || n === void 0 ? void 0 : n.length) > 0) {
+          for (var i = [], a = s._POSignalsUtils.Util.typesCounter(this.capturedIndirectEvents.get()), u = 0, c = e.events; u < c.length; u++) {
+            var l = c[u];
+            s.PointerConfig.instance.pointerParams.highPriorityIndirectEvents.has(l.type) && this.capturedIndirectEvents.length + i.length < s.PointerConfig.instance.pointerParams.maxIndirectEvents && i.push(l), a[l.type] > 0 || (i.push(l), a[l.type] = 1);
+          }
+          this.capturedIndirectEvents.set(this.capturedIndirectEvents.concat(i));
+        }
+      }, t.prototype.onUrlChange = function() {
+        this.addTag("location", window.location.href);
+      }, t.prototype.onEvent = function(e) {
+        this.isBehavioralDataPaused || this.eventCounters.set(e.type, (this.eventCounters.get(e.type) || 0) + 1, !1);
+      }, t.prototype.handleStTagElement = function(e) {
+        if (e) {
+          var n = s.PointerConfig.instance.pointerParams.maxSelectorChildren, i = this.tagsWithValueIdentifications.getMatchingTags(e, n);
+          this.addTagsWithValue(i);
+          var a = s._POSignalsUtils.Util.isSelectorMatches(e, "[data-st-tag]", n);
+          if (a instanceof Element) {
+            var u = s._POSignalsUtils.Util.getAttribute(a, "data-st-tag"), c = s._POSignalsUtils.Util.getAttribute(a, "data-st-tag-value");
+            u && this.addTag(u, c);
+          }
+        }
+      }, t.prototype.stopListening = function() {
+        this.keyboard.stop(), this.mouse.stop(), this.gesture.stop(), this.indirect.stop(), this.sensors.stop(), window.removeEventListener("_onlocationchange", this.onUrlChangeHandler), window.removeEventListener("popstate", this.onUrlChangeHandler);
+      }, t.prototype.clearBehavioralData = function() {
+        this.capturedKeyboardInteractions.clear(), this.capturedMouseInteractions.clear(), this.capturedGestures.clear(), this.capturedIndirectEvents.clear(), this.sensors.reset(), s.Tags.instance.reset(), this.currentBufferSize = 0, this.keyboardInteractionsCount.reset(), this.mouseInteractionsCount.reset(), this.gesturesCount.reset(), this.eventCounters.clear();
+      }, t.prototype.isValidGesture = function(e) {
+        var n, i;
+        return ((n = e == null ? void 0 : e.events) === null || n === void 0 ? void 0 : n.length) > 0 && ((i = e == null ? void 0 : e.events) === null || i === void 0 ? void 0 : i.length) < s.PointerConfig.instance.pointerParams.maxSnapshotsCount;
+      }, t;
+    }(s.ClientBase);
+    s.Client = h;
+  }(M || (M = {}));
+  var M, De = function() {
+    function s() {
+    }
+    return s.getData = function() {
+      return M.ClientBase.instance().getData();
+    }, s.init = function(h) {
+      return M._POSignalsUtils.Util.ieFix(), M.ClientBase.instance().startSignals(h);
+    }, s.initSilent = function(h) {
+      return this.init(h);
+    }, s.pauseBehavioralData = function() {
+      M.ClientBase.instance().pauseBehavioralData();
+    }, s.resumeBehavioralData = function() {
+      M.ClientBase.instance().resumeBehavioralData();
+    }, s;
+  }(), Ce = function(s) {
+    document.readyState !== "loading" ? s() : document.addEventListener("DOMContentLoaded", s);
+  };
+  Ce(function() {
+    if (!window._pingOneSignalsReady) {
+      var s = new CustomEvent("PingOneSignalsReadyEvent");
+      document.dispatchEvent(s), window._pingOneSignalsReady = !0;
+    }
+  }), function(s) {
+    var h = function() {
+      function r(t, e, n, i, a, u, c) {
+        this.clientVersion = t, this.instanceUUID = e, this.initParams = n, this.metadata = i, this.behavioralDataHandler = a, this.externalIdentifiers = u, this.sessionStorage = c;
+      }
+      return r.prototype.getData = function(t) {
+        return Z(this, void 0, void 0, function() {
+          var e;
+          return $(this, function(n) {
+            switch (n.label) {
+              case 0:
+                return [4, this.getRiskData(t)];
+              case 1:
+                return e = n.sent(), [2, this.toString(e)];
+            }
+          });
+        });
+      }, r.prototype.getRiskData = function(t) {
+        return Z(this, void 0, void 0, function() {
+          var e, n;
+          return $(this, function(i) {
+            switch (i.label) {
+              case 0:
+                return n = {}, [4, this.metadata.getDeviceAttributes()];
+              case 1:
+                return n.deviceAttributes = i.sent(), n.behavioral = this.behavioralDataHandler.getBehavioralData(), n.tags = s.Tags.instance.tags, n.sdkConfig = this.initParams, n.epochTs = t, n.instanceUUID = this.instanceUUID, n.tabUUID = s._POSignalsStorage.SessionStorage.instance.tabUUID, n.origin = location.origin, n.href = location.href, n.sdkVersion = this.clientVersion, n.platform = "web", n.clientToken = window._pingOneSignalsToken, n.externalIdentifiers = this.externalIdentifiers, e = n, this.sessionStorage.deviceTrust && (e.deviceTrust = this.sessionStorage.deviceTrust), [2, e];
+            }
+          });
+        });
+      }, r.prototype.toString = function(t) {
+        var e, n = this.metadata.getObfsInfo();
+        try {
+          e = s._POSignalsUtils.Util.string2buf(JSON.stringify(t));
+        } catch (i) {
+          throw new Error("Failed to create data, " + i.message);
+        }
+        try {
+          e = s.pako.gzip(e);
+        } catch (i) {
+          throw new Error("Failed to compress data, " + i.message);
+        }
+        try {
+          e = s._POSignalsUtils.Util.encryptionBytes(e, n.key);
+        } catch (i) {
+          throw new Error("failed to obfuscate data, " + i.message);
+        }
+        try {
+          return s._POSignalsUtils.Util.base64Uint8Array(e) + "." + btoa(n.identifier);
+        } catch (i) {
+          throw new Error("failed to encode data, " + i.message);
+        }
+      }, r;
+    }();
+    s.DataHandler = h;
+  }(M || (M = {})), function(s) {
+    var h = function() {
+      function r() {
+        this._configuration = {
+          enabled: r.ENABLED_DEFAULT,
+          bufferSize: r.BUFFER_SIZE_DEFAULT,
+          maxSnapshotsCount: r.MAX_SNAPSHOTS_COUNT_DEFAULT,
+          sensors: r.SENSORS_DEFAULT,
+          metadataBlacklist: r.METADATA_BLACK_LIST_DEFAULT,
+          tagsBlacklistRegex: r.TAGS_BLACK_LIST_REGEX_DEFAULT,
+          behavioralBlacklist: r.BEHAVIORAL_BLACK_LIST_DEFAULT,
+          webRtcUrl: r.WEB_RTC_URL_DEFAULT,
+          eventsBlackList: r.EVENTS_BLACK_LIST_DEFAULT,
+          eventsToIgnore: r.EVENTS_TO_IGNORE_DEFAULT,
+          highPriorityIndirectEvents: r.HIGH_PRIORITY_INDIRECT_EVENTS_DEFAULT,
+          indirectIntervalMillis: r.INDIRECT_INTERVAL_MILLIS_DEFAULT,
+          mouseIntervalMillis: r.MOUSE_INTERVAL_MILLIS_DEFAULT,
+          mouseIdleTimeoutMillis: r.MOUSE_IDLE_TIMEOUT_MILLIS_DEFAULT,
+          maxMouseEvents: r.MAX_MOUSE_EVENTS_DEFAULT,
+          maxIndirectEvents: r.MAX_INDIRECT_EVENTS_DEFAULT,
+          keyboardFieldBlackList: r.KEYBOARD_FIELD_BLACK_LIST_DEFAULT,
+          keyboardCssSelectors: r.KEYBOARD_CSS_SELECTORS_DEFAULT,
+          keyboardCssSelectorsBlacklist: r.KEYBOARD_CSS_SELECTORS_BLACKLIST_DEFAULT,
+          keyboardIdentifierAttributes: r.KEYBOARD_IDENTIFIER_ATTRIBUTES_DEFAULT,
+          remoteTags: r.REMOTE_TAGS_DEFAULT,
+          maxSelectorChildren: r.MAX_SELECTOR_CHILDREN_DEFAULT,
+          eventsReduceFactorMap: r.EVENTS_REDUCE_FACTOR_MAP_DEFAULT,
+          propertyDescriptors: r.PROPERTY_DESCRIPTORS_DEFAULT,
+          additionalMediaCodecs: r.ADDITIONAL_MEDIA_CODECS_DEFAULT,
+          fingerprintTimeoutMillis: r.FINGER_PRINT_TIMEOUT_MILLIS_DEFAULT,
+          metadataDataPoints: r.METADATA_DATA_POINTS_DEFAULT,
+          uiModeling: r.UI_MODELING_CONFIG_DEFAULT,
+          uiControl: r.UI_CONTROL_LIST_DEFAULT
+        };
+      }
+      return r.prototype.updateParams = function(t) {
+        t && (this._configuration = t);
+      }, Object.defineProperty(r.prototype, "enabled", {
+        get: function() {
+          return typeof this._configuration.enabled == "boolean" ? this._configuration.enabled : r.ENABLED_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "bufferSize", {
+        get: function() {
+          return typeof this._configuration.bufferSize == "number" && this._configuration.bufferSize > 0 ? this._configuration.bufferSize : r.BUFFER_SIZE_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxSnapshotsCount", {
+        get: function() {
+          return typeof this._configuration.maxSnapshotsCount == "number" && this._configuration.maxSnapshotsCount >= 0 ? this._configuration.maxSnapshotsCount : r.MAX_SNAPSHOTS_COUNT_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxSensorSamples", {
+        get: function() {
+          var t = this._configuration.sensors;
+          return t && typeof t.maxSensorSamples == "number" && t.maxSensorSamples >= 0 ? t.maxSensorSamples : r.SENSORS_DEFAULT.maxSensorSamples;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "sensorsDeltaInMillis", {
+        get: function() {
+          var t = this._configuration.sensors;
+          return t && typeof t.sensorsDeltaInMillis == "number" && t.sensorsDeltaInMillis >= 0 ? t.sensorsDeltaInMillis : r.SENSORS_DEFAULT.sensorsDeltaInMillis;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "metadataBlackList", {
+        get: function() {
+          var t;
+          return s._POSignalsUtils.Util.isArray(this._configuration.metadataBlacklist) && ((t = this._configuration.metadataBlacklist) === null || t === void 0 ? void 0 : t.length) > 0 ? this._configuration.metadataBlacklist : r.METADATA_BLACK_LIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "behavioralBlacklist", {
+        get: function() {
+          return this._configuration.behavioralBlacklist ? this._configuration.behavioralBlacklist : r.BEHAVIORAL_BLACK_LIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "tagsBlacklistRegex", {
+        get: function() {
+          return typeof this._configuration.tagsBlacklistRegex == "string" ? this._configuration.tagsBlacklistRegex : r.TAGS_BLACK_LIST_REGEX_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "webRtcUrl", {
+        get: function() {
+          return typeof this._configuration.webRtcUrl == "string" ? this._configuration.webRtcUrl : r.WEB_RTC_URL_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "eventsBlackList", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(this._configuration.eventsBlackList) && (this._configuration.eventsBlackList = new Set(
+            this._configuration.eventsBlackList
+          )), this._configuration.eventsBlackList instanceof Set ? this._configuration.eventsBlackList : r.EVENTS_BLACK_LIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "eventsToIgnore", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(this._configuration.eventsToIgnore) && (this._configuration.eventsToIgnore = new Set(
+            this._configuration.eventsToIgnore
+          )), this._configuration.eventsToIgnore instanceof Set ? this._configuration.eventsToIgnore : r.EVENTS_TO_IGNORE_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "highPriorityIndirectEvents", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(this._configuration.highPriorityIndirectEvents) && (this._configuration.highPriorityIndirectEvents = new Set(
+            this._configuration.highPriorityIndirectEvents
+          )), this._configuration.highPriorityIndirectEvents instanceof Set ? this._configuration.highPriorityIndirectEvents : r.HIGH_PRIORITY_INDIRECT_EVENTS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "indirectIntervalMillis", {
+        get: function() {
+          return typeof this._configuration.indirectIntervalMillis == "number" && this._configuration.indirectIntervalMillis > 0 ? this._configuration.indirectIntervalMillis : r.INDIRECT_INTERVAL_MILLIS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "mouseIntervalMillis", {
+        get: function() {
+          return typeof this._configuration.mouseIntervalMillis == "number" && this._configuration.mouseIntervalMillis > 0 ? this._configuration.mouseIntervalMillis : r.MOUSE_INTERVAL_MILLIS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "mouseIdleTimeoutMillis", {
+        get: function() {
+          return typeof this._configuration.mouseIdleTimeoutMillis == "number" && this._configuration.mouseIdleTimeoutMillis > 0 ? this._configuration.mouseIdleTimeoutMillis : r.MOUSE_IDLE_TIMEOUT_MILLIS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxMouseEvents", {
+        get: function() {
+          return typeof this._configuration.maxMouseEvents == "number" && this._configuration.maxMouseEvents >= 0 ? this._configuration.maxMouseEvents : r.MAX_MOUSE_EVENTS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxIndirectEvents", {
+        get: function() {
+          return typeof this._configuration.maxIndirectEvents == "number" && this._configuration.maxIndirectEvents >= 0 ? this._configuration.maxIndirectEvents : r.MAX_INDIRECT_EVENTS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "keyboardFieldBlackList", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(this._configuration.keyboardFieldBlackList) && (this._configuration.keyboardFieldBlackList = new Set(
+            this._configuration.keyboardFieldBlackList
+          )), this._configuration.keyboardFieldBlackList instanceof Set ? this._configuration.keyboardFieldBlackList : r.KEYBOARD_FIELD_BLACK_LIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "keyboardCssSelectors", {
+        get: function() {
+          return this._configuration.keyboardCssSelectors ? this._configuration.keyboardCssSelectors : r.KEYBOARD_CSS_SELECTORS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "keyboardCssSelectorsBlacklist", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(
+            this._configuration.keyboardCssSelectorsBlacklist
+          ) ? this._configuration.keyboardCssSelectorsBlacklist : r.KEYBOARD_CSS_SELECTORS_BLACKLIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "keyboardIdentifierAttributes", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(
+            this._configuration.keyboardIdentifierAttributes
+          ) ? this._configuration.keyboardIdentifierAttributes : r.KEYBOARD_IDENTIFIER_ATTRIBUTES_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "remoteTags", {
+        get: function() {
+          return this._configuration.remoteTags ? this._configuration.remoteTags : r.REMOTE_TAGS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "maxSelectorChildren", {
+        get: function() {
+          return typeof this._configuration.maxSelectorChildren == "number" && this._configuration.maxSelectorChildren > 0 ? this._configuration.maxSelectorChildren : r.MAX_SELECTOR_CHILDREN_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "eventsReduceFactorMap", {
+        get: function() {
+          return this._configuration.eventsReduceFactorMap ? this._configuration.eventsReduceFactorMap : r.EVENTS_REDUCE_FACTOR_MAP_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "propertyDescriptors", {
+        get: function() {
+          return this._configuration.propertyDescriptors ? this._configuration.propertyDescriptors : r.PROPERTY_DESCRIPTORS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "additionalMediaCodecs", {
+        get: function() {
+          return this._configuration.additionalMediaCodecs ? this._configuration.additionalMediaCodecs : r.ADDITIONAL_MEDIA_CODECS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "fingerprintTimeoutMillis", {
+        get: function() {
+          return typeof this._configuration.fingerprintTimeoutMillis == "number" && this._configuration.fingerprintTimeoutMillis > 0 ? this._configuration.fingerprintTimeoutMillis : r.FINGER_PRINT_TIMEOUT_MILLIS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "metadataDataPoints", {
+        get: function() {
+          return this._configuration.metadataDataPoints ? this._configuration.metadataDataPoints : r.METADATA_DATA_POINTS_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "uiModelingBlacklistRegex", {
+        get: function() {
+          var t;
+          return typeof ((t = this._configuration.uiModeling) === null || t === void 0 ? void 0 : t.blacklistRegex) == "string" ? this._configuration.uiModeling.blacklistRegex : r.UI_MODELING_CONFIG_DEFAULT.blacklistRegex;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "uiModelingElementFilters", {
+        get: function() {
+          var t;
+          return !((t = this._configuration.uiModeling) === null || t === void 0) && t.uiElementFilters ? this._configuration.uiModeling.uiElementFilters : r.UI_MODELING_CONFIG_DEFAULT.uiElementFilters;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "uiModelingMaxMatchingParents", {
+        get: function() {
+          var t;
+          return typeof ((t = this._configuration.uiModeling) === null || t === void 0 ? void 0 : t.maxMatchingParents) == "number" ? this._configuration.uiModeling.maxMatchingParents : r.UI_MODELING_CONFIG_DEFAULT.maxMatchingParents;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), Object.defineProperty(r.prototype, "uiControlsConfig", {
+        get: function() {
+          return s._POSignalsUtils.Util.isArray(this._configuration.uiControl) ? this._configuration.uiControl : r.UI_CONTROL_LIST_DEFAULT;
+        },
+        enumerable: !1,
+        configurable: !0
+      }), r.ENABLED_DEFAULT = !0, r.BUFFER_SIZE_DEFAULT = 4, r.MAX_SNAPSHOTS_COUNT_DEFAULT = 500, r.METADATA_BLACK_LIST_DEFAULT = [], r.TAGS_BLACK_LIST_REGEX_DEFAULT = "", r.BEHAVIORAL_BLACK_LIST_DEFAULT = {}, r.WEB_RTC_URL_DEFAULT = "", r.EVENTS_BLACK_LIST_DEFAULT = /* @__PURE__ */ new Set(), r.EVENTS_TO_IGNORE_DEFAULT = /* @__PURE__ */ new Set([
+        "pointerover",
+        "pointerenter",
+        "pointerdown",
+        "pointermove",
+        "pointerup",
+        "pointercancel",
+        "pointerout",
+        "pointerleave",
+        "dragstart",
+        "dragexit",
+        "drop",
+        "dragend"
+      ]), r.MAX_INDIRECT_EVENTS_DEFAULT = 15, r.HIGH_PRIORITY_INDIRECT_EVENTS_DEFAULT = /* @__PURE__ */ new Set([
+        "copy",
+        "cut",
+        "paste",
+        "resize",
+        "orientationchange",
+        "languagechange",
+        "submit",
+        "select"
+      ]), r.INDIRECT_INTERVAL_MILLIS_DEFAULT = 1e3, r.MOUSE_INTERVAL_MILLIS_DEFAULT = 1e3, r.MOUSE_IDLE_TIMEOUT_MILLIS_DEFAULT = 1e3, r.MAX_MOUSE_EVENTS_DEFAULT = 500, r.KEYBOARD_FIELD_BLACK_LIST_DEFAULT = /* @__PURE__ */ new Set(), r.KEYBOARD_CSS_SELECTORS_DEFAULT = {}, r.KEYBOARD_CSS_SELECTORS_BLACKLIST_DEFAULT = [], r.KEYBOARD_IDENTIFIER_ATTRIBUTES_DEFAULT = [
+        "data-selenium",
+        "data-selenium-id",
+        "data-testid",
+        "data-test-id",
+        "data-qa-id",
+        "data-id",
+        "id"
+      ], r.REMOTE_TAGS_DEFAULT = {
+        dv_form_submit: { selector: '[data-skbuttontype="form-submit"]' },
+        login_attempt_email_domain: {
+          selector: '[data-st-tag="login.login_attempt"]',
+          operation: "email_domain",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        },
+        login_attempt_hash: {
+          selector: '[data-st-tag="login.login_attempt"]',
+          operation: "obfuscate",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        },
+        login_attempt_length: {
+          selector: '[data-st-tag="login.login_attempt"]',
+          operation: "length",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        },
+        registration_attempt_email_domain: {
+          selector: '[data-st-tag="registration.registration_attempt"]',
+          operation: "email_domain",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        },
+        registration_attempt_hash: {
+          selector: '[data-st-tag="registration.registration_attempt"]',
+          operation: "obfuscate",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        },
+        registration_attempt_length: {
+          selector: '[data-st-tag="registration.registration_attempt"]',
+          operation: "length",
+          valueSelector: '[data-st-field="username"]',
+          valueMandatory: !0
+        }
+      }, r.MAX_SELECTOR_CHILDREN_DEFAULT = 2, r.EVENTS_REDUCE_FACTOR_MAP_DEFAULT = {}, r.PROPERTY_DESCRIPTORS_DEFAULT = {
+        chrome: ["app", "csi", "loadtimes", "runtime"],
+        navigator: ["webdriver"],
+        Navigator: ["languages", "hardwareConcurrency"],
+        window: ["outerWidth", "outerHeight"],
+        Screen: ["width", "height"]
+      }, r.ADDITIONAL_MEDIA_CODECS_DEFAULT = {}, r.FINGER_PRINT_TIMEOUT_MILLIS_DEFAULT = 3e3, r.METADATA_DATA_POINTS_DEFAULT = {}, r.UI_CONTROL_LIST_DEFAULT = [], r.UI_MODELING_CONFIG_DEFAULT = {
+        blacklistRegex: "",
+        uiElementFilters: { text: { maxLength: 25 }, placeholder: { maxLength: 25 } },
+        maxMatchingParents: 2
+      }, r.SENSORS_DEFAULT = { maxSensorSamples: 1, sensorsDeltaInMillis: 0 }, r;
+    }();
+    s.PointerParams = h;
+  }(M || (M = {})), window._POSignalsEntities = M, window._pingOneSignals = De;
+}
+
+var index3 = /*#__PURE__*/Object.freeze({
+    __proto__: null
+});
 
 var browser$1 = {};
 
@@ -38531,5 +47256,5 @@ var browser = /*#__PURE__*/_mergeNamespaces({
     toString: toString
 }, [browser$1]);
 
-export { component, configuration, Widget as default, journey, request, user };
+export { component, configuration, Widget as default, journey, protect, request, user };
 //# sourceMappingURL=index.js.map

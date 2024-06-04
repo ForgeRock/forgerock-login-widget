@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-
 import { asyncEvents, verifyUserInfo } from '../../utilities/async-events.js';
 
 test('Modal widget with failed and successful login, keyboard only', async ({ page }) => {
@@ -36,7 +35,7 @@ test('Modal widget with failed and successful login, keyboard only', async ({ pa
   const password2 = page.getByLabel('Password');
 
   await page.keyboard.press('Tab');
-  expect(username2).toBeFocused();
+  await expect(username2).toBeFocused();
   await username2.fill('demouser');
 
   await page.keyboard.press('Tab');

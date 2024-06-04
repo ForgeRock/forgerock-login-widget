@@ -1,3 +1,78 @@
+# [1.3.0-beta.2](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.3.0-beta.1...v1.3.0-beta.2) (2024-05-28)
+
+
+### Bug Fixes
+
+* **update-zod-config:** zod-config-literals ([37bfde6](https://github.com/forgerock/forgerock-web-login-framework/commit/37bfde63d226c53f2888dcfaad7e6e9ef24eaeba))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-28)
+
+
+### Bug Fixes
+
+* **add loglevel to widget config:** widget config to support loglevel option ([db864e9](https://github.com/forgerock/forgerock-web-login-framework/commit/db864e9964018f0aa3e51cea90c126f2e8800d86))
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-22)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-22)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-22)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-22)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-22)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
+# [1.3.0-beta.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.2.1...v1.3.0-beta.1) (2024-05-21)
+
+
+### Features
+
+* adds virtual authenticators ([ec73811](https://github.com/forgerock/forgerock-web-login-framework/commit/ec73811bb763df41137afb6c461a51b8a961b93b))
+* **ping-protect:** implement-ping-protect ([27993c6](https://github.com/forgerock/forgerock-web-login-framework/commit/27993c600836da0dc8e9a2b9030c875a264c4927))
+* **recoverycodes:** add-devicename-to-recoverycodes-page ([3b728a3](https://github.com/forgerock/forgerock-web-login-framework/commit/3b728a37b4cbd6c7573f375b435fe67a62f3fc13))
+
 # [1.2.1](https://github.com/forgerock/forgerock-web-login-framework/compare/v1.1.0...v1.2.1) (2024-01-09)
 
 ### Bug Fixes

@@ -1,7 +1,6 @@
 <script context="module" lang="ts">
   import { widgetApiFactory } from './_utilities/api.utilities';
   import { componentApi } from './_utilities/component.utilities';
-
   import './main.css';
 
   const api = widgetApiFactory(componentApi());
@@ -11,6 +10,7 @@
   export const component = componentApi;
   export const request = api.request;
   export const user = api.user;
+  export const protect = api.protect;
 </script>
 
 <script lang="ts">

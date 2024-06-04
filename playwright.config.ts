@@ -11,19 +11,29 @@ const config: PlaywrightTestConfig = {
     reuseExistingServer: true,
   },
   use: {
-    headless: !!process.env.CI,
+    headless: true,
     baseURL: `${url}/e2e/`,
     ignoreHTTPSErrors: true,
-    trace: 'on',
+    trace: 'retain-on-failure',
   },
   retries: process.env.CI ? 2 : 0,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
   testDir: 'tests',
   timeout: 120 * 1000,
+  reporter: process.env.CI ? 'blob' : 'dot',
   projects: [
     {
       name: 'chromium',
+      grep: /webauth/,
+      use: {
+        ...devices['Desktop Chrome'],
+        ...devices['Desktop Edge'],
+      },
+    },
+    {
+      name: 'chromium',
+      grepInvert: /webauthn/,
       use: {
         ...devices['Desktop Chrome'],
         ...devices['Desktop Edge'],
@@ -31,6 +41,7 @@ const config: PlaywrightTestConfig = {
     },
     {
       name: 'firefox',
+      grepInvert: /webauthn/,
       use: { ...devices['Desktop Firefox'] },
     },
     // {

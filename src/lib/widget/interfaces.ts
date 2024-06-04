@@ -1,4 +1,5 @@
-import type { StepOptions } from '@forgerock/javascript-sdk/src/auth/interfaces';
+import type { StepOptions } from '@forgerock/javascript-sdk';
+import type { InitParams } from '@forgerock/ping-protect';
 import type { z } from 'zod';
 
 // Import store types
@@ -37,6 +38,14 @@ export interface Response {
   oauth?: OAuthTokenStoreValue;
   user?: UserStoreValue;
 }
+
+export interface Protect {
+  start: (config: InitParams) => Promise<void>;
+  resumeBehavioralData: () => void;
+  pauseBehavioralData: () => void;
+  getData: () => Promise<string | undefined>;
+}
+
 export interface WidgetConfigOptions {
   forgerock?: z.infer<typeof partialConfigSchema>;
   content?: z.infer<typeof partialStringsSchema>;
